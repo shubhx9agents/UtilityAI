@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
             context
         )
 
-        return NextResponse.json({ response })
+        return NextResponse.json(response)
     } catch (error: any) {
         console.error('Agent API Error:', error)
         return NextResponse.json(

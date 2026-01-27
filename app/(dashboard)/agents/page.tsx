@@ -87,6 +87,20 @@ const agents = [
         icon: TrendingUp,
         color: 'bg-emerald-500',
     },
+    {
+        id: 'deep_research',
+        name: 'Deep Market Research',
+        description: 'Generate comprehensive market research reports',
+        icon: Search,
+        color: 'bg-stone-500',
+    },
+    {
+        id: 'image_generation',
+        name: 'Ad Image Generator',
+        description: 'Generate and edit advertisement images with AI',
+        icon: Image,
+        color: 'bg-rose-500',
+    },
 ]
 
 export default function AgentsPage() {

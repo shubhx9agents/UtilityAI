@@ -95,6 +95,8 @@ export type AgentType =
     | 'seo'
     | 'pricing'
     | 'growth'
+    | 'deep_research'
+    | 'image_generation'
 
 export interface AgentConfig {
     system_message: string
