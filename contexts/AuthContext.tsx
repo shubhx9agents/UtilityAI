@@ -30,14 +30,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Listen for auth changes
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((event, session) => {
+        } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null)
             setLoading(false)
-
-            // Redirect to dashboard after successful sign in
-            if (event === 'SIGNED_IN' && session) {
-                window.location.href = '/dashboard'
-            }
         })
 
         return () => subscription.unsubscribe()
