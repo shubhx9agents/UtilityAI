@@ -97,6 +97,7 @@ export type AgentType =
     | 'growth'
     | 'deep_research'
     | 'image_generation'
+    | 'linkedin_headshot'
 
 export interface AgentConfig {
     system_message: string

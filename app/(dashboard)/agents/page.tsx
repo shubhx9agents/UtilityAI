@@ -101,6 +101,13 @@ const agents = [
         icon: Image,
         color: 'bg-rose-500',
     },
+    {
+        id: 'linkedin_headshot',
+        name: 'LinkedIn Headshot',
+        description: 'Generate professional LinkedIn headshots',
+        icon: Sparkles,
+        color: 'bg-blue-600',
+    },
 ]
 
 export default function AgentsPage() {
@@ -109,7 +116,7 @@ export default function AgentsPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">AI Agents</h1>
                 <p className="text-muted-foreground mt-2">
-                    Choose from 10 specialized AI agents to accelerate your business
+                    Choose from 11 specialized AI agents to accelerate your business
                 </p>
             </div>
 

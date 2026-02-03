@@ -70,6 +70,10 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
         system_message: 'Professional AI image editing prompts.',
         questions: ['Base Image', 'Instructional Prompt', 'Reference Image (Optional)'],
     },
+    linkedin_headshot: {
+        system_message: 'Generate a professional LinkedIn headshot from any image.',
+        questions: ['User Image'],
+    },
 }
 
 export class AIAgentService {
@@ -93,6 +97,10 @@ export class AIAgentService {
 
             if (agentType === 'image_generation') {
                 return await this.runImageGeneration(userInput, context)
+            }
+
+            if (agentType === 'linkedin_headshot') {
+                return await this.runLinkedInHeadshot(userInput, context)
             }
 
             // Default to Groq for all other agents as requested (stick to groq api key only)
@@ -323,6 +331,100 @@ ${rawOutput}
             }
         } catch (error: any) {
             console.error('Image Generation error:', error)
+            throw error
+        }
+    }
+
+    private async runLinkedInHeadshot(userInput: string, context: Record<string, any>): Promise<{ response: string; refined_prompt: string }> {
+        const groqApiKey = process.env.GROQ_API_KEY
+        const bytePlusKey = process.env.BYTEPLUS_API_KEY
+
+        if (!groqApiKey) {
+            throw new Error('GROQ_API_KEY is missing in .env.local')
+        }
+
+        if (!bytePlusKey) {
+            throw new Error('BYTEPLUS_API_KEY is missing in .env.local')
+        }
+
+        try {
+            // 1. Groq Call - Refine the prompt for LinkedIn Professionalism
+            const systemMessage = `
+            You are an expert AI prompt engineer specializing in professional photography and portraiture.
+            Your task is to take a user's image and request, and generate a highly detailed, comprehensive prompt for an AI image generator (BytePlus seedream-4-0).
+            
+            The goal is to create a "Natural LinkedIn Professional Photograph".
+            
+            CRITICAL REQUIREMENTS:
+            1. The user's face MUST NOT CHANGE. It must be perfectly preserved and look very realistic.
+            2. The style must be professional, high-end, and natural (avoid over-retouching).
+            3. Detailed background: Neutral office, modern library, or soft-focus minimalist architectural background.
+            4. Lighting: Soft cinematic studio lighting, butterfly lighting, or natural window light.
+            5. Attire: Professional business wear (blazer, suit, or smart professional blouse/shirt).
+            6. Resolution: High definition, 8k, sharp focus on the eyes, cinematic quality.
+            
+            Output ONLY the refined prompt text.
+            `.trim()
+
+            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${groqApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        { role: 'system', content: systemMessage },
+                        { role: 'user', content: userInput }
+                    ]
+                })
+            })
+
+            if (!groqRes.ok) {
+                throw new Error(`Groq Prompt Refiner Error (Status ${groqRes.status})`)
+            }
+
+            const groqData = await groqRes.json()
+            const refinedPrompt = groqData.choices?.[0]?.message?.content || "Professional LinkedIn headshot, corporate style, high quality"
+
+            // 2. BytePlus Call
+            const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${bytePlusKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'seedream-4-0-250828',
+                    prompt: refinedPrompt,
+                    image: [
+                        context.user_image
+                    ].filter(Boolean),
+                    response_format: 'url',
+                    size: '2K'
+                })
+            })
+
+            if (!bytePlusRes.ok) {
+                const text = await bytePlusRes.text()
+                console.error('BytePlus API Error:', text)
+                throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
+            }
+
+            const bytePlusData = await bytePlusRes.json()
+            const imageUrl = bytePlusData.data?.[0]?.url || bytePlusData.url
+
+            if (!imageUrl) {
+                throw new Error('Image Generation failed: No URL returned from BytePlus.')
+            }
+
+            return {
+                response: imageUrl,
+                refined_prompt: refinedPrompt
+            }
+        } catch (error: any) {
+            console.error('LinkedIn Headshot error:', error)
             throw error
         }
     }

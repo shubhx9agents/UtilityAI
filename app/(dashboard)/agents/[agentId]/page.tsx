@@ -86,6 +86,11 @@ export default function AgentPage() {
                 base_image: formData['Base Image'],
                 reference_image: formData['Reference Image (Optional)']
             }
+        } else if (agentId === 'linkedin_headshot') {
+            fullInput = `Additional Details: ${additionalDetails}`
+            context = {
+                user_image: formData['User Image']
+            }
         } else {
             // Construct the input from form data
             const questionAnswers = agent.questions.map((q, idx) => {
@@ -318,7 +323,7 @@ export default function AgentPage() {
                         ) : response ? (
                             <div className="space-y-4">
                                 <div className="flex justify-end space-x-2 no-print">
-                                    {agentId === 'image_generation' ? (
+                                    {agentId === 'image_generation' || agentId === 'linkedin_headshot' ? (
                                         <Button variant="outline" size="sm" onClick={downloadImage}>
                                             <Download className="h-4 w-4 mr-2" />
                                             Download
@@ -341,9 +346,9 @@ export default function AgentPage() {
                                     )}
                                 </div>
                                 <div id="report-content" className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-6 bg-background min-h-[400px]">
-                                    {agentId === 'image_generation' && response.startsWith('http') ? (
+                                    {(agentId === 'image_generation' || agentId === 'linkedin_headshot') && response.startsWith('http') ? (
                                         <div className="flex justify-center">
-                                            <img src={response} alt="Generated Ad" className="max-w-full rounded-lg shadow-lg" />
+                                            <img src={response} alt="Generated Asset" className="max-w-full rounded-lg shadow-lg" />
                                         </div>
                                     ) : (
                                         <div className="markdown-container prose dark:prose-invert max-w-none">
