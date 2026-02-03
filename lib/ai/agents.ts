@@ -1,60 +1,58 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { AgentType, AgentConfig } from '@/types'
 
 export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     business_snapshot: {
-        system_message:
-            "You are a Business Snapshot Agent. Ask targeted questions about the user's business name, industry, target audience, and mission. Provide a concise foundational business profile.",
+        system_message: 'Condensed foundational business profile.',
         questions: ['Business name', 'Industry/niche', 'Target audience', 'Mission statement'],
     },
     ad_copy: {
-        system_message:
-            'You are an Ad Copy Agent. Create compelling ad variations for different platforms (Google, Facebook, LinkedIn) with headlines and descriptions.',
+        system_message: 'Ad variations for multiple platforms.',
         questions: ['Platform', 'Ad objective', 'Key message', 'Target audience'],
     },
     graphics: {
-        system_message:
-            'You are a Graphics Generator Agent. Create detailed image prompts for logos, brand assets, and social media graphics based on brand style.',
+        system_message: 'AI-ready image and logo prompts.',
         questions: ['Brand style', 'Color preferences', 'Visual themes'],
     },
     sales_script: {
-        system_message:
-            'You are a Sales Call Script Agent. Generate effective sales scripts with objection handling and closing techniques.',
-        questions: ['Sales scenario', 'Product/service details', 'Target pain points'],
+        system_message: 'Professional sales scripts and pitch guidance.',
+        questions: [
+            'Sales scenario (cold call / field sales / B2B / B2C / event pitching, etc.)',
+            'Product or service details',
+            'Target customer pain points',
+            'Additional context or constraints (region, pricing tier, objections, tone, etc.)',
+        ],
     },
     landing_page: {
-        system_message:
-            'You are a Landing Page Copy Agent. Create compelling landing page content with headlines, sections, and CTAs.',
+        system_message: 'High-converting landing page copy.',
         questions: ['Page goal', 'Unique value proposition', 'Key features'],
     },
     email_sequence: {
-        system_message:
-            'You are an Email Sequence Agent. Design complete email campaigns with subject lines and content for different stages.',
-        questions: ['Campaign type', 'Audience segment', 'Campaign goal'],
+        system_message: 'Ready-to-send marketing and sales email sequences.',
+        questions: [
+            'Campaign type (cold outreach, follow-up, nurturing, re-engagement, launch, etc.)',
+            'Audience segment (persona, role, industry, seniority)',
+            'Campaign goal (book a call, demo signup, awareness, conversion)',
+            'Additional context (brand tone, region, urgency, compliance notes)',
+        ],
     },
     social_media: {
-        system_message:
-            'You are a Social Media Content Agent. Create platform-specific posts, content calendars, and hashtag strategies.',
+        system_message: 'Post ideas and hashtag strategies.',
         questions: ['Platforms', 'Content pillars', 'Posting frequency'],
     },
     seo: {
-        system_message:
-            'You are an SEO & Content Strategy Agent. Provide keyword research, blog outlines, and meta descriptions.',
+        system_message: 'Keywords, outlines, and meta tags.',
         questions: ['Target keywords', 'Content topics', 'Competitors'],
     },
     pricing: {
-        system_message:
-            'You are a Product Pricing & Packaging Agent. Design pricing tiers, value propositions, and packaging strategies.',
+        system_message: 'Pricing tiers and packaging strategy.',
         questions: ['Cost structure', 'Competitor pricing', 'Value perception'],
     },
     growth: {
-        system_message:
-            'You are a Growth & CRO Agent. Provide optimization recommendations, test hypotheses, and funnel improvements.',
+        system_message: 'Funnel and conversion optimization.',
         questions: ['Current funnel', 'Conversion goals', 'A/B test ideas'],
     },
     deep_research: {
-        system_message:
-            'You are a world-class marketing strategist and competitor research analyst. You specialize in deep niche research, competitive intelligence, and customer psychology.',
+        system_message: 'Strategic market and competitor research.',
         questions: [
             'niche',
             'Geography',
@@ -69,31 +67,19 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
         ],
     },
     image_generation: {
-        system_message:
-            'You are an expert Image Editing Prompt Designer. Your job is to convert the user\'s request into a clean, simple, professional editing prompt for an AI image editor.',
+        system_message: 'Professional AI image editing prompts.',
         questions: ['Base Image', 'Instructional Prompt', 'Reference Image (Optional)'],
     },
 }
 
 export class AIAgentService {
-    private genAI: GoogleGenerativeAI | null = null
-
-    constructor() {
-        const apiKey = process.env.GEMINI_API_KEY
-        if (apiKey) {
-            this.genAI = new GoogleGenerativeAI(apiKey)
-        }
-    }
+    constructor() { }
 
     async runAgent(
         agentType: AgentType,
         userInput: string,
         context: Record<string, any> = {}
     ): Promise<{ response: string; refined_prompt?: string }> {
-        if (!this.genAI) {
-            throw new Error('Gemini API key not configured. Please add GEMINI_API_KEY to your .env.local file.')
-        }
-
         if (!AGENT_CONFIGS[agentType]) {
             throw new Error(`Unknown agent type: ${agentType}`)
         }
@@ -109,22 +95,8 @@ export class AIAgentService {
                 return await this.runImageGeneration(userInput, context)
             }
 
-            // Use Gemini 2.0 Flash model (latest and fastest)
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
-
-            // Construct the prompt with system message and user input
-            const prompt = `${config.system_message}
-
-User Input: ${userInput}
-
-Please provide a detailed, helpful response based on the information provided.`
-
-            // Generate content
-            const result = await model.generateContent(prompt)
-            const response = await result.response
-            const text = response.text()
-
-            return { response: text || 'No response generated. Please try again.' }
+            // Default to Groq for all other agents as requested (stick to groq api key only)
+            return await this.runGroqAgent(agentType, userInput)
         } catch (error: any) {
             console.error(`AIAgentService Error [${agentType}]:`, error)
             throw new Error(`${agentType.replace('_', ' ')} Agent failed: ${error.message || 'Unknown error'}`)
@@ -219,6 +191,59 @@ ${rawOutput}
 
         } catch (error: any) {
             console.error('Deep Research multi-step error:', error)
+            throw error
+        }
+    }
+
+    private async runGroqAgent(agentType: AgentType, userInput: string): Promise<{ response: string }> {
+        const groqApiKey = process.env.GROQ_API_KEY
+        if (!groqApiKey) {
+            throw new Error('GROQ_API_KEY is missing in .env.local')
+        }
+
+        const config = AGENT_CONFIGS[agentType]
+        let systemPrompt = config.system_message
+
+        // Detailed internal prompts for specific agents to ensure quality regardless of UI minimalistic text
+        if (agentType === 'sales_script') {
+            systemPrompt = "You are a Sales Script Agent. Generate actionable, on-ground–ready sales guidance for sales representatives doing cold calls, in-person pitching, or mass presentations. Your output must include: 1) Sales Highlights (Core value proposition, key pain points mapped to solutions, objection handling, closing hooks/CTA), 2) Pitch Guidance (Slide-by-slide deck outline, talking points per slide, suggested tone, time allocation, and delivery tips). Format your response professionally using Markdown."
+        } else if (agentType === 'email_sequence') {
+            systemPrompt = "You are an Email Sequence Agent. Generate ready-to-send email sequences for different marketing and sales campaigns.\n\nSTRICT FORMATTING RULE: For each email, you MUST follow this structure exactly:\n**Subject: [Subject Line]**\n\n[Body Content]\n\n---\n\nEnsure there is at least one empty line between the Subject and the Body. Do not merge lines. Body copy should be optimized for response rate and include appropriate emojis. The output must be professionally formatted and ready for easy copy-pasting."
+        }
+
+        try {
+            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${groqApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userInput }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 4096
+                })
+            })
+
+            if (!groqRes.ok) {
+                const errorData = await groqRes.json().catch(() => ({}))
+                throw new Error(`Groq API Error: ${errorData.error?.message || groqRes.statusText}`)
+            }
+
+            const groqData = await groqRes.json()
+            const response = groqData.choices?.[0]?.message?.content
+
+            if (!response) {
+                throw new Error('Groq returned an empty response.')
+            }
+
+            return { response }
+        } catch (error: any) {
+            console.error(`Groq Agent Error [${agentType}]:`, error)
             throw error
         }
     }
