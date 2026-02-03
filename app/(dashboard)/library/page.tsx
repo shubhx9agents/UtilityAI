@@ -21,11 +21,11 @@ export default function LibraryPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="border-dashed border-2 hover:border-primary transition-colors cursor-pointer">
+                <Card className="border-dashed border-2 hover:border-purple-400 dark:hover:border-primary transition-all cursor-pointer shadow-sm hover:shadow-lg bg-gradient-to-br from-white to-purple-50/20 dark:from-card dark:to-card">
                     <CardHeader className="text-center py-12">
-                        <FolderOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <CardTitle>Upload Your First File</CardTitle>
-                        <CardDescription>
+                        <FolderOpen className="h-12 w-12 mx-auto mb-4 text-purple-500 dark:text-muted-foreground" />
+                        <CardTitle className="text-gray-800 dark:text-foreground">Upload Your First File</CardTitle>
+                        <CardDescription className="text-gray-600 dark:text-muted-foreground">
                             Store and organize your business resources
                         </CardDescription>
                     </CardHeader>

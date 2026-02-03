@@ -21,11 +21,11 @@ export default function CanvasPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="border-dashed border-2 hover:border-primary transition-colors cursor-pointer">
+                <Card className="border-dashed border-2 hover:border-purple-400 dark:hover:border-primary transition-all cursor-pointer shadow-sm hover:shadow-lg bg-gradient-to-br from-white to-purple-50/20 dark:from-card dark:to-card">
                     <CardHeader className="text-center py-12">
-                        <Layers className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <CardTitle>Create Your First Canvas</CardTitle>
-                        <CardDescription>
+                        <Layers className="h-12 w-12 mx-auto mb-4 text-purple-500 dark:text-muted-foreground" />
+                        <CardTitle className="text-gray-800 dark:text-foreground">Create Your First Canvas</CardTitle>
+                        <CardDescription className="text-gray-600 dark:text-muted-foreground">
                             Start designing your business strategy visually
                         </CardDescription>
                     </CardHeader>

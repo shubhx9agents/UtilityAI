@@ -123,22 +123,22 @@ export default function AgentsPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {agents.map((agent) => (
                     <Link key={agent.id} href={`/agents/${agent.id}`}>
-                        <Card className="hover:shadow-lg transition-all cursor-pointer h-full hover:scale-105">
+                        <Card className="border-2 hover:border-purple-300 dark:border-border dark:hover:border-purple-500 bg-gradient-to-br from-white to-gray-50/50 dark:from-card dark:to-card shadow-sm hover:shadow-xl transition-all cursor-pointer h-full hover:scale-[1.02] group">
                             <CardHeader>
                                 <div className="flex items-start space-x-4">
-                                    <div className={`p-3 rounded-lg ${agent.color} text-white`}>
+                                    <div className={`p-3 rounded-lg ${agent.color} text-white shadow-md group-hover:shadow-lg transition-shadow`}>
                                         <agent.icon className="h-6 w-6" />
                                     </div>
                                     <div className="flex-1">
-                                        <CardTitle className="text-lg">{agent.name}</CardTitle>
-                                        <CardDescription className="mt-1.5">
+                                        <CardTitle className="text-lg group-hover:text-purple-600 dark:group-hover:text-primary transition-colors">{agent.name}</CardTitle>
+                                        <CardDescription className="mt-1.5 text-gray-600 dark:text-muted-foreground">
                                             {agent.description}
                                         </CardDescription>
                                     </div>
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <Button variant="outline" className="w-full">
+                                <Button variant="outline" className="w-full border-2 hover:bg-purple-50 dark:hover:bg-accent group-hover:border-purple-300 dark:group-hover:border-purple-500 transition-all">
                                     Start Agent
                                 </Button>
                             </CardContent>

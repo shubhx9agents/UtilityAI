@@ -14,7 +14,6 @@ import {
     FolderOpen,
     Settings,
     LogOut,
-    Shield,
     Menu,
     X,
 } from 'lucide-react'

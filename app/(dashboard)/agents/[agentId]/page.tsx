@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AGENT_CONFIGS } from '@/lib/ai/agents'
 import { AgentType } from '@/types'
-import { Sparkles, ArrowLeft, Copy, Download, FileJson, FileText, Image as ImageIcon, Upload } from 'lucide-react'
+import { Sparkles, ArrowLeft, Copy, Download, FileJson, FileText, Image as ImageIcon, Upload, MessageCircle, Send } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
@@ -25,6 +25,17 @@ export default function AgentPage() {
     const [refinedPrompt, setRefinedPrompt] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+
+    // Chat conversation state
+    const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([])
+    const [chatInput, setChatInput] = useState('')
+    const [chatLoading, setChatLoading] = useState(false)
+    const [showChat, setShowChat] = useState(false)
+
+    // Check if this agent supports chat
+    // const chatEnabledAgents = ['deep_research', 'image_generation', 'email_sequence', 'sales_script']
+    // const isChatEnabled = chatEnabledAgents.includes(agentId)
+    const isChatEnabled = true
 
     if (!agent) {
         return (
@@ -205,6 +216,45 @@ export default function AgentPage() {
         }
     }
 
+    const handleChatSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
+
+        if (!chatInput.trim()) return
+
+        const userMessage = chatInput.trim()
+        setChatInput('')
+
+        // Add user message to chat
+        const newMessages = [...chatMessages, { role: 'user' as const, content: userMessage }]
+        setChatMessages(newMessages)
+        setChatLoading(true)
+
+        try {
+            const res = await fetch('/api/agents/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: newMessages,
+                    agent_type: agentId
+                }),
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to get response')
+            }
+
+            // Add AI response to chat
+            setChatMessages([...newMessages, { role: 'assistant' as const, content: data.response }])
+        } catch (error: any) {
+            console.error('Chat error:', error)
+            toast.error(error.message || 'Failed to get chat response')
+        } finally {
+            setChatLoading(false)
+        }
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center space-x-4">
@@ -368,6 +418,95 @@ export default function AgentPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Chat Conversation Section - Only for enabled agents */}
+            {isChatEnabled && (
+                <Card className="mt-6">
+                    <CardHeader className="pb-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div>
+                                <CardTitle className="flex items-center text-lg sm:text-xl">
+                                    <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                                    AI Conversation
+                                </CardTitle>
+                                <CardDescription className="text-xs sm:text-sm">
+                                    Have a follow-up conversation with the AI agent
+                                </CardDescription>
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowChat(!showChat)}
+                                className="w-full sm:w-auto"
+                            >
+                                {showChat ? 'Hide Chat' : 'Show Chat'}
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    {showChat && (
+                        <CardContent className="pt-0">
+                            <div className="space-y-3 sm:space-y-4">
+                                {/* Chat Messages */}
+                                <div className="border rounded-lg p-3 sm:p-4 h-64 sm:h-96 overflow-y-auto bg-muted/20">
+                                    {chatMessages.length === 0 ? (
+                                        <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                                            <MessageCircle className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                                            <p className="text-xs sm:text-sm">Start a conversation with the AI agent</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3 sm:space-y-4">
+                                            {chatMessages.map((msg, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                                >
+                                                    <div
+                                                        className={`max-w-[85%] sm:max-w-[80%] rounded-lg p-2.5 sm:p-3 ${msg.role === 'user'
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-muted'
+                                                            }`}
+                                                    >
+                                                        {msg.role === 'assistant' ? (
+                                                            <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none">
+                                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                                    {msg.content}
+                                                                </ReactMarkdown>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-xs sm:text-sm whitespace-pre-wrap">{msg.content}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {chatLoading && (
+                                                <div className="flex justify-start">
+                                                    <div className="bg-muted rounded-lg p-2.5 sm:p-3">
+                                                        <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Chat Input */}
+                                <form onSubmit={handleChatSubmit} className="flex gap-2">
+                                    <Input
+                                        placeholder="Type your message..."
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        disabled={chatLoading}
+                                        className="flex-1 text-sm"
+                                    />
+                                    <Button type="submit" disabled={chatLoading || !chatInput.trim()} size="sm" className="px-3 sm:px-4">
+                                        <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                    </Button>
+                                </form>
+                            </div>
+                        </CardContent>
+                    )}
+                </Card>
+            )}
         </div>
     )
 }

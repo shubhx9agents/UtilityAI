@@ -21,13 +21,13 @@ export default function SettingsPage() {
 
             <div className="grid gap-6 lg:grid-cols-2">
                 {/* Profile Settings */}
-                <Card>
+                <Card className="border-2 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-white to-gray-50/50 dark:from-card dark:to-card">
                     <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                            <User className="h-5 w-5" />
+                        <CardTitle className="flex items-center space-x-2 text-gray-800 dark:text-foreground">
+                            <User className="h-5 w-5 text-purple-500 dark:text-foreground" />
                             <span>Profile</span>
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-gray-600 dark:text-muted-foreground">
                             Update your personal information
                         </CardDescription>
                     </CardHeader>
@@ -49,18 +49,18 @@ export default function SettingsPage() {
                                 placeholder="Your name"
                             />
                         </div>
-                        <Button>Save Changes</Button>
+                        <Button className="border-2">Save Changes</Button>
                     </CardContent>
                 </Card>
 
                 {/* Security Settings */}
-                <Card>
+                <Card className="border-2 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-white to-gray-50/50 dark:from-card dark:to-card">
                     <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                            <Shield className="h-5 w-5" />
+                        <CardTitle className="flex items-center space-x-2 text-gray-800 dark:text-foreground">
+                            <Shield className="h-5 w-5 text-purple-500 dark:text-foreground" />
                             <span>Security</span>
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-gray-600 dark:text-muted-foreground">
                             Manage your password and security settings
                         </CardDescription>
                     </CardHeader>
@@ -81,39 +81,39 @@ export default function SettingsPage() {
                                 placeholder="••••••••"
                             />
                         </div>
-                        <Button>Update Password</Button>
+                        <Button className="border-2">Update Password</Button>
                     </CardContent>
                 </Card>
 
                 {/* Notifications */}
-                <Card>
+                <Card className="border-2 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-white to-gray-50/50 dark:from-card dark:to-card">
                     <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                            <Bell className="h-5 w-5" />
+                        <CardTitle className="flex items-center space-x-2 text-gray-800 dark:text-foreground">
+                            <Bell className="h-5 w-5 text-purple-500 dark:text-foreground" />
                             <span>Notifications</span>
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-gray-600 dark:text-muted-foreground">
                             Configure your notification preferences
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="font-medium">Email Notifications</p>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="font-medium text-gray-800 dark:text-foreground">Email Notifications</p>
+                                <p className="text-sm text-gray-600 dark:text-muted-foreground">
                                     Receive updates via email
                                 </p>
                             </div>
-                            <Button variant="outline" size="sm">Enable</Button>
+                            <Button variant="outline" size="sm" className="border-2">Enable</Button>
                         </div>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="font-medium">AI Agent Updates</p>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="font-medium text-gray-800 dark:text-foreground">AI Agent Updates</p>
+                                <p className="text-sm text-gray-600 dark:text-muted-foreground">
                                     Get notified about new AI features
                                 </p>
                             </div>
-                            <Button variant="outline" size="sm">Enable</Button>
+                            <Button variant="outline" size="sm" className="border-2">Enable</Button>
                         </div>
                     </CardContent>
                 </Card>

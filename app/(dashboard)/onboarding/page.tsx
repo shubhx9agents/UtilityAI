@@ -47,10 +47,10 @@ export default function OnboardingPage() {
                 </p>
             </div>
 
-            <Card>
+            <Card className="border-2 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-white to-gray-50/50 dark:from-card dark:to-card">
                 <CardHeader>
-                    <CardTitle>Onboarding Progress</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-gray-800 dark:text-foreground">Onboarding Progress</CardTitle>
+                    <CardDescription className="text-gray-600 dark:text-muted-foreground">
                         Complete these steps to unlock the full potential of UtilityAI
                     </CardDescription>
                 </CardHeader>
@@ -58,24 +58,24 @@ export default function OnboardingPage() {
                     {onboardingSteps.map((step, index) => (
                         <div
                             key={step.id}
-                            className="flex items-start space-x-4 p-4 rounded-lg border hover:bg-accent transition-colors"
+                            className="flex items-start space-x-4 p-4 rounded-lg border-2 hover:border-purple-300 dark:border-border dark:hover:border-purple-500 hover:bg-purple-50/50 dark:hover:bg-accent transition-all shadow-sm hover:shadow-md"
                         >
                             <div className="flex-shrink-0 mt-1">
                                 {step.completed ? (
                                     <CheckCircle2 className="h-6 w-6 text-green-500" />
                                 ) : (
-                                    <Circle className="h-6 w-6 text-muted-foreground" />
+                                    <Circle className="h-6 w-6 text-purple-500 dark:text-muted-foreground" />
                                 )}
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-semibold">
+                                <h3 className="font-semibold text-gray-800 dark:text-foreground">
                                     Step {step.id}: {step.title}
                                 </h3>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <p className="text-sm text-gray-600 dark:text-muted-foreground mt-1">
                                     {step.description}
                                 </p>
                             </div>
-                            <Button variant={step.completed ? "outline" : "default"} size="sm">
+                            <Button variant={step.completed ? "outline" : "default"} size="sm" className="border-2">
                                 {step.completed ? 'Review' : 'Start'}
                             </Button>
                         </div>

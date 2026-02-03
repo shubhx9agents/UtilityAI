@@ -71,15 +71,64 @@ export default function DashboardPage() {
     const { user } = useAuth()
 
     return (
-        <div className="space-y-8">
-            {/* Welcome Section */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">
-                    Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}!
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                    Here's what's happening with your AI-powered business tools
-                </p>
+        <div className="space-y-8 animate-fade-in">
+            {/* Welcome Banner with Gradient */}
+            <div className="gradient-purple rounded-2xl p-8 text-white shadow-xl">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-sm font-medium opacity-90 mb-2">SYSTEM ONLINE</p>
+                        <h1 className="text-4xl font-bold tracking-tight mb-3">
+                            Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}
+                        </h1>
+                        <p className="text-white/80 text-lg">
+                            Your AI credits are healthy with <span className="font-semibold">850 tokens</span> remaining for this billing cycle.
+                        </p>
+                    </div>
+                    <Button className="bg-white text-purple-600 hover:bg-white/90 font-semibold px-6">
+                        Upgrade Plan
+                    </Button>
+                </div>
+            </div>
+
+            {/* Quick Action Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Link href="/onboarding">
+                    <button className="group bg-card hover:bg-accent border border-border rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg text-left w-full">
+                        <div className="flex flex-col items-center text-center space-y-3">
+                            <div className="icon-badge icon-badge-blue">
+                                <Sparkles className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-foreground">Start New Flow</h3>
+                                <p className="text-sm text-muted-foreground">Automate a new task</p>
+                            </div>
+                        </div>
+                    </button>
+                </Link>
+
+                <button className="group bg-card hover:bg-accent border border-border rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg text-left">
+                    <div className="flex flex-col items-center text-center space-y-3">
+                        <div className="icon-badge icon-badge-cyan">
+                            <Layers className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-foreground">Edit Project</h3>
+                            <p className="text-sm text-muted-foreground">Continue working</p>
+                        </div>
+                    </div>
+                </button>
+
+                <button className="group bg-card hover:bg-accent border border-border rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg text-left">
+                    <div className="flex flex-col items-center text-center space-y-3">
+                        <div className="icon-badge icon-badge-purple">
+                            <Target className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-foreground">Voice Command</h3>
+                            <p className="text-sm text-muted-foreground">Quick AI request</p>
+                        </div>
+                    </div>
+                </button>
             </div>
 
             {/* Stats Grid */}
@@ -99,29 +148,104 @@ export default function DashboardPage() {
                 ))}
             </div>
 
-            {/* Quick Actions */}
+            {/* AI Agents Section */}
             <div>
-                <h2 className="text-2xl font-bold tracking-tight mb-4">Quick Actions</h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {quickActions.map((action) => (
-                        <Link key={action.title} href={action.href}>
-                            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                                <CardHeader>
-                                    <div className="flex items-center space-x-3">
-                                        <div className={`p-2 rounded-lg bg-muted ${action.color}`}>
-                                            <action.icon className="h-6 w-6" />
+                <h2 className="text-2xl font-bold tracking-tight mb-6">AI Agents</h2>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+                    <Link href="/agents/deep_research">
+                        <Card className="card-hover cursor-pointer group border-border bg-card">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="icon-badge icon-badge-purple">
+                                            <Target className="h-6 w-6" />
                                         </div>
                                         <div>
-                                            <CardTitle className="text-lg">{action.title}</CardTitle>
-                                            <CardDescription>{action.description}</CardDescription>
+                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">Deep Research</CardTitle>
+                                            <CardDescription>Comprehensive market analysis</CardDescription>
                                         </div>
                                     </div>
-                                </CardHeader>
-                            </Card>
-                        </Link>
-                    ))}
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                        </Card>
+                    </Link>
+
+                    <Link href="/agents/image_generation">
+                        <Card className="card-hover cursor-pointer group border-border bg-card">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="icon-badge icon-badge-pink">
+                                            <Sparkles className="h-6 w-6" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">Ad Image Generation</CardTitle>
+                                            <CardDescription>AI-powered ad visuals</CardDescription>
+                                        </div>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                        </Card>
+                    </Link>
+
+                    <Link href="/agents/email_sequence">
+                        <Card className="card-hover cursor-pointer group border-border bg-card">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="icon-badge icon-badge-cyan">
+                                            <GitBranch className="h-6 w-6" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">Email Campaign</CardTitle>
+                                            <CardDescription>Complete email sequences</CardDescription>
+                                        </div>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                        </Card>
+                    </Link>
+
+                    <Link href="/agents/sales_script">
+                        <Card className="card-hover cursor-pointer group border-border bg-card">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="icon-badge icon-badge-blue">
+                                            <FolderOpen className="h-6 w-6" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">Sales Scripts</CardTitle>
+                                            <CardDescription>Perfect your pitch</CardDescription>
+                                        </div>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                        </Card>
+                    </Link>
                 </div>
             </div>
+
 
             {/* Getting Started */}
             <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-blue-200 dark:border-blue-800">
