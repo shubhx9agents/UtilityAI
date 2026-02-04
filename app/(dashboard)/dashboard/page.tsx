@@ -25,7 +25,7 @@ const quickActions = [
     },
     {
         title: 'AI Agents',
-        description: 'Access 10 specialized AI agents',
+        description: 'Access 5 specialized AI agents',
         href: '/agents',
         icon: Zap,
         color: 'text-purple-500',
@@ -61,7 +61,7 @@ const quickActions = [
 ]
 
 const stats = [
-    { name: 'AI Agents', value: '10', icon: Sparkles },
+    { name: 'AI Agents', value: '5', icon: Sparkles },
     { name: 'Active Flows', value: '0', icon: GitBranch },
     { name: 'Notes', value: '0', icon: StickyNote },
     { name: 'Library Items', value: '0', icon: FolderOpen },
@@ -71,20 +71,20 @@ export default function DashboardPage() {
     const { user } = useAuth()
 
     return (
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in">
             {/* Welcome Banner with Gradient */}
-            <div className="gradient-purple rounded-2xl p-8 text-white shadow-xl">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <p className="text-sm font-medium opacity-90 mb-2">SYSTEM ONLINE</p>
-                        <h1 className="text-4xl font-bold tracking-tight mb-3">
-                            Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}
+            <div className="gradient-purple rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 text-white shadow-xl">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs sm:text-sm font-medium opacity-90 mb-2">SYSTEM ONLINE</p>
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-2 sm:mb-3 break-words">
+                            Welcome back{user?.user_metadata?.name ? `, ${user.user_metadata.name}` : user?.email ? `, ${user.email.split('@')[0]}` : ''}
                         </h1>
-                        <p className="text-white/80 text-lg">
+                        <p className="text-white/80 text-sm sm:text-base md:text-lg">
                             Your AI credits are healthy with <span className="font-semibold">850 tokens</span> remaining for this billing cycle.
                         </p>
                     </div>
-                    <Button className="bg-white text-purple-600 hover:bg-white/90 font-semibold px-6">
+                    <Button className="bg-white text-purple-600 hover:bg-white/90 font-semibold px-4 sm:px-6 w-full sm:w-auto">
                         Upgrade Plan
                     </Button>
                 </div>
@@ -232,6 +232,29 @@ export default function DashboardPage() {
                                         <div>
                                             <CardTitle className="text-lg group-hover:text-primary transition-colors">Sales Scripts</CardTitle>
                                             <CardDescription>Perfect your pitch</CardDescription>
+                                        </div>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                        </Card>
+                    </Link>
+
+                    <Link href="/agents/linkedin_headshot">
+                        <Card className="card-hover cursor-pointer group border-border bg-card">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="icon-badge icon-badge-green">
+                                            <TrendingUp className="h-6 w-6" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">LinkedIn Headshot</CardTitle>
+                                            <CardDescription>Professional profile photos</CardDescription>
                                         </div>
                                     </div>
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity">

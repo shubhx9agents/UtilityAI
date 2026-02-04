@@ -39,24 +39,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [supabase.auth])
 
     const signIn = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        })
-        return { error }
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                return { error: new Error(data.error || 'Login failed') }
+            }
+            return { error: null }
+        } catch (error: any) {
+            return { error }
+        }
     }
 
     const signUp = async (email: string, password: string, name: string) => {
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    name,
-                },
-            },
-        })
-        return { error }
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, name }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                return { error: new Error(data.error || 'Registration failed') }
+            }
+            return { error: null }
+        } catch (error: any) {
+            return { error }
+        }
     }
 
     const signInWithGoogle = async () => {
@@ -73,7 +86,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const signOut = async () => {
-        await supabase.auth.signOut()
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' })
+            await supabase.auth.signOut()
+        } catch (error) {
+            console.error('Logout error:', error)
+        }
     }
 
     return (

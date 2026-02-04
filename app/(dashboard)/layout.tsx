@@ -18,7 +18,7 @@ import {
     Menu,
     X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -40,6 +40,25 @@ export default function DashboardLayout({
     const router = useRouter()
     const { user, signOut } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [isAdmin, setIsAdmin] = useState(false)
+
+    // Check if user is admin
+    useEffect(() => {
+        const checkAdminStatus = async () => {
+            try {
+                const res = await fetch('/api/admin/check')
+                const data = await res.json()
+                console.log('Admin check response:', data)
+                setIsAdmin(data.isAdmin === true)
+            } catch (error) {
+                console.error('Failed to check admin status:', error)
+                setIsAdmin(false)
+            }
+        }
+        if (user) {
+            checkAdminStatus()
+        }
+    }, [user, pathname])
 
     const handleSignOut = async () => {
         await signOut()
@@ -88,13 +107,42 @@ export default function DashboardLayout({
                                         ? 'bg-primary text-primary-foreground shadow-md'
                                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-[1.02]'
                                         }`}
-                                    onClick={() => setSidebarOpen(false)}
+                                    onClick={(e) => {
+                                        // Only close sidebar on mobile (< lg breakpoint)
+                                        const isMobile = window.innerWidth < 1024
+                                        if (isMobile) {
+                                            setSidebarOpen(false)
+                                        }
+                                    }}
                                 >
                                     <item.icon className="h-5 w-5" />
                                     <span>{item.name}</span>
                                 </Link>
                             )
                         })}
+
+                        {/* Admin Link - Only visible to admins */}
+                        {isAdmin && (
+                            <>
+                                <div className="border-t border-border my-2" />
+                                <Link
+                                    href="/admin"
+                                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pathname?.startsWith('/admin')
+                                        ? 'bg-purple-600 text-white shadow-md'
+                                        : 'text-muted-foreground hover:bg-purple-50 dark:hover:bg-purple-950 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-[1.02]'
+                                        }`}
+                                    onClick={(e) => {
+                                        const isMobile = window.innerWidth < 1024
+                                        if (isMobile) {
+                                            setSidebarOpen(false)
+                                        }
+                                    }}
+                                >
+                                    <Shield className="h-5 w-5" />
+                                    <span>Admin Panel</span>
+                                </Link>
+                            </>
+                        )}
                     </nav>
 
                     {/* User Profile Card */}

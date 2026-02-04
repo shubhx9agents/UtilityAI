@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { UpdateSessionRequest } from '@/types'
+import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 
 export async function GET(
     request: NextRequest,
@@ -78,6 +79,19 @@ export async function PATCH(
         console.log('Session updated successfully:', data.id)
         console.log('Updated chat_messages:', data.chat_messages)
 
+        // Log audit event
+        await logAuditEvent({
+            userId: user?.id,
+            userEmail: user?.email,
+            action: AUDIT_ACTIONS.SESSION_UPDATED,
+            resourceType: 'session',
+            resourceId: sessionId,
+            details: {
+                updated_fields: Object.keys(body),
+            },
+            request,
+        })
+
         return NextResponse.json({ data })
     } catch (error: any) {
         console.error('Session API Error:', error)
@@ -114,6 +128,16 @@ export async function DELETE(
             console.error('Error deleting session:', error)
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
+
+        // Log audit event
+        await logAuditEvent({
+            userId: user?.id,
+            userEmail: user?.email,
+            action: AUDIT_ACTIONS.SESSION_DELETED,
+            resourceType: 'session',
+            resourceId: sessionId,
+            request,
+        })
 
         return NextResponse.json({ success: true })
     } catch (error: any) {

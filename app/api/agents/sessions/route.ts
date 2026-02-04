@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { CreateSessionRequest, AgentSession } from '@/types'
+import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
     try {
@@ -53,6 +54,20 @@ export async function POST(request: NextRequest) {
             console.error('Error creating session:', error)
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
+
+        // Log audit event
+        await logAuditEvent({
+            userId: user.id,
+            userEmail: user.email,
+            action: AUDIT_ACTIONS.SESSION_CREATED,
+            resourceType: 'session',
+            resourceId: data.id,
+            details: {
+                agent_type,
+                session_name: sessionName,
+            },
+            request,
+        })
 
         return NextResponse.json({ data })
     } catch (error: any) {
