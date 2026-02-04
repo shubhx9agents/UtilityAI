@@ -1,18 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AGENT_CONFIGS } from '@/lib/ai/agents'
-import { AgentType } from '@/types'
-import { Sparkles, ArrowLeft, Copy, Download, FileJson, FileText, Image as ImageIcon, Upload, MessageCircle, Send } from 'lucide-react'
+import { AgentType, AgentSession } from '@/types'
+import { Sparkles, ArrowLeft, Copy, Download, FileJson, FileText, Image as ImageIcon, Upload, MessageCircle, Send, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { AgentSessionHistory } from '@/components/agent-session-history'
 
 export default function AgentPage() {
     const params = useParams()
@@ -31,6 +32,10 @@ export default function AgentPage() {
     const [chatInput, setChatInput] = useState('')
     const [chatLoading, setChatLoading] = useState(false)
     const [showChat, setShowChat] = useState(false)
+
+    // Session state
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+    const [sessionKey, setSessionKey] = useState(0) // Force re-render of session history
 
     // Check if this agent supports chat
     // const chatEnabledAgents = ['deep_research', 'image_generation', 'email_sequence', 'sales_script']
@@ -134,6 +139,9 @@ export default function AgentPage() {
                 if (data.refined_prompt) {
                     setRefinedPrompt(data.refined_prompt)
                 }
+
+                // Auto-save session after successful response
+                await saveSession(data.response, data.refined_prompt)
             } else if (data.error) {
                 setError(data.error)
             }
@@ -246,13 +254,116 @@ export default function AgentPage() {
             }
 
             // Add AI response to chat
-            setChatMessages([...newMessages, { role: 'assistant' as const, content: data.response }])
+            const updatedMessages = [...newMessages, { role: 'assistant' as const, content: data.response }]
+            setChatMessages(updatedMessages)
+
+            console.log('Chat messages to save:', updatedMessages)
+            console.log('Current session ID:', currentSessionId)
+            console.log('Current response:', response)
+
+            // Always try to update or create session with chat messages
+            if (currentSessionId) {
+                console.log('Updating existing session with chat')
+                await updateSessionChat(updatedMessages)
+            } else if (response) {
+                console.log('Creating new session with chat')
+                await saveSession(response, refinedPrompt, updatedMessages)
+            } else {
+                console.warn('No session ID and no response - chat messages may not be saved')
+            }
         } catch (error: any) {
             console.error('Chat error:', error)
             toast.error(error.message || 'Failed to get chat response')
         } finally {
             setChatLoading(false)
         }
+    }
+
+    const saveSession = async (responseText: string, refinedPromptText?: string, messages?: Array<{ role: 'user' | 'assistant', content: string }>) => {
+        try {
+            const res = await fetch('/api/agents/sessions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    agent_type: agentId,
+                    form_data: formData,
+                    response: responseText,
+                    refined_prompt: refinedPromptText,
+                    chat_messages: messages || chatMessages
+                }),
+            })
+
+            const data = await res.json()
+            if (res.ok && data.data) {
+                setCurrentSessionId(data.data.id)
+                setSessionKey(prev => prev + 1) // Refresh session history
+                console.log('Session saved with ID:', data.data.id)
+                console.log('Saved chat messages:', messages || chatMessages)
+                toast.success('Session saved')
+            } else {
+                console.error('Failed to save session:', data)
+            }
+        } catch (error) {
+            console.error('Failed to save session:', error)
+        }
+    }
+
+    const updateSessionChat = async (messages: Array<{ role: 'user' | 'assistant', content: string }>) => {
+        if (!currentSessionId) {
+            console.warn('No session ID to update')
+            return
+        }
+
+        console.log('Updating session', currentSessionId, 'with messages:', messages)
+
+        try {
+            const res = await fetch(`/api/agents/sessions/${currentSessionId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_messages: messages
+                }),
+            })
+
+            if (res.ok) {
+                console.log('Session updated successfully')
+            } else {
+                const data = await res.json()
+                console.error('Failed to update session:', data)
+            }
+        } catch (error) {
+            console.error('Failed to update session:', error)
+        }
+    }
+
+    const handleSessionRestore = (session: AgentSession) => {
+        console.log('Restoring session:', session.id)
+        console.log('Session chat_messages:', session.chat_messages)
+        console.log('Chat messages length:', session.chat_messages?.length)
+
+        setFormData(session.form_data || {})
+        setResponse(session.response || '')
+        setRefinedPrompt(session.refined_prompt || '')
+        setChatMessages(session.chat_messages || [])
+        setCurrentSessionId(session.id)
+
+        const shouldShowChat = session.chat_messages && session.chat_messages.length > 0
+        console.log('Should show chat:', shouldShowChat)
+        setShowChat(shouldShowChat)
+
+        toast.success('Session restored')
+    }
+
+    const handleNewSession = () => {
+        setFormData({})
+        setAdditionalDetails('')
+        setResponse('')
+        setRefinedPrompt('')
+        setChatMessages([])
+        setCurrentSessionId(null)
+        setShowChat(false)
+        setError('')
+        toast.success('New session started')
     }
 
     return (
@@ -267,13 +378,36 @@ export default function AgentPage() {
             </div>
 
             <div>
-                <h1 className="text-3xl font-bold tracking-tight capitalize">
-                    {agentId.replace(/_/g, ' ')} Agent
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                    {agent.system_message}
-                </p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight capitalize">
+                            {agentId.replace(/_/g, ' ')} Agent
+                        </h1>
+                        <p className="text-muted-foreground mt-2">
+                            {agent.system_message}
+                        </p>
+                    </div>
+                    {(response || currentSessionId) && (
+                        <Button
+                            variant="outline"
+                            onClick={handleNewSession}
+                            className="ml-4"
+                        >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            New Session
+                        </Button>
+                    )}
+                </div>
             </div>
+
+            {/* Session History */}
+            <AgentSessionHistory
+                key={sessionKey}
+                agentType={agentId}
+                onSessionRestore={handleSessionRestore}
+                currentSessionId={currentSessionId}
+                refreshKey={sessionKey}
+            />
 
             <div className="grid gap-6 lg:grid-cols-2">
                 {/* Input Section */}

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 
 const stats = [
-    { name: 'AI Agents', value: '10', icon: Sparkles },
+    { name: 'AI Agents', value: '5', icon: Sparkles },
     { name: 'Active Flows', value: '0', icon: GitBranch },
     { name: 'Notes', value: '0', icon: StickyNote },
     { name: 'Library Items', value: '0', icon: FolderOpen },
@@ -130,7 +130,7 @@ export default function DashboardPage() {
             {/* AI Agents Section */}
             <div>
                 <h2 className="text-2xl font-bold tracking-tight mb-6">AI Agents</h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <Link href="/agents/deep_research">
                         <Card className="card-hover cursor-pointer group border-2 hover:border-purple-300 dark:border-border dark:hover:border-purple-500 bg-gradient-to-br from-white to-purple-50/30 dark:from-card dark:to-card shadow-sm hover:shadow-lg transition-all">
                             <CardHeader>
@@ -200,21 +200,44 @@ export default function DashboardPage() {
                         </Card>
                     </Link>
 
-                    <Link href="/agents/sales_script">
-                        <Card className="card-hover cursor-pointer group border-2 hover:border-blue-300 dark:border-border dark:hover:border-blue-500 bg-gradient-to-br from-white to-blue-50/30 dark:from-card dark:to-card shadow-sm hover:shadow-lg transition-all">
+                    <Link href="/agents/email_sequence">
+                        <Card className="card-hover cursor-pointer group border-2 hover:border-cyan-300 dark:border-border dark:hover:border-cyan-500 bg-gradient-to-br from-white to-cyan-50/30 dark:from-card dark:to-card shadow-sm hover:shadow-lg transition-all">
                             <CardHeader>
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-4">
-                                        <div className="icon-badge icon-badge-blue shadow-md">
+                                        <div className="icon-badge icon-badge-cyan shadow-md">
+                                            <GitBranch className="h-6 w-6" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg group-hover:text-cyan-600 dark:group-hover:text-primary transition-colors">Email Campaign</CardTitle>
+                                            <CardDescription className="text-gray-600 dark:text-muted-foreground">Complete email sequences</CardDescription>
+                                        </div>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-5 h-5 text-cyan-500 dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                        </Card>
+                    </Link>
+
+                    <Link href="/agents/sales_script">
+                        <Card className="card-hover cursor-pointer group border-2 hover:border-green-300 dark:border-border dark:hover:border-green-500 bg-gradient-to-br from-white to-green-50/30 dark:from-card dark:to-card shadow-sm hover:shadow-lg transition-all">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="icon-badge icon-badge-green shadow-md">
                                             <FolderOpen className="h-6 w-6" />
                                         </div>
                                         <div>
-                                            <CardTitle className="text-lg group-hover:text-blue-600 dark:group-hover:text-primary transition-colors">Sales Scripts</CardTitle>
+                                            <CardTitle className="text-lg group-hover:text-green-600 dark:group-hover:text-primary transition-colors">Sales Scripts</CardTitle>
                                             <CardDescription className="text-gray-600 dark:text-muted-foreground">Perfect your pitch</CardDescription>
                                         </div>
                                     </div>
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <svg className="w-5 h-5 text-blue-500 dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg className="w-5 h-5 text-green-500 dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                         </svg>
                                     </div>

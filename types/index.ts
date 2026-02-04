@@ -114,6 +114,33 @@ export interface AgentRunResponse {
     response: string
 }
 
+export interface AgentSession {
+    id: string
+    user_id: string
+    agent_type: AgentType
+    session_name: string | null
+    form_data: Record<string, any>
+    response: string | null
+    refined_prompt: string | null
+    chat_messages: Array<{ role: 'user' | 'assistant', content: string, timestamp?: string }>
+    created_at: string
+    updated_at: string
+}
+
+export interface CreateSessionRequest {
+    agent_type: AgentType
+    form_data: Record<string, any>
+    response: string
+    refined_prompt?: string
+    chat_messages?: Array<{ role: 'user' | 'assistant', content: string }>
+}
+
+export interface UpdateSessionRequest {
+    chat_messages?: Array<{ role: 'user' | 'assistant', content: string }>
+    form_data?: Record<string, any>
+    response?: string
+}
+
 // API Response Types
 export interface ApiResponse<T = any> {
     data?: T

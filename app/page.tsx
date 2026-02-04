@@ -43,7 +43,7 @@ export default function HomePage() {
               {/* Badge */}
               <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 animate-scale-in">
                 <Sparkles className="h-4 w-4 text-purple-400" />
-                <span className="text-sm text-gray-200">10 AI-Powered Agents Ready</span>
+                <span className="text-sm text-gray-200">5 AI-Powered Agents Ready</span>
               </div>
 
               {/* Main Heading */}
@@ -79,7 +79,7 @@ export default function HomePage() {
               {/* Stats */}
               <div className="grid grid-cols-3 gap-8 mt-12 w-full max-w-2xl animate-fade-in" style={{ animationDelay: '0.4s' }}>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-white mb-1">10+</div>
+                  <div className="text-3xl font-bold text-white mb-1">5+</div>
                   <div className="text-sm text-gray-400">AI Agents</div>
                 </div>
                 <div className="text-center">
