@@ -215,3 +215,192 @@ export interface AdminUser {
     role: UserRoleType
     session_count: number
 }
+
+// ==========================================
+// Canvas Orchestrator Types
+// ==========================================
+
+// Workflow Step Input Mapping
+export interface StepInputMapping {
+    from_user?: string[]
+    from_steps?: Record<string, string[]>
+    from_history?: {
+        history_id: string
+        session_strategy: 'use_latest' | 'use_all' | 'use_specific'
+        session_ids?: string[]
+    }
+}
+
+// Workflow Step Definition
+export interface WorkflowStep {
+    step_id: string
+    agent_id: string // maps to agent_type
+    description: string
+    depends_on: string[]
+    input_mapping: StepInputMapping
+}
+
+// Final Response Strategy
+export interface FinalResponseStrategy {
+    type: 'merge_and_summarize' | 'concatenate' | 'select_best' | 'custom'
+    from_steps: string[]
+    instructions: string
+}
+
+// Workflow Plan (the JSON structure for orchestration)
+export interface WorkflowPlan {
+    workflow_name: string
+    steps: WorkflowStep[]
+    final_response_strategy: FinalResponseStrategy
+}
+
+// Database: Workflow
+export interface Workflow {
+    id: string
+    user_id: string
+    name: string
+    description: string | null
+    workflow_plan: WorkflowPlan
+    status: 'draft' | 'active' | 'archived'
+    created_at: string
+    updated_at: string
+}
+
+// Database: Workflow Step (stored separately)
+export interface WorkflowStepRecord {
+    id: string
+    workflow_id: string
+    step_id: string
+    agent_type: AgentType
+    description: string | null
+    depends_on: string[]
+    input_mapping: StepInputMapping
+    step_order: number
+    created_at: string
+}
+
+// Execution Status Types
+export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type StepExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+
+// Database: Workflow Execution
+export interface WorkflowExecution {
+    id: string
+    workflow_id: string
+    user_id: string
+    status: ExecutionStatus
+    user_inputs: Record<string, any>
+    final_result: Record<string, any> | null
+    error_message: string | null
+    started_at: string
+    completed_at: string | null
+}
+
+// Database: Step Execution
+export interface StepExecution {
+    id: string
+    execution_id: string
+    step_id: string
+    agent_type: AgentType
+    status: StepExecutionStatus
+    input_data: Record<string, any>
+    output_data: Record<string, any> | null
+    error_message: string | null
+    started_at: string | null
+    completed_at: string | null
+}
+
+// Agent History for Orchestrator
+export interface AgentHistorySummary {
+    id: string
+    user_id: string
+    agent_type: AgentType
+    session_id: string
+    summary: string
+    key_facts: string[]
+    output_fields: Record<string, any>
+    created_at: string
+}
+
+// Agent History Context (passed to orchestrator)
+export interface AgentHistoryContext {
+    agent_id: string
+    history_id: string
+    last_sessions: Array<{
+        session_id: string
+        summary: string
+        key_facts: string[]
+        created_at: string
+    }>
+}
+
+// Orchestrator Request
+export interface OrchestratorRequest {
+    user_instruction: string
+    agents: Array<{
+        id: string
+        name: string
+        capabilities: string[]
+        current_state: 'idle' | 'busy'
+        history_id?: string
+    }>
+    histories?: AgentHistoryContext[]
+}
+
+// Orchestrator Response (the generated plan)
+export interface OrchestratorResponse {
+    workflow_plan: WorkflowPlan
+    validation_errors?: string[]
+}
+
+// Create Workflow Request
+export interface CreateWorkflowRequest {
+    name: string
+    description?: string
+    workflow_plan: WorkflowPlan
+}
+
+// Update Workflow Request
+export interface UpdateWorkflowRequest {
+    name?: string
+    description?: string
+    workflow_plan?: WorkflowPlan
+    status?: 'draft' | 'active' | 'archived'
+}
+
+// Execute Workflow Request
+export interface ExecuteWorkflowRequest {
+    workflow_id: string
+    user_inputs: Record<string, any>
+}
+
+// Canvas Node (for UI visualization)
+export interface CanvasNode {
+    id: string
+    type: 'agent' | 'input' | 'output' | 'merge'
+    position: { x: number; y: number }
+    data: {
+        label: string
+        step_id?: string
+        agent_type?: AgentType
+        description?: string
+        status?: StepExecutionStatus
+        output?: any
+    }
+}
+
+// Canvas Edge (for UI visualization)
+export interface CanvasEdge {
+    id: string
+    source: string
+    target: string
+    label?: string
+}
+
+// Canvas State
+export interface CanvasState {
+    nodes: CanvasNode[]
+    edges: CanvasEdge[]
+    workflow_id?: string
+    execution_id?: string
+}
