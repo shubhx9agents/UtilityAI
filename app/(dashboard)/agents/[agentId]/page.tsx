@@ -378,12 +378,12 @@ export default function AgentPage() {
             </div>
 
             <div>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight capitalize">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex-1">
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight capitalize">
                             {agentId.replace(/_/g, ' ')} Agent
                         </h1>
-                        <p className="text-muted-foreground mt-2">
+                        <p className="text-sm sm:text-base text-muted-foreground mt-2">
                             {agent.system_message}
                         </p>
                     </div>
@@ -391,7 +391,7 @@ export default function AgentPage() {
                         <Button
                             variant="outline"
                             onClick={handleNewSession}
-                            className="ml-4"
+                            className="w-full sm:w-auto shrink-0"
                         >
                             <RotateCcw className="h-4 w-4 mr-2" />
                             New Session

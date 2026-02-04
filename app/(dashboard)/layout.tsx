@@ -147,8 +147,8 @@ export default function DashboardLayout({
             {/* Main content */}
             <div className="lg:pl-64">
                 {/* Top bar */}
-                <header className="sticky top-0 z-30 h-16 bg-card border-b border-border">
-                    <div className="flex items-center justify-between h-full px-4 lg:px-8">
+                <header className="sticky top-0 z-30 h-14 sm:h-16 bg-card border-b border-border">
+                    <div className="flex items-center justify-between h-full px-3 sm:px-4 lg:px-8">
                         <button
                             onClick={() => setSidebarOpen(true)}
                             className="lg:hidden"
@@ -161,7 +161,7 @@ export default function DashboardLayout({
                 </header>
 
                 {/* Page content */}
-                <main className="p-4 lg:p-8">
+                <main className="p-3 sm:p-4 lg:p-8">
                     {children}
                 </main>
             </div>

@@ -128,17 +128,17 @@ export function AgentSessionHistory({ agentType, onSessionRestore, currentSessio
 
             {isOpen && (
                 <Card className="mb-6 border-2 shadow-sm">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-lg flex items-center">
-                            <History className="h-5 w-5 mr-2" />
+                    <CardHeader className="pb-3 px-4 sm:px-6">
+                        <CardTitle className="text-base sm:text-lg flex items-center">
+                            <History className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                             Session History
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-xs sm:text-sm">
                             Click on any session to restore it
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <ScrollArea className="h-[400px] pr-4">
+                    <CardContent className="px-4 sm:px-6">
+                        <ScrollArea className="h-[400px] pr-2 sm:pr-4">
                             {loading ? (
                                 <div className="text-center py-8 text-muted-foreground">
                                     <Clock className="h-8 w-8 mx-auto mb-2 animate-spin" />
@@ -162,13 +162,13 @@ export function AgentSessionHistory({ agentType, onSessionRestore, currentSessio
                                                     <div
                                                         key={session.id}
                                                         onClick={() => onSessionRestore(session)}
-                                                        className={`group relative p-3 rounded-lg border-2 cursor-pointer transition-all ${currentSessionId === session.id
+                                                        className={`group relative p-2.5 sm:p-3 rounded-lg border-2 cursor-pointer transition-all ${currentSessionId === session.id
                                                             ? 'border-primary bg-primary/5'
                                                             : 'border-border hover:border-primary/50 hover:bg-accent'
                                                             }`}
                                                     >
-                                                        <div className="flex items-start justify-between">
-                                                            <div className="flex-1 min-w-0">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="flex-1 min-w-0 overflow-hidden">
                                                                 <p className="text-sm font-medium truncate">
                                                                     {session.session_name || 'Untitled Session'}
                                                                 </p>
@@ -180,21 +180,21 @@ export function AgentSessionHistory({ agentType, onSessionRestore, currentSessio
                                                                     })}
                                                                 </p>
                                                                 {session.response && (
-                                                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                                                        {session.response.substring(0, 80)}...
+                                                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-all">
+                                                                        {session.response.substring(0, 60)}...
                                                                     </p>
                                                                 )}
                                                             </div>
-                                                            <div className="flex items-center space-x-1 ml-2">
+                                                            <div className="flex items-center space-x-1 shrink-0">
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    className="h-8 w-8 p-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                                                                     onClick={(e) => confirmDelete(session.id, e)}
                                                                 >
                                                                     <Trash2 className="h-4 w-4 text-destructive" />
                                                                 </Button>
-                                                                <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                <ChevronRight className="h-4 w-4 text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                                                             </div>
                                                         </div>
                                                     </div>
