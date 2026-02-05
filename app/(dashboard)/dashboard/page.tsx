@@ -31,40 +31,17 @@ const quickActions = [
         color: 'text-purple-500',
     },
     {
-        title: 'Create Flow',
-        description: 'Build a new business flow',
-        href: '/flows',
-        icon: GitBranch,
-        color: 'text-green-500',
-    },
-    {
         title: 'New Canvas',
         description: 'Design your strategy',
         href: '/canvas',
         icon: Layers,
         color: 'text-orange-500',
     },
-    {
-        title: 'Take Notes',
-        description: 'Capture your ideas',
-        href: '/notes',
-        icon: StickyNote,
-        color: 'text-yellow-500',
-    },
-    {
-        title: 'Library',
-        description: 'Access your resources',
-        href: '/library',
-        icon: FolderOpen,
-        color: 'text-pink-500',
-    },
 ]
 
 const stats = [
     { name: 'AI Agents', value: '6', icon: Sparkles },
-    { name: 'Active Flows', value: '0', icon: GitBranch },
-    { name: 'Notes', value: '0', icon: StickyNote },
-    { name: 'Library Items', value: '0', icon: FolderOpen },
+    { name: 'Active Sessions', value: '12', icon: Zap },
 ]
 
 export default function DashboardPage() {
@@ -318,9 +295,9 @@ export default function DashboardPage() {
                         </Link>
                     </div>
                     <div className="flex items-center justify-between">
-                        <span className="text-sm">Create your first flow</span>
-                        <Link href="/flows">
-                            <Button size="sm" variant="outline">Create</Button>
+                        <span className="text-sm">Explore premium features</span>
+                        <Link href="/pricing">
+                            <Button size="sm" variant="outline">View Plans</Button>
                         </Link>
                     </div>
                 </CardContent>

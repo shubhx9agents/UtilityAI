@@ -25,9 +25,6 @@ const navigation = [
     { name: 'Onboarding', href: '/onboarding', icon: Sparkles },
     { name: 'AI Agents', href: '/agents', icon: Sparkles },
     { name: 'Canvas', href: '/canvas', icon: Layers },
-    { name: 'Flows', href: '/flows', icon: GitBranch },
-    { name: 'Notes', href: '/notes', icon: StickyNote },
-    { name: 'Library', href: '/library', icon: FolderOpen },
     { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
