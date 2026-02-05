@@ -25,7 +25,7 @@ const quickActions = [
     },
     {
         title: 'AI Agents',
-        description: 'Access 5 specialized AI agents',
+        description: 'Access 6 specialized AI agents',
         href: '/agents',
         icon: Zap,
         color: 'text-purple-500',
@@ -61,7 +61,7 @@ const quickActions = [
 ]
 
 const stats = [
-    { name: 'AI Agents', value: '5', icon: Sparkles },
+    { name: 'AI Agents', value: '6', icon: Sparkles },
     { name: 'Active Flows', value: '0', icon: GitBranch },
     { name: 'Notes', value: '0', icon: StickyNote },
     { name: 'Library Items', value: '0', icon: FolderOpen },
@@ -255,6 +255,29 @@ export default function DashboardPage() {
                                         <div>
                                             <CardTitle className="text-lg group-hover:text-primary transition-colors">LinkedIn Headshot</CardTitle>
                                             <CardDescription>Professional profile photos</CardDescription>
+                                        </div>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                        </Card>
+                    </Link>
+
+                    <Link href="/agents/ad_copy">
+                        <Card className="card-hover cursor-pointer group border-border bg-card">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="icon-badge icon-badge-orange">
+                                            <Zap className="h-6 w-6 text-orange-500" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">Ad Copy Generator</CardTitle>
+                                            <CardDescription>High-converting ad variations</CardDescription>
                                         </div>
                                     </div>
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity">

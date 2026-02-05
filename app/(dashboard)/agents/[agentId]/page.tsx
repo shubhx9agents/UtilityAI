@@ -14,6 +14,14 @@ import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { AgentSessionHistory } from '@/components/agent-session-history'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
 
 export default function AgentPage() {
     const params = useParams()
@@ -36,6 +44,22 @@ export default function AgentPage() {
     // Session state
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
     const [sessionKey, setSessionKey] = useState(0) // Force re-render of session history
+
+    // Helper to parse simple CSV
+    const parseCSV = (csv: string) => {
+        try {
+            const lines = csv.split('\n').filter(line => line.trim())
+            if (lines.length === 0) return []
+
+            return lines.map(line => {
+                const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+                return matches ? matches.map(m => m.replace(/^"|"$/g, '')) : line.split(',')
+            })
+        } catch (e) {
+            console.error('CSV Parsing failed:', e)
+            return []
+        }
+    }
 
     // Check if this agent supports chat
     // const chatEnabledAgents = ['deep_research', 'image_generation', 'email_sequence', 'sales_script']
@@ -170,15 +194,20 @@ export default function AgentPage() {
         }
     }
 
-    const downloadAsMarkdown = () => {
+    const downloadAsFile = (type: 'md' | 'csv') => {
         const element = document.createElement('a')
-        const file = new Blob([response], { type: 'text/markdown' })
+        const blobType = type === 'md' ? 'text/markdown' : 'text/csv'
+        const file = new Blob([response], { type: blobType })
         element.href = URL.createObjectURL(file)
-        element.download = `${agentId}-report.md`
+        element.download = `${agentId}-report.${type}`
         document.body.appendChild(element)
         element.click()
         document.body.removeChild(element)
+        toast.success(`Downloaded as ${type.toUpperCase()}`)
     }
+
+    const downloadAsMarkdown = () => downloadAsFile('md')
+    const downloadAsCSV = () => downloadAsFile('csv')
 
     const downloadAsPDF = () => {
         const printContent = document.getElementById('report-content')
@@ -512,6 +541,11 @@ export default function AgentPage() {
                                             <Download className="h-4 w-4 mr-2" />
                                             Download
                                         </Button>
+                                    ) : agentId === 'ad_copy' ? (
+                                        <Button variant="outline" size="sm" onClick={downloadAsCSV} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
+                                            <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
+                                            Download .CSV
+                                        </Button>
                                     ) : (
                                         <>
                                             <Button variant="outline" size="sm" onClick={copyToClipboard}>
@@ -522,6 +556,10 @@ export default function AgentPage() {
                                                 <Download className="h-4 w-4 mr-2" />
                                                 .MD
                                             </Button>
+                                            <Button variant="outline" size="sm" onClick={downloadAsCSV} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
+                                                <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
+                                                .CSV
+                                            </Button>
                                             <Button variant="outline" size="sm" onClick={downloadAsPDF}>
                                                 <FileText className="h-4 w-4 mr-2" />
                                                 PDF
@@ -530,7 +568,28 @@ export default function AgentPage() {
                                     )}
                                 </div>
                                 <div id="report-content" className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-6 bg-background min-h-[400px]">
-                                    {(agentId === 'image_generation' || agentId === 'linkedin_headshot') && response.startsWith('http') ? (
+                                    {agentId === 'ad_copy' ? (
+                                        <div className="overflow-x-auto">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        {parseCSV(response)[0]?.map((header, i) => (
+                                                            <TableHead key={i} className="font-bold">{header}</TableHead>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {parseCSV(response).slice(1).map((row, i) => (
+                                                        <TableRow key={i}>
+                                                            {row.map((cell, j) => (
+                                                                <TableCell key={j}>{cell}</TableCell>
+                                                            ))}
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    ) : (agentId === 'image_generation' || agentId === 'linkedin_headshot') && response.startsWith('http') ? (
                                         <div className="flex justify-center">
                                             <img src={response} alt="Generated Asset" className="max-w-full rounded-lg shadow-lg" />
                                         </div>

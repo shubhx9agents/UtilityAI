@@ -6,8 +6,8 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
         questions: ['Business name', 'Industry/niche', 'Target audience', 'Mission statement'],
     },
     ad_copy: {
-        system_message: 'Ad variations for multiple platforms.',
-        questions: ['Platform', 'Ad objective', 'Key message', 'Target audience'],
+        system_message: 'High-converting ad variations for various platforms.',
+        questions: ['Product/Service Name', 'Main Features/Benefits', 'Target Audience', 'Ad Tone (e.g. funny, professional, urgent)', 'Specific Platforms (e.g. Facebook, Instagram, LinkedIn, Google)'],
     },
     graphics: {
         system_message: 'AI-ready image and logo prompts.',
@@ -93,6 +93,10 @@ export class AIAgentService {
         try {
             if (agentType === 'deep_research') {
                 return await this.runDeepResearch(userInput)
+            }
+
+            if (agentType === 'ad_copy') {
+                return await this.runAdCopy(userInput)
             }
 
             if (agentType === 'image_generation') {
@@ -199,6 +203,108 @@ ${rawOutput}
 
         } catch (error: any) {
             console.error('Deep Research multi-step error:', error)
+            throw error
+        }
+    }
+
+    private async runAdCopy(userInput: string): Promise<{ response: string }> {
+        const perplexityApiKey = process.env.PERPLEXITY_API_KEY
+        const groqApiKey = process.env.GROQ_API_KEY
+
+        if (!perplexityApiKey || !groqApiKey) {
+            throw new Error('Required API keys (PERPLEXITY_API_KEY, GROQ_API_KEY) are missing.')
+        }
+
+        try {
+            // 1. Market Research using Perplexity
+            const searchPrompt = `Conduct a deep-dive research for the following request: ${userInput}. 
+            Identify current market trends, top-performing competitor ad examples, and platform-specific high-converting hooks.
+            Analyze specific psychological triggers for the target audience. 
+            STRICTLY RESEARCH FOR THE REQUESTED PLATFORMS ONLY if specified in the input.`
+
+            const perplexityRes = await fetch('https://api.perplexity.ai/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${perplexityApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'sonar',
+                    messages: [
+                        { role: 'system', content: 'You are a world-class market researcher and ad strategist. Provide deep, data-driven insights. Focus only on relevant platforms.' },
+                        { role: 'user', content: searchPrompt }
+                    ]
+                })
+            })
+
+            const contentType = perplexityRes.headers.get('content-type')
+            if (!perplexityRes.ok || !contentType?.includes('application/json')) {
+                const text = await perplexityRes.text()
+                throw new Error(`Perplexity Research Error: ${perplexityRes.status}`)
+            }
+
+            const perplexityData = await perplexityRes.json()
+            const researchData = perplexityData.choices?.[0]?.message?.content || 'No specific research found.'
+
+            // 2. Ad Copy Generation using Groq
+            const systemPrompt = `You are an expert Ad Copy Generator. 
+Based on the provided research, generate high-converting ad copies for the requested platforms.
+
+STRICT PLATFORM RULE:
+- ONLY generate ads for the platforms explicitly mentioned in the user input.
+- If no platform is mentioned, default to Facebook and Instagram.
+- DO NOT add extra platforms.
+
+PLATFORM CHARACTER LIMITS (STRICT):
+- Facebook: Headline (max 40), Body (max 125)
+- Instagram: Body (max 125)
+- LinkedIn: Headline (max 70), Body (max 600)
+- Google Search: Headline (max 30), Description (max 90)
+
+REQUIRED ANGLES: Problem-Solution, Benefit-Driven, Emotional.
+
+OUTPUT FORMAT RULES:
+1. Output ONLY a valid CSV. No preamble, no post-text.
+2. Headers MUST be: Platform,Angle,Headline,Body,CTA
+3. NO line breaks inside fields. Replace any newlines with spaces.
+4. Ensure all fields are properly escaped if they contain commas (use double quotes).
+5. Generate variations for each requested angle per platform.`
+
+            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${groqApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        {
+                            role: 'user',
+                            content: `MARKET RESEARCH DATA:
+${researchData}
+
+USER INPUT:
+${userInput}`
+                        }
+                    ],
+                    temperature: 0.7
+                })
+            })
+
+            if (!groqRes.ok) throw new Error('Groq generation failed')
+
+            const groqData = await groqRes.json()
+            let csvOutput = groqData.choices?.[0]?.message?.content || ''
+
+            // Clean up possible markdown code block wrappers
+            csvOutput = csvOutput.replace(/^```csv\n?/, '').replace(/\n?```$/, '').trim()
+
+            return { response: csvOutput }
+
+        } catch (error: any) {
+            console.error('Ad Copy Agent Error:', error)
             throw error
         }
     }
