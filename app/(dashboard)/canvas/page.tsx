@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -62,6 +63,15 @@ interface OrchestratorAgent {
     capabilities: string[]
 }
 
+interface OnboardingData {
+    business_name?: string
+    industry?: string
+    description?: string
+    audience_desc?: string
+    primary_goal?: string
+    [key: string]: any
+}
+
 type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
 
 export default function CanvasPage() {
@@ -72,6 +82,8 @@ export default function CanvasPage() {
 
     // Available agents
     const [agents, setAgents] = useState<OrchestratorAgent[]>([])
+    const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null)
+    const [showOnboardingBanner, setShowOnboardingBanner] = useState(false)
 
     // Canvas state
     const [nodes, setNodes] = useState<CanvasNode[]>([])
@@ -113,6 +125,7 @@ export default function CanvasPage() {
     useEffect(() => {
         fetchWorkflows()
         fetchAgents()
+        fetchOnboardingData()
     }, [])
 
     // Timer effect for elapsed time
@@ -296,6 +309,29 @@ export default function CanvasPage() {
         }
     }
 
+    const fetchOnboardingData = async () => {
+        const supabase = createClient()
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+
+            const { data } = await supabase
+                .from('onboarding_progress')
+                .select('step_outputs')
+                .eq('user_id', user.id)
+                .maybeSingle()
+
+            if (data?.step_outputs) {
+                setOnboardingData(data.step_outputs)
+            } else {
+                // No data found, show banner
+                setShowOnboardingBanner(true)
+            }
+        } catch (error) {
+            console.error('Failed to fetch onboarding:', error)
+        }
+    }
+
     const createWorkflow = async () => {
         if (!newWorkflowName.trim()) return
 
@@ -343,11 +379,24 @@ export default function CanvasPage() {
 
         try {
             setIsLoading(true)
+
+            // Construct instruction with onboarding context if available
+            let finalInstruction = orchestratorInstruction
+
+            if (onboardingData) {
+                const contextStr = `\n\nContext about my business:\nName: ${onboardingData.business_name}\nIndustry: ${onboardingData.industry}\nAudience: ${onboardingData.audience_desc}\nGoals: ${onboardingData.primary_goal}`
+
+                // Only append if not already mentioned (simple check)
+                if (!finalInstruction.toLowerCase().includes('business')) {
+                    finalInstruction += contextStr
+                }
+            }
+
             const res = await fetch('/api/canvas/orchestrate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    instruction: orchestratorInstruction,
+                    instruction: finalInstruction,
                     selected_agents: selectedAgents,
                     mode: workflowMode
                 })
@@ -639,8 +688,79 @@ export default function CanvasPage() {
     useEffect(() => {
         if (showExecuteDialog) {
             setInputStepIndex(0)
+
+            // Auto-fill inputs from onboarding data if available
+            if (onboardingData && selectedWorkflow?.workflow_plan) {
+                const required = getRequiredInputs()
+                const newInputs = { ...userInputs }
+                let hasUpdates = false
+
+                // normalize string helper
+                const norm = (s: string) => s.toLowerCase().trim()
+
+                // Detailed mapping of Agent Questions to Onboarding Data Fields
+                const mapping: Record<string, string | undefined> = {
+                    // Deep Research & General
+                    'niche': onboardingData.industry,
+                    'industry/niche': onboardingData.industry,
+                    'industry': onboardingData.industry,
+                    'target audience': onboardingData.audience_desc,
+                    'audience': onboardingData.audience_desc,
+                    'primary problem i solve': onboardingData.pain_points,
+                    'secondary problems': onboardingData.pain_points,
+                    'pain points': onboardingData.pain_points,
+                    'my experience': onboardingData.description, // Fallback
+                    'business description': onboardingData.description,
+                    'description': onboardingData.description,
+                    'my core philosophy or approach': onboardingData.mission,
+                    'mission statement': onboardingData.mission,
+                    'important beliefs i hold': onboardingData.mission,
+                    'primary promise': onboardingData.usp,
+                    'unique value proposition': onboardingData.usp,
+                    'usp': onboardingData.usp,
+                    'business name': onboardingData.business_name,
+                    'company name': onboardingData.business_name,
+                    'product/service name': onboardingData.business_name,
+
+                    // Ad Copy & Marketing
+                    'main features/benefits': onboardingData.usp,
+                    'ad tone (e.g. funny, professional, urgent)': onboardingData.tone_voice,
+                    'ad tone': onboardingData.tone_voice,
+                    'tone of voice': onboardingData.tone_voice,
+                    'brand style': onboardingData.tone_voice,
+                    'specific platforms (e.g. facebook, instagram, linkedin, google)': onboardingData.marketing_channels?.join(', '),
+                    'platforms': onboardingData.marketing_channels?.join(', '),
+                    'marketing channels': onboardingData.marketing_channels?.join(', '),
+
+                    // Landing Page & Growth
+                    'page goal': onboardingData.primary_goal,
+                    'conversion goals': onboardingData.primary_goal,
+                    'primary business goal': onboardingData.primary_goal,
+                }
+
+                required.forEach(req => {
+                    const key = req.field
+                    const lowerKey = norm(key)
+
+                    // 1. Try manual mapping first
+                    if (!newInputs[key] && mapping[lowerKey]) {
+                        newInputs[key] = mapping[lowerKey]
+                        hasUpdates = true
+                    }
+                    // 2. Try direct key match if no mapping found
+                    else if (!newInputs[key] && onboardingData[key]) {
+                        newInputs[key] = onboardingData[key]
+                        hasUpdates = true
+                    }
+                })
+
+                if (hasUpdates) {
+                    setUserInputs(newInputs)
+                    toast.success('Autofilled using your profile data!')
+                }
+            }
         }
-    }, [showExecuteDialog, selectedWorkflow?.id])
+    }, [showExecuteDialog, selectedWorkflow?.id, onboardingData])
 
     if (isLoading && workflows.length === 0) {
         return (
@@ -653,14 +773,34 @@ export default function CanvasPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Canvas Orchestrator</h1>
                     <p className="text-muted-foreground mt-2">
                         Design multi-agent workflows and orchestrate AI agents
                     </p>
                 </div>
-                <div className="flex gap-2">
+                {showOnboardingBanner && (
+                    <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                        <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        <div>
+                            <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Complete your profile for better AI results</p>
+                            <p className="text-xs text-purple-700 dark:text-purple-300">Agents work better with business context.</p>
+                        </div>
+                        <Button size="sm" variant="outline" className="ml-auto" asChild>
+                            <a href="/onboarding">Complete Profile</a>
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setShowOnboardingBanner(false)}
+                        >
+                            <XCircle className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <Dialog open={showOrchestratorDialog} onOpenChange={setShowOrchestratorDialog}>
                         <DialogTrigger asChild>
                             <Button variant="outline">
@@ -783,9 +923,9 @@ export default function CanvasPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Workflows Sidebar */}
-                <div className="col-span-3">
+                <div className="lg:col-span-4">
                     <Card>
                         <CardHeader className="pb-3">
                             <CardTitle className="text-lg">Workflows</CardTitle>
@@ -807,15 +947,15 @@ export default function CanvasPage() {
                                                     }`}
                                                 onClick={() => selectWorkflow(workflow)}
                                             >
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <GitBranch className="h-4 w-4 text-purple-500" />
-                                                        <span className="font-medium text-sm">{workflow.name}</span>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                        <GitBranch className="h-4 w-4 text-purple-500 flex-shrink-0" />
+                                                        <span className="font-medium text-sm truncate">{workflow.name}</span>
                                                     </div>
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="h-6 w-6 p-0"
+                                                        className="h-6 w-6 p-0 flex-shrink-0"
                                                         onClick={(e) => {
                                                             e.stopPropagation()
                                                             deleteWorkflow(workflow.id)
@@ -837,10 +977,10 @@ export default function CanvasPage() {
                 </div>
 
                 {/* Canvas Area */}
-                <div className="col-span-9">
+                <div className="lg:col-span-8">
                     <Card className="min-h-[600px]">
                         <CardHeader className="pb-3 border-b">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0">
                                 <div>
                                     <CardTitle className="text-lg">
                                         {selectedWorkflow?.name || 'Select a Workflow'}
@@ -1049,7 +1189,7 @@ export default function CanvasPage() {
                                         {selectedWorkflow.workflow_plan.steps.map((step, index) => (
                                             <div key={step.step_id} className="flex flex-col items-center">
                                                 <div
-                                                    className={`p-4 border-2 rounded-lg min-w-[300px] transition-all ${getStatusColor(stepStatuses[step.step_id] || 'pending')
+                                                    className={`p-4 border-2 rounded-lg w-full max-w-[300px] transition-all ${getStatusColor(stepStatuses[step.step_id] || 'pending')
                                                         }`}
                                                 >
                                                     <div className="flex items-center justify-between mb-2">
@@ -1081,7 +1221,7 @@ export default function CanvasPage() {
                                         {selectedWorkflow.workflow_plan.final_response_strategy && (
                                             <>
                                                 <ArrowDown className="h-6 w-6 text-muted-foreground my-2" />
-                                                <div className="p-4 border-2 border-green-500 bg-green-50 dark:bg-green-950/30 rounded-lg min-w-[300px]">
+                                                <div className="p-4 border-2 border-green-500 bg-green-50 dark:bg-green-950/30 rounded-lg w-full max-w-[300px]">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <CheckCircle2 className="h-5 w-5 text-green-500" />
                                                         <span className="font-medium">Final Output</span>
@@ -1406,7 +1546,7 @@ export default function CanvasPage() {
 
             {/* Execution Progress Overlay */}
             {isExecuting && (
-                <div className="fixed bottom-6 right-6 z-50 w-80">
+                <div className="fixed bottom-6 right-0 left-0 px-6 sm:left-auto sm:px-0 sm:right-6 z-50 w-full sm:w-80">
                     <Card className="border-purple-500 shadow-lg">
                         <CardContent className="p-4">
                             <div className="flex items-center gap-3 mb-3">

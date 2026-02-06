@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIGS } from '@/lib/ai/agents'
 import { AgentType, AgentSession } from '@/types'
-import { Sparkles, ArrowLeft, Copy, Download, FileJson, FileText, Image as ImageIcon, Upload, MessageCircle, Send, RotateCcw } from 'lucide-react'
+import { Sparkles, ArrowLeft, Copy, Download, FileJson, FileText, Image as ImageIcon, Upload, MessageCircle, Send, RotateCcw, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
@@ -34,6 +35,99 @@ export default function AgentPage() {
     const [refinedPrompt, setRefinedPrompt] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [hasAutofilled, setHasAutofilled] = useState(false)
+    const [showOnboardingBanner, setShowOnboardingBanner] = useState(false)
+    const supabase = createClient()
+
+    // Fetch and Autofill Onboarding Data
+    useEffect(() => {
+        const fetchOnboardingAndAutofill = async () => {
+            if (hasAutofilled) return
+
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+
+            const { data } = await supabase
+                .from('onboarding_progress')
+                .select('step_outputs')
+                .eq('user_id', user.id)
+                .maybeSingle()
+
+            if (data?.step_outputs) {
+                const onboardingData = data.step_outputs
+                const newFormData = { ...formData }
+                let hasUpdates = false
+
+                // normalize string helper
+                const norm = (s: string) => s.toLowerCase().trim()
+
+                // Detailed mapping of Agent Questions to Onboarding Data Fields
+                const mapping: Record<string, string | undefined> = {
+                    // Deep Research & General
+                    'niche': onboardingData.industry,
+                    'industry/niche': onboardingData.industry,
+                    'industry': onboardingData.industry,
+                    'target audience': onboardingData.audience_desc,
+                    'audience': onboardingData.audience_desc,
+                    'primary problem i solve': onboardingData.pain_points,
+                    'secondary problems': onboardingData.pain_points,
+                    'pain points': onboardingData.pain_points,
+                    'my experience': onboardingData.description, // Fallback
+                    'business description': onboardingData.description,
+                    'description': onboardingData.description,
+                    'my core philosophy or approach': onboardingData.mission,
+                    'mission statement': onboardingData.mission,
+                    'important beliefs i hold': onboardingData.mission,
+                    'primary promise': onboardingData.usp,
+                    'unique value proposition': onboardingData.usp,
+                    'usp': onboardingData.usp,
+                    'business name': onboardingData.business_name,
+                    'company name': onboardingData.business_name,
+                    'product/service name': onboardingData.business_name,
+
+                    // Ad Copy & Marketing
+                    'main features/benefits': onboardingData.usp,
+                    'ad tone (e.g. funny, professional, urgent)': onboardingData.tone_voice,
+                    'ad tone': onboardingData.tone_voice,
+                    'tone of voice': onboardingData.tone_voice,
+                    'brand style': onboardingData.tone_voice,
+                    'specific platforms (e.g. facebook, instagram, linkedin, google)': onboardingData.marketing_channels?.join(', '),
+                    'platforms': onboardingData.marketing_channels?.join(', '),
+                    'marketing channels': onboardingData.marketing_channels?.join(', '),
+
+                    // Landing Page & Growth
+                    'page goal': onboardingData.primary_goal,
+                    'conversion goals': onboardingData.primary_goal,
+                    'primary business goal': onboardingData.primary_goal,
+                }
+
+                agent.questions.forEach(q => {
+                    const lowerKey = norm(q)
+
+                    // 1. Try manual mapping first
+                    if (!newFormData[q] && mapping[lowerKey]) {
+                        newFormData[q] = mapping[lowerKey]!
+                        hasUpdates = true
+                    }
+                    // 2. Try direct key match if no mapping found
+                    else if (!newFormData[q] && onboardingData[q]) {
+                        newFormData[q] = onboardingData[q]
+                        hasUpdates = true
+                    }
+                })
+
+                if (hasUpdates) {
+                    setFormData(newFormData)
+                    toast.success('Autofilled from your profile')
+                }
+                setHasAutofilled(true)
+            } else {
+                setShowOnboardingBanner(true)
+            }
+        }
+
+        fetchOnboardingAndAutofill()
+    }, [agent, hasAutofilled])
 
     // Chat conversation state
     const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([])
@@ -405,6 +499,27 @@ export default function AgentPage() {
                     </Button>
                 </Link>
             </div>
+
+            {showOnboardingBanner && (
+                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                    <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <div>
+                        <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Complete your profile for better AI results</p>
+                        <p className="text-xs text-purple-700 dark:text-purple-300">Agents work better with business context.</p>
+                    </div>
+                    <Button size="sm" variant="outline" className="ml-auto" asChild>
+                        <a href="/onboarding">Complete Profile</a>
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setShowOnboardingBanner(false)}
+                    >
+                        <XCircle className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
 
             <div>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
