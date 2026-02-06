@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { UpdateSessionRequest } from '@/types'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
+import { updateSessionSchema, validateInput, validationErrorResponse, uuidSchema } from '@/lib/validations'
+import { sanitizeJson } from '@/utils/sanitize'
 
 export async function GET(
     request: NextRequest,
@@ -57,15 +58,33 @@ export async function PATCH(
 
         const { sessionId } = await params
 
-        const body: UpdateSessionRequest = await request.json()
+        // Validate session ID
+        const sessionIdValidation = uuidSchema.safeParse(sessionId)
+        if (!sessionIdValidation.success) {
+            return NextResponse.json({ error: 'Invalid session ID format' }, { status: 400 })
+        }
+
+        const body = await request.json()
+
+        // Validate input with Zod (rejects extra fields)
+        const validation = validateInput(updateSessionSchema, body)
+        if (!validation.success) {
+            return NextResponse.json(validationErrorResponse(validation.errors), { status: 400 })
+        }
+
+        // Sanitize any form_data if present
+        const sanitizedBody = {
+            ...validation.data,
+            ...(validation.data.form_data && { form_data: sanitizeJson(validation.data.form_data as Record<string, unknown>) })
+        }
 
         console.log('PATCH /api/agents/sessions/[sessionId]')
         console.log('Session ID:', sessionId)
-        console.log('Update body:', JSON.stringify(body, null, 2))
+        console.log('Update body:', JSON.stringify(sanitizedBody, null, 2))
 
         const { data, error } = await supabase
             .from('agent_sessions')
-            .update(body)
+            .update(sanitizedBody)
             .eq('id', sessionId)
             .eq('user_id', user.id)
             .select()

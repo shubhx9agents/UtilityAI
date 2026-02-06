@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { agentChatSchema, validateInput, validationErrorResponse } from '@/lib/validations'
+import { sanitizeText } from '@/utils/sanitize'
 
 export async function POST(request: NextRequest) {
     try {
@@ -14,14 +16,20 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { messages, agent_type } = body
 
-        if (!messages || !Array.isArray(messages)) {
-            return NextResponse.json(
-                { error: 'Messages array is required' },
-                { status: 400 }
-            )
+        // Validate input with Zod (rejects extra fields)
+        const validation = validateInput(agentChatSchema, body)
+        if (!validation.success) {
+            return NextResponse.json(validationErrorResponse(validation.errors), { status: 400 })
         }
+
+        const { messages, agent_type } = validation.data
+
+        // Sanitize message content
+        const sanitizedMessages = messages.map(msg => ({
+            ...msg,
+            content: sanitizeText(msg.content)
+        }))
 
         const groqApiKey = process.env.GROQ_API_KEY
         if (!groqApiKey) {
@@ -46,12 +54,12 @@ export async function POST(request: NextRequest) {
             linkedin_headshot: 'You are a professional photography consultant. Help users plan and refine their professional headshots.'
         }
 
-        const systemMessage = systemMessages[agent_type] || 'You are a helpful AI assistant.'
+        const systemMessage = systemMessages[agent_type || 'deep_research'] || 'You are a helpful AI assistant.'
 
-        // Prepare messages for Groq
+        // Prepare messages for Groq (use sanitized messages)
         const groqMessages = [
             { role: 'system', content: systemMessage },
-            ...messages
+            ...sanitizedMessages
         ]
 
         // Call Groq API

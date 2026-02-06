@@ -1,0 +1,32 @@
+# robots.txt for UtilityAI
+# https://www.robotstxt.org/robotstxt.html
+
+# Allow all crawlers to index the site
+User-agent: *
+
+# Allow home and marketing pages
+Allow: /
+Allow: /login
+Allow: /register
+
+# Disallow sensitive and user-specific areas
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /agents
+Disallow: /canvas
+Disallow: /flows
+Disallow: /library
+Disallow: /notes
+Disallow: /onboarding
+Disallow: /settings
+Disallow: /upgrade
+Disallow: /voice
+
+# Disallow API endpoints
+Disallow: /api/
+
+# Disallow auth callback
+Disallow: /auth/callback
+
+# Sitemap location
+Sitemap: https://utilityai.com/sitemap.xml

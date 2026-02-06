@@ -100,6 +100,64 @@ export async function getUserRoleById(userId: string): Promise<UserRoleType> {
 }
 
 /**
+ * Check if the current user is a moderator
+ */
+export async function isMod(): Promise<boolean> {
+    try {
+        const supabase = await createClient()
+
+        const {
+            data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user) {
+            return false
+        }
+
+        const { data, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .single()
+
+        if (error || !data) {
+            return false
+        }
+
+        return data.role === 'mod' || data.role === 'admin'
+    } catch (error) {
+        console.error('Error checking mod status:', error)
+        return false
+    }
+}
+
+/**
+ * Check if user has a role at or above the specified level
+ * Role hierarchy: user < mod < admin
+ */
+export async function hasRoleLevel(requiredRole: UserRoleType): Promise<boolean> {
+    const roleHierarchy: Record<UserRoleType, number> = {
+        user: 1,
+        mod: 2,
+        admin: 3,
+    }
+
+    const currentRole = await getUserRole()
+    return roleHierarchy[currentRole] >= roleHierarchy[requiredRole]
+}
+
+/**
+ * Ensure user has mod role or higher, throw error if not
+ */
+export async function requireMod(): Promise<void> {
+    const modStatus = await isMod()
+
+    if (!modStatus) {
+        throw new Error('Unauthorized: Moderator access required')
+    }
+}
+
+/**
  * Update user role
  * Only admins can call this
  */

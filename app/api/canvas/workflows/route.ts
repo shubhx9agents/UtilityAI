@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { CreateWorkflowRequest, UpdateWorkflowRequest, WorkflowPlan } from '@/types'
+import { WorkflowPlan } from '@/types'
 import { validateWorkflowPlan } from '@/lib/ai/orchestrator'
+import { createWorkflowSchema, validateInput, validationErrorResponse } from '@/lib/validations'
+import { sanitizeText } from '@/utils/sanitize'
 
 // GET /api/canvas/workflows - List user's workflows
 export async function GET(request: NextRequest) {
@@ -15,6 +17,11 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url)
         const status = searchParams.get('status')
+
+        // Validate status parameter if provided
+        if (status && !['draft', 'active', 'archived'].includes(status)) {
+            return NextResponse.json({ error: 'Invalid status parameter' }, { status: 400 })
+        }
 
         let query = supabase
             .from('workflows')
@@ -49,18 +56,23 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const body: CreateWorkflowRequest = await request.json()
-        const { name, description, workflow_plan } = body
+        const body = await request.json()
 
-        console.log('Creating workflow:', { name, user_id: user.id })
-
-        if (!name) {
-            return NextResponse.json({ error: 'Workflow name is required' }, { status: 400 })
+        // Validate input with Zod (rejects extra fields)
+        const validation = validateInput(createWorkflowSchema, body)
+        if (!validation.success) {
+            return NextResponse.json(validationErrorResponse(validation.errors), { status: 400 })
         }
+
+        const { name, description, workflow_plan } = validation.data
+        const sanitizedName = sanitizeText(name)
+        const sanitizedDescription = description ? sanitizeText(description) : null
+
+        console.log('Creating workflow:', { name: sanitizedName, user_id: user.id })
 
         // Validate workflow plan if provided
         if (workflow_plan) {
-            const validationErrors = validateWorkflowPlan(workflow_plan)
+            const validationErrors = validateWorkflowPlan(workflow_plan as WorkflowPlan)
             if (validationErrors.length > 0) {
                 return NextResponse.json({
                     error: 'Invalid workflow plan',
@@ -73,10 +85,10 @@ export async function POST(request: NextRequest) {
             .from('workflows')
             .insert({
                 user_id: user.id,
-                name,
-                description: description || null,
+                name: sanitizedName,
+                description: sanitizedDescription,
                 workflow_plan: workflow_plan || {
-                    workflow_name: name,
+                    workflow_name: sanitizedName,
                     steps: [],
                     final_response_strategy: {
                         type: 'merge_and_summarize',
