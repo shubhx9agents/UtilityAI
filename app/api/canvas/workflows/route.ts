@@ -62,9 +62,9 @@ export async function POST(request: NextRequest) {
         if (workflow_plan) {
             const validationErrors = validateWorkflowPlan(workflow_plan)
             if (validationErrors.length > 0) {
-                return NextResponse.json({ 
+                return NextResponse.json({
                     error: 'Invalid workflow plan',
-                    validation_errors: validationErrors 
+                    validation_errors: validationErrors
                 }, { status: 400 })
             }
         }
