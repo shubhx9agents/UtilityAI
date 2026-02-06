@@ -45,7 +45,7 @@ export default function DashboardLayout({
             try {
                 const res = await fetch('/api/admin/check')
                 const data = await res.json()
-                console.log('Admin check response:', data)
+                // console.log('Admin check response:', data)
                 setIsAdmin(data.isAdmin === true)
             } catch (error) {
                 console.error('Failed to check admin status:', error)
