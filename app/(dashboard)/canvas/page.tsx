@@ -47,7 +47,8 @@ import {
     FileText,
     Copy,
     Download,
-    MessageSquare
+    MessageSquare,
+    Upload
 } from 'lucide-react'
 import { Workflow, WorkflowPlan, WorkflowStep, AgentType, CanvasNode, CanvasEdge } from '@/types'
 import ReactMarkdown from 'react-markdown'
@@ -589,22 +590,44 @@ export default function CanvasPage() {
     }
 
     // Get required user inputs from workflow
-    const getRequiredInputs = (): string[] => {
+    const getRequiredInputs = (): Array<{ field: string, label: string, type: 'text' | 'image' }> => {
         if (!selectedWorkflow?.workflow_plan?.steps) return []
+
+        // Priority 1: Use user_input_specs from the first step if it exists (new logic)
+        const firstStep = selectedWorkflow.workflow_plan.steps[0]
+        if (firstStep?.input_mapping?.user_input_specs) {
+            return firstStep.input_mapping.user_input_specs
+        }
+
+        // Priority 2: Fallback to old from_user array extraction if specs are missing
         const seen = new Set<string>()
-        const inputs: string[] = []
+        const inputs: Array<{ field: string, label: string, type: 'text' | 'image' }> = []
         for (const step of selectedWorkflow.workflow_plan.steps) {
             if (step.input_mapping?.from_user) {
                 step.input_mapping.from_user.forEach(field => {
-                    const normalized = field.replace(/\s+/g, ' ').trim()
-                    const key = normalized.toLowerCase()
+                    const key = field.toLowerCase().trim()
                     if (!key || seen.has(key)) return
                     seen.add(key)
-                    inputs.push(normalized)
+                    inputs.push({
+                        field: key.replace(/\s+/g, '_'),
+                        label: field,
+                        type: 'text'
+                    })
                 })
             }
         }
         return inputs
+    }
+
+    const handleImageUpload = (field: string, file: File) => {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+            setUserInputs(prev => ({
+                ...prev,
+                [field]: reader.result as string
+            }))
+        }
+        reader.readAsDataURL(file)
     }
 
     useEffect(() => {
@@ -882,24 +905,65 @@ export default function CanvasPage() {
                                                             )
                                                         }
 
-                                                        const activeField = requiredInputs[inputStepIndex]
+                                                        const activeInput = requiredInputs[inputStepIndex]
                                                         return (
                                                             <div className="space-y-4">
                                                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                                                                     <span>Question {inputStepIndex + 1} of {requiredInputs.length}</span>
                                                                     <span>{Math.round(((inputStepIndex + 1) / requiredInputs.length) * 100)}% complete</span>
                                                                 </div>
-                                                                <div className="space-y-2">
-                                                                    <Label className="capitalize break-words">{activeField.replace(/_/g, ' ')}</Label>
-                                                                    <textarea
-                                                                        className="w-full min-h-[180px] p-3 border rounded-md bg-background text-sm resize-none"
-                                                                        value={userInputs[activeField] || ''}
-                                                                        onChange={(e) => setUserInputs({
-                                                                            ...userInputs,
-                                                                            [activeField]: e.target.value
-                                                                        })}
-                                                                        placeholder={`Enter ${activeField}...`}
-                                                                    />
+                                                                <div className="space-y-3">
+                                                                    <Label className="text-sm font-semibold">{activeInput.label}</Label>
+
+                                                                    {activeInput.type === 'image' ? (
+                                                                        <div className="space-y-3">
+                                                                            <div
+                                                                                className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:border-purple-400 transition-colors cursor-pointer bg-muted/30"
+                                                                                onClick={() => document.getElementById(`upload-${activeInput.field}`)?.click()}
+                                                                            >
+                                                                                <input
+                                                                                    type="file"
+                                                                                    id={`upload-${activeInput.field}`}
+                                                                                    className="hidden"
+                                                                                    accept="image/*"
+                                                                                    onChange={(e) => {
+                                                                                        const file = e.target.files?.[0]
+                                                                                        if (file) handleImageUpload(activeInput.field, file)
+                                                                                    }}
+                                                                                />
+                                                                                {userInputs[activeInput.field] ? (
+                                                                                    <div className="relative group">
+                                                                                        <img
+                                                                                            src={userInputs[activeInput.field]}
+                                                                                            alt="Preview"
+                                                                                            className="max-h-[200px] rounded-md shadow-sm"
+                                                                                        />
+                                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-md transition-opacity">
+                                                                                            <span className="text-white text-xs font-medium">Change Image</span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <Upload className="h-8 w-8 text-muted-foreground" />
+                                                                                        <div className="text-center">
+                                                                                            <p className="text-sm font-medium">Click to upload or drag and drop</p>
+                                                                                            <p className="text-xs text-muted-foreground mt-1">PNG, JPG or WEBP (max 5MB)</p>
+                                                                                        </div>
+                                                                                    </>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <textarea
+                                                                            className="w-full min-h-[180px] p-3 border rounded-md bg-background text-sm resize-none focus:ring-2 focus:ring-purple-500 transition-all outline-none"
+                                                                            value={userInputs[activeInput.field] || ''}
+                                                                            onChange={(e) => setUserInputs({
+                                                                                ...userInputs,
+                                                                                [activeInput.field]: e.target.value
+                                                                            })}
+                                                                            placeholder={`Enter ${activeInput.label.toLowerCase()}...`}
+                                                                        />
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         )

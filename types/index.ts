@@ -102,6 +102,7 @@ export type AgentType =
 export interface AgentConfig {
     system_message: string
     questions: string[]
+    image_fields?: string[]
 }
 
 export interface AgentRunRequest {
@@ -229,6 +230,11 @@ export interface StepInputMapping {
         session_strategy: 'use_latest' | 'use_all' | 'use_specific'
         session_ids?: string[]
     }
+    user_input_specs?: Array<{
+        field: string
+        label: string
+        type: 'text' | 'image'
+    }>
 }
 
 // Workflow Step Definition

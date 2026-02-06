@@ -13,6 +13,7 @@ import { AGENT_CONFIGS } from '@/lib/ai/agents'
 type AgentInputSpec = {
     agent_id: string
     questions: string[]
+    image_fields?: string[]
 }
 
 const normalizeInputLabel = (label: string): string => {
@@ -34,10 +35,14 @@ const dedupeInputs = (inputs: string[]): string[] => {
 
 const buildAgentInputSpecs = (agentIds: string[]): AgentInputSpec[] => {
     return agentIds
-        .map(agentId => ({
-            agent_id: agentId,
-            questions: AGENT_CONFIGS[agentId as keyof typeof AGENT_CONFIGS]?.questions || []
-        }))
+        .map(agentId => {
+            const config = AGENT_CONFIGS[agentId as keyof typeof AGENT_CONFIGS]
+            return {
+                agent_id: agentId,
+                questions: config?.questions || [],
+                image_fields: config?.image_fields || []
+            }
+        })
         .filter(spec => spec.questions.length > 0)
 }
 
@@ -51,7 +56,7 @@ const extractAgentIdsFromPlan = (plan: any): string[] => {
     return Array.from(agentIds)
 }
 
-const parseJsonArray = (raw: string): string[] => {
+const parseJsonOutput = (raw: string): any[] => {
     let jsonStr = raw.trim()
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
     if (jsonMatch) {
@@ -61,34 +66,53 @@ const parseJsonArray = (raw: string): string[] => {
     if (arrayMatch) {
         jsonStr = arrayMatch[0]
     }
-    const parsed = JSON.parse(jsonStr)
-    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : []
+    try {
+        const parsed = JSON.parse(jsonStr)
+        return Array.isArray(parsed) ? parsed : []
+    } catch (e) {
+        console.warn('Failed to parse JSON output:', e)
+        return []
+    }
 }
 
 const buildCombinedInputs = async (
     agentIds: string[],
     existingInputs: string[],
     groqApiKey: string
-): Promise<string[]> => {
+): Promise<Array<{ field: string, label: string, type: 'text' | 'image' }>> => {
     const specs = buildAgentInputSpecs(agentIds)
-    const fallbackInputs = dedupeInputs([
+
+    // Fallback logic
+    const allQuestions = Array.from(new Set([
         ...existingInputs,
         ...specs.flatMap(spec => spec.questions)
-    ])
+    ]))
+
+    const fallbackInputs = allQuestions.map(q => {
+        const isImage = specs.some(s => s.image_fields?.includes(q))
+        return {
+            field: q.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+            label: q,
+            type: (isImage ? 'image' : 'text') as 'text' | 'image'
+        }
+    })
 
     if (specs.length === 0) return fallbackInputs
 
-    const prompt = `You are combining input fields for a multi-agent workflow.
+    const prompt = `You are designing a unified input form for a multi-agent AI workflow.
+Your goal is to merge questions from multiple agents into a single, cohesive list of USER INPUTS.
 
-Each agent has its own input questions. Merge them into a single, deduplicated list of user inputs for the workflow.
-You may add missing but necessary inputs if the combined workflow would need them.
+RULES:
+1. MAX 10 questions total.
+2. If multiple agents ask for similar info (e.g., "Target Audience" and "Who is the audience?"), merge them into ONE question.
+3. Preserve the "type": "image" for fields that require image uploads (like base images or user photos).
+4. Return ONLY a JSON array of objects with this structure:
+   [{"field": "variable_name", "label": "Human Friendly Label", "type": "text" | "image"}]
 
-Return ONLY a JSON array of strings. Keep each string short, human-friendly, and specific.
-
-Agents and their questions:
+Agents and their specific questions:
 ${JSON.stringify(specs, null, 2)}
 
-Existing workflow inputs (if any):
+Existing workflow inputs to consider:
 ${JSON.stringify(existingInputs, null, 2)}
 `
 
@@ -102,35 +126,43 @@ ${JSON.stringify(existingInputs, null, 2)}
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
                 messages: [
-                    { role: 'system', content: 'You are a precise workflow input planner. Return only JSON arrays.' },
+                    { role: 'system', content: 'You are a precise workflow architect. You merge complex requirements into simple forms.' },
                     { role: 'user', content: prompt }
                 ],
                 temperature: 0.2,
-                max_tokens: 600
+                max_tokens: 1000
             })
         })
 
-        if (!response.ok) {
-            return fallbackInputs
-        }
+        if (!response.ok) return fallbackInputs
 
         const data = await response.json()
         const llmResponse = data.choices?.[0]?.message?.content || ''
-        const parsed = parseJsonArray(llmResponse)
-        return dedupeInputs([...parsed, ...fallbackInputs])
+        const parsed = parseJsonOutput(llmResponse)
+
+        if (parsed.length === 0) return fallbackInputs
+
+        // Ensure valid structure and limit to 10
+        return parsed.slice(0, 10).map((item: any) => ({
+            field: item.field || 'input',
+            label: item.label || 'Input',
+            type: item.type === 'image' ? 'image' : 'text'
+        }))
     } catch (error) {
         console.warn('Combined input generation failed:', error)
         return fallbackInputs
     }
 }
 
-const applyCombinedInputsToPlan = (plan: any, combinedInputs: string[]) => {
+const applyCombinedInputsToPlan = (plan: any, combinedInputs: Array<{ field: string, label: string, type: 'text' | 'image' }>) => {
     if (!plan?.steps || !Array.isArray(plan.steps) || combinedInputs.length === 0) return
+    const fields = combinedInputs.map(i => i.field)
     for (const step of plan.steps) {
         if (!step.input_mapping) {
             step.input_mapping = {}
         }
-        step.input_mapping.from_user = combinedInputs
+        step.input_mapping.from_user = fields
+        step.input_mapping.user_input_specs = combinedInputs
     }
 }
 

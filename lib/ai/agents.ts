@@ -69,10 +69,12 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     image_generation: {
         system_message: 'Professional AI image editing prompts.',
         questions: ['Base Image', 'Instructional Prompt', 'Reference Image (Optional)'],
+        image_fields: ['Base Image', 'Reference Image (Optional)'],
     },
     linkedin_headshot: {
         system_message: 'Generate a professional LinkedIn headshot from any image.',
         questions: ['User Image'],
+        image_fields: ['User Image'],
     },
 }
 
@@ -400,6 +402,9 @@ ${userInput}`
             const refinedPrompt = groqData.choices?.[0]?.message?.content || userInput
 
             // 2. BytePlus
+            // Dynamically find images in context (as Canvas uses dynamic field names)
+            const contextImages = Object.values(context).filter(val => typeof val === 'string' && val.startsWith('data:image/'))
+
             const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
                 method: 'POST',
                 headers: {
@@ -409,7 +414,7 @@ ${userInput}`
                 body: JSON.stringify({
                     model: 'seedream-4-0-250828',
                     prompt: refinedPrompt,
-                    image: [
+                    image: contextImages.length > 0 ? contextImages.slice(0, 2) : [
                         context.base_image,
                         context.reference_image
                     ].filter(Boolean),
@@ -495,6 +500,9 @@ ${userInput}`
             const refinedPrompt = groqData.choices?.[0]?.message?.content || "Professional LinkedIn headshot, corporate style, high quality"
 
             // 2. BytePlus Call
+            // Dynamically find images in context (as Canvas uses dynamic field names)
+            const contextImages = Object.values(context).filter(val => typeof val === 'string' && val.startsWith('data:image/'))
+
             const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
                 method: 'POST',
                 headers: {
@@ -504,7 +512,7 @@ ${userInput}`
                 body: JSON.stringify({
                     model: 'seedream-4-0-250828',
                     prompt: refinedPrompt,
-                    image: [
+                    image: contextImages.length > 0 ? [contextImages[0]] : [
                         context.user_image
                     ].filter(Boolean),
                     response_format: 'url',

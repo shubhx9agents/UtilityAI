@@ -288,9 +288,12 @@ export class WorkflowExecutionService {
             inputString += 'Context from previous steps:\n' + previousOutputs.join('\n\n') + '\n\n'
         }
 
-        // Add user inputs
+        // Add user inputs (Filter out base64 for the text prompt)
         const userFields = Object.entries(input)
-            .filter(([key]) => !key.includes('_output') && !key.includes('_response') && key !== 'history_context')
+            .filter(([key, value]) => {
+                const isImage = typeof value === 'string' && value.startsWith('data:image/')
+                return !key.includes('_output') && !key.includes('_response') && key !== 'history_context' && !isImage
+            })
             .map(([key, value]) => `${key}: ${value}`)
 
         if (userFields.length > 0) {
