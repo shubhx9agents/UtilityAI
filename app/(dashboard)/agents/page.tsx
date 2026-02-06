@@ -39,25 +39,11 @@ const agents = [
         color: 'bg-blue-600',
     },
     {
-        id: 'email_sequence',
-        name: 'Email Campaign',
-        description: 'Design complete email sequences and campaigns',
-        icon: Mail,
-        color: 'bg-cyan-500',
-    },
-    {
         id: 'ad_copy',
         name: 'Ad Copy Generator',
         description: 'Generate high-converting ad variations in CSV format',
         icon: Share2,
         color: 'bg-orange-500',
-    },
-    {
-        id: 'sales_script',
-        name: 'Sales Scripts',
-        description: 'Perfect your sales pitch and objection handling',
-        icon: Phone,
-        color: 'bg-green-500',
     },
 ]
 
@@ -67,7 +53,7 @@ export default function AgentsPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">AI Agents</h1>
                 <p className="text-muted-foreground mt-2">
-                    Choose from 6 specialized AI agents to accelerate your business
+                    Choose from 4 specialized AI agents to accelerate your business
                 </p>
             </div>
 

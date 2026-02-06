@@ -13,27 +13,9 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
         system_message: 'AI-ready image and logo prompts.',
         questions: ['Brand style', 'Color preferences', 'Visual themes'],
     },
-    sales_script: {
-        system_message: 'Professional sales scripts and pitch guidance.',
-        questions: [
-            'Sales scenario (cold call / field sales / B2B / B2C / event pitching, etc.)',
-            'Product or service details',
-            'Target customer pain points',
-            'Additional context or constraints (region, pricing tier, objections, tone, etc.)',
-        ],
-    },
     landing_page: {
         system_message: 'High-converting landing page copy.',
         questions: ['Page goal', 'Unique value proposition', 'Key features'],
-    },
-    email_sequence: {
-        system_message: 'Ready-to-send marketing and sales email sequences.',
-        questions: [
-            'Campaign type (cold outreach, follow-up, nurturing, re-engagement, launch, etc.)',
-            'Audience segment (persona, role, industry, seniority)',
-            'Campaign goal (book a call, demo signup, awareness, conversion)',
-            'Additional context (brand tone, region, urgency, compliance notes)',
-        ],
     },
     social_media: {
         system_message: 'Post ideas and hashtag strategies.',
@@ -319,11 +301,6 @@ ${userInput}`
         let systemPrompt = config.system_message
 
         // Detailed internal prompts for specific agents to ensure quality regardless of UI minimalistic text
-        if (agentType === 'sales_script') {
-            systemPrompt = "You are a Sales Script Agent. Generate actionable, on-ground–ready sales guidance for sales representatives doing cold calls, in-person pitching, or mass presentations. Your output must include: 1) Sales Highlights (Core value proposition, key pain points mapped to solutions, objection handling, closing hooks/CTA), 2) Pitch Guidance (Slide-by-slide deck outline, talking points per slide, suggested tone, time allocation, and delivery tips). Format your response professionally using Markdown."
-        } else if (agentType === 'email_sequence') {
-            systemPrompt = "You are an Email Sequence Agent. Generate ready-to-send email sequences for different marketing and sales campaigns.\n\nSTRICT FORMATTING RULE: For each email, you MUST follow this structure exactly:\n**Subject: [Subject Line]**\n\n[Body Content]\n\n---\n\nEnsure there is at least one empty line between the Subject and the Body. Do not merge lines. Body copy should be optimized for response rate and include appropriate emojis. The output must be professionally formatted and ready for easy copy-pasting."
-        }
 
         try {
             const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {

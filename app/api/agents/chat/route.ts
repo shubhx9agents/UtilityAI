@@ -35,8 +35,6 @@ export async function POST(request: NextRequest) {
         const systemMessages: Record<string, string> = {
             deep_research: 'You are a strategic market and competitor research expert. Provide detailed, actionable insights based on the conversation. Use markdown formatting for clarity.',
             image_generation: 'You are an AI image generation expert. Help users refine their image prompts and provide creative suggestions. Discuss composition, style, colors, and visual elements.',
-            email_sequence: 'You are an email marketing expert. Help users craft compelling email campaigns, subject lines, and sequences. Provide strategic advice on timing, personalization, and conversion optimization.',
-            sales_script: 'You are a professional sales coach. Help users develop effective sales scripts, handle objections, and improve their pitch. Provide actionable advice for different sales scenarios.',
             business_snapshot: 'You are a business strategy expert. Help users define their business profile, value proposition, and core offerings.',
             ad_copy: 'You are a professional copywriter specializing in advertising. Create compelling, high-converting ad copy for various platforms.',
             graphics: 'You are a visual design director. helping users describe and plan visual assets for their brand.',

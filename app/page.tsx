@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Sparkles, Zap, Target, TrendingUp, Shield, Rocket } from 'lucide-react'
+import { Sparkles, TrendingUp, Rocket, Image, Search, Share2 } from 'lucide-react'
 
 export default function HomePage() {
   return (
@@ -25,8 +25,7 @@ export default function HomePage() {
             <span className="text-2xl font-bold text-white">UtilityAI</span>
           </div>
           <nav className="hidden md:flex items-center space-x-8">
-            <Link href="#features" className="text-gray-300 hover:text-white transition-colors">Features</Link>
-            <Link href="#agents" className="text-gray-300 hover:text-white transition-colors">AI Agents</Link>
+            <a href="#agents" className="text-gray-300 hover:text-white transition-colors">AI Agents</a>
             <Link href="/login" className="text-gray-300 hover:text-white transition-colors">Sign In</Link>
             <Link href="/register">
               <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
@@ -43,12 +42,12 @@ export default function HomePage() {
               {/* Badge */}
               <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 animate-scale-in">
                 <Sparkles className="h-4 w-4 text-purple-400" />
-                <span className="text-sm text-gray-200">5 AI-Powered Agents Ready</span>
+                <span className="text-sm text-gray-200">4 AI-Powered Agents Ready</span>
               </div>
 
               {/* Main Heading */}
               <div className="space-y-4 max-w-4xl">
-                <h1 className="text-5xl font-bold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl">
+                <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
                   <span className="text-white">Transform Your Business</span>
                   <br />
                   <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent animate-gradient">
@@ -69,17 +68,13 @@ export default function HomePage() {
                     Start Free Trial
                   </Button>
                 </Link>
-                <Link href="#features" className="w-full sm:w-auto">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto border-white/20 bg-white/5 backdrop-blur-sm text-white hover:bg-white/10 hover:border-white/30">
-                    Explore Features
-                  </Button>
-                </Link>
+
               </div>
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-8 mt-12 w-full max-w-2xl animate-fade-in" style={{ animationDelay: '0.4s' }}>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-white mb-1">5+</div>
+                  <div className="text-3xl font-bold text-white mb-1">4+</div>
                   <div className="text-sm text-gray-400">AI Agents</div>
                 </div>
                 <div className="text-center">
@@ -96,44 +91,32 @@ export default function HomePage() {
         </main>
 
         {/* Features Section */}
-        <section id="features" className="container mx-auto px-4 py-20">
+        <section id="agents" className="container mx-auto px-4 py-20">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                icon: Sparkles,
-                title: 'Ad Copy Generator',
-                desc: 'Create compelling ads that convert',
-                color: 'from-blue-500 to-cyan-500'
-              },
-              {
-                icon: Target,
+                icon: Search,
                 title: 'Deep Research',
                 desc: 'AI-powered market analysis',
                 color: 'from-purple-500 to-pink-500'
               },
               {
-                icon: Zap,
-                title: 'Sales Scripts',
-                desc: 'Perfect your pitch instantly',
-                color: 'from-orange-500 to-red-500'
+                icon: Image,
+                title: 'Ad Image Generation',
+                desc: 'Create compelling visuals',
+                color: 'from-rose-500 to-orange-500'
+              },
+              {
+                icon: Share2,
+                title: 'Ad Copy Generator',
+                desc: 'Convert more visitors',
+                color: 'from-orange-500 to-yellow-500'
               },
               {
                 icon: TrendingUp,
-                title: 'Growth & CRO',
-                desc: 'Optimize your conversion funnel',
-                color: 'from-green-500 to-emerald-500'
-              },
-              {
-                icon: Shield,
-                title: 'Business Strategy',
-                desc: 'Data-driven strategic planning',
-                color: 'from-indigo-500 to-purple-500'
-              },
-              {
-                icon: Rocket,
-                title: 'Landing Pages',
-                desc: 'Convert more visitors to customers',
-                color: 'from-pink-500 to-rose-500'
+                title: 'LinkedIn Headshot',
+                desc: 'Professional profile photos',
+                color: 'from-blue-500 to-cyan-500'
               },
             ].map((feature, index) => (
               <div
@@ -155,11 +138,6 @@ export default function HomePage() {
         <footer className="container mx-auto px-4 py-8 border-t border-white/10">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-gray-400">© 2026 UtilityAI. All rights reserved.</p>
-            <div className="flex items-center space-x-6">
-              <Link href="#" className="text-sm text-gray-400 hover:text-white transition-colors">Privacy</Link>
-              <Link href="#" className="text-sm text-gray-400 hover:text-white transition-colors">Terms</Link>
-              <Link href="#" className="text-sm text-gray-400 hover:text-white transition-colors">Contact</Link>
-            </div>
           </div>
         </footer>
       </div>

@@ -180,9 +180,26 @@ export function AgentSessionHistory({ agentType, onSessionRestore, currentSessio
                                                                     })}
                                                                 </p>
                                                                 {session.response && (
-                                                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-all">
-                                                                        {session.response.substring(0, 60)}...
-                                                                    </p>
+                                                                    (agentType === 'linkedin_headshot' || agentType === 'image_generation') && session.response.startsWith('http') ? (
+                                                                        <div className="mt-2 rounded-md overflow-hidden border border-border bg-muted/50 flex items-center justify-start p-1 w-fit">
+                                                                            <img
+                                                                                src={session.response}
+                                                                                alt="Generated preview"
+                                                                                className="h-16 w-auto object-contain rounded-sm"
+                                                                                onError={(e) => {
+                                                                                    e.currentTarget.style.display = 'none';
+                                                                                    e.currentTarget.parentElement?.classList.add('p-2');
+                                                                                    const span = document.createElement('span');
+                                                                                    span.textContent = 'Expired';
+                                                                                    e.currentTarget.parentElement?.appendChild(span);
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-all">
+                                                                            {session.response.substring(0, 60)}...
+                                                                        </p>
+                                                                    )
                                                                 )}
                                                             </div>
                                                             <div className="flex items-center space-x-1 shrink-0">

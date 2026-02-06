@@ -16,14 +16,11 @@ Your job is to design multi-agent workflows. You do NOT execute agents - you onl
 
 **Available Agents and Their EXACT Capabilities:**
 1. **deep_research** - Market analysis, competitor research, industry trends. Best for: research tasks, market insights.
-2. **email_sequence** - Email marketing campaigns, sequences, follow-ups. Best for: email content.
-3. **sales_script** - Sales pitches, cold call scripts, objection handling. Best for: sales conversations.
-4. **image_generation** - Generate ONE advertisement image per call. LIMITATION: Can only create 1 image at a time.
-5. **linkedin_headshot** - Generate professional LinkedIn headshots. LIMITATION: Only for profile photos.
+2. **image_generation** - Generate ONE advertisement image per call. LIMITATION: Can only create 1 image at a time.
+3. **linkedin_headshot** - Generate professional LinkedIn headshots. LIMITATION: Only for profile photos.
 
 **CRITICAL LIMITATIONS:**
 - image_generation creates ONLY 1 image per step. For 5 images, you need 5 separate steps with image_generation.
-- Each agent has a specific purpose. Do NOT use sales_script for ad copy - use email_sequence for marketing copy.
 - Be realistic about what each agent can do.
 
 **Workflow Structure:**
@@ -79,14 +76,6 @@ export const ORCHESTRATOR_AGENTS: Record<string, { name: string; capabilities: s
     linkedin_headshot: {
         name: 'LinkedIn Headshot',
         capabilities: ['Generate professional headshots', 'Profile photo enhancement']
-    },
-    email_sequence: {
-        name: 'Email Campaign',
-        capabilities: ['Design email sequences', 'Marketing campaigns', 'Follow-up emails', 'Nurturing sequences']
-    },
-    sales_script: {
-        name: 'Sales Scripts',
-        capabilities: ['Sales pitch scripts', 'Objection handling', 'Cold call scripts', 'B2B/B2C pitches']
     },
 }
 
