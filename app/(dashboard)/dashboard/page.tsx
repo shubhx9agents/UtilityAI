@@ -25,7 +25,7 @@ const quickActions = [
     },
     {
         title: 'AI Agents',
-        description: 'Access 6 specialized AI agents',
+        description: 'Access 4 specialized AI agents',
         href: '/agents',
         icon: Zap,
         color: 'text-purple-500',
@@ -40,7 +40,7 @@ const quickActions = [
 ]
 
 const stats = [
-    { name: 'AI Agents', value: '6', icon: Sparkles },
+    { name: 'AI Agents', value: '4', icon: Sparkles },
     { name: 'Active Sessions', value: '12', icon: Zap },
 ]
 
@@ -61,9 +61,11 @@ export default function DashboardPage() {
                             Your AI credits are healthy with <span className="font-semibold">850 tokens</span> remaining for this billing cycle.
                         </p>
                     </div>
-                    <Button className="bg-white text-purple-600 hover:bg-white/90 font-semibold px-4 sm:px-6 w-full sm:w-auto">
-                        Upgrade Plan
-                    </Button>
+                    <Link href="/upgrade">
+                        <Button className="bg-white text-purple-600 hover:bg-white/90 font-semibold px-4 sm:px-6 w-full sm:w-auto">
+                            Upgrade Plan
+                        </Button>
+                    </Link>
                 </div>
             </div>
 
@@ -83,29 +85,33 @@ export default function DashboardPage() {
                     </button>
                 </Link>
 
-                <button className="group bg-card hover:bg-accent border border-border rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg text-left">
-                    <div className="flex flex-col items-center text-center space-y-3">
-                        <div className="icon-badge icon-badge-cyan">
-                            <Layers className="h-6 w-6" />
+                <Link href="/canvas">
+                    <button className="group bg-card hover:bg-accent border border-border rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg text-left w-full">
+                        <div className="flex flex-col items-center text-center space-y-3">
+                            <div className="icon-badge icon-badge-cyan">
+                                <Layers className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-foreground">Edit Project</h3>
+                                <p className="text-sm text-muted-foreground">Continue working</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="font-semibold text-foreground">Edit Project</h3>
-                            <p className="text-sm text-muted-foreground">Continue working</p>
-                        </div>
-                    </div>
-                </button>
+                    </button>
+                </Link>
 
-                <button className="group bg-card hover:bg-accent border border-border rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg text-left">
-                    <div className="flex flex-col items-center text-center space-y-3">
-                        <div className="icon-badge icon-badge-purple">
-                            <Target className="h-6 w-6" />
+                <Link href="/voice">
+                    <button className="group bg-card hover:bg-accent border border-border rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg text-left w-full">
+                        <div className="flex flex-col items-center text-center space-y-3">
+                            <div className="icon-badge icon-badge-purple">
+                                <Target className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-foreground">Voice Command</h3>
+                                <p className="text-sm text-muted-foreground">Quick AI request</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="font-semibold text-foreground">Voice Command</h3>
-                            <p className="text-sm text-muted-foreground">Quick AI request</p>
-                        </div>
-                    </div>
-                </button>
+                    </button>
+                </Link>
             </div>
 
             {/* Stats Grid */}
@@ -163,52 +169,6 @@ export default function DashboardPage() {
                                         <div>
                                             <CardTitle className="text-lg group-hover:text-primary transition-colors">Ad Image Generation</CardTitle>
                                             <CardDescription>AI-powered ad visuals</CardDescription>
-                                        </div>
-                                    </div>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                        </Card>
-                    </Link>
-
-                    <Link href="/agents/email_sequence">
-                        <Card className="card-hover cursor-pointer group border-border bg-card">
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="icon-badge icon-badge-cyan">
-                                            <GitBranch className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">Email Campaign</CardTitle>
-                                            <CardDescription>Complete email sequences</CardDescription>
-                                        </div>
-                                    </div>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                        </Card>
-                    </Link>
-
-                    <Link href="/agents/sales_script">
-                        <Card className="card-hover cursor-pointer group border-border bg-card">
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="icon-badge icon-badge-blue">
-                                            <FolderOpen className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">Sales Scripts</CardTitle>
-                                            <CardDescription>Perfect your pitch</CardDescription>
                                         </div>
                                     </div>
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -296,7 +256,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="text-sm">Explore premium features</span>
-                        <Link href="/pricing">
+                        <Link href="/upgrade">
                             <Button size="sm" variant="outline">View Plans</Button>
                         </Link>
                     </div>

@@ -62,7 +62,7 @@ export default function AgentPage() {
     }
 
     // Check if this agent supports chat
-    // const chatEnabledAgents = ['deep_research', 'image_generation', 'email_sequence', 'sales_script']
+    // const chatEnabledAgents = ['deep_research', 'image_generation', 'linkedin_headshot', 'ad_copy']
     // const isChatEnabled = chatEnabledAgents.includes(agentId)
     const isChatEnabled = true
 
@@ -190,7 +190,7 @@ export default function AgentPage() {
             toast.success('Download started')
         } catch (error) {
             console.error('Download error:', error)
-            toast.error('Failed to download image')
+            toast.error('Failed to download: URL likely expired')
         }
     }
 
@@ -567,7 +567,7 @@ export default function AgentPage() {
                                         </>
                                     )}
                                 </div>
-                                <div id="report-content" className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-6 bg-background min-h-[400px]">
+                                <div id="report-content" className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-6 bg-background h-[600px] max-h-[80vh] overflow-y-auto">
                                     {agentId === 'ad_copy' ? (
                                         <div className="overflow-x-auto">
                                             <Table>
@@ -591,7 +591,24 @@ export default function AgentPage() {
                                         </div>
                                     ) : (agentId === 'image_generation' || agentId === 'linkedin_headshot') && response.startsWith('http') ? (
                                         <div className="flex justify-center">
-                                            <img src={response} alt="Generated Asset" className="max-w-full rounded-lg shadow-lg" />
+                                            <img
+                                                src={response}
+                                                alt="Generated Asset"
+                                                className="max-w-full rounded-lg shadow-lg"
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                    const parent = e.currentTarget.parentElement;
+                                                    if (parent) {
+                                                        parent.innerHTML = `
+                                                            <div class="flex flex-col items-center justify-center p-12 bg-muted rounded-lg border border-dashed border-border text-center">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-muted-foreground opacity-50"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                                                <h3 class="font-semibold text-lg">Image Expired</h3>
+                                                                <p class="text-sm text-muted-foreground mt-2 max-w-xs">The temporary link for this image has expired. Please generate a new image.</p>
+                                                            </div>
+                                                        `;
+                                                    }
+                                                }}
+                                            />
                                         </div>
                                     ) : (
                                         <div className="markdown-container prose dark:prose-invert max-w-none">
