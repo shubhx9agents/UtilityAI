@@ -43,9 +43,17 @@ import {
     Eye,
     History,
     Timer,
-    BarChart3
+    BarChart3,
+    FileText,
+    Copy,
+    Download,
+    MessageSquare
 } from 'lucide-react'
 import { Workflow, WorkflowPlan, WorkflowStep, AgentType, CanvasNode, CanvasEdge } from '@/types'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { toast } from 'sonner'
 
 interface OrchestratorAgent {
     id: string
@@ -80,11 +88,13 @@ export default function CanvasPage() {
     const [selectedAgents, setSelectedAgents] = useState<string[]>([])
     const [workflowMode, setWorkflowMode] = useState<'sequential' | 'parallel'>('sequential')
     const [userInputs, setUserInputs] = useState<Record<string, string>>({})
+    const [inputStepIndex, setInputStepIndex] = useState(0)
 
     // Execution state
     const [isExecuting, setIsExecuting] = useState(false)
     const [executionResult, setExecutionResult] = useState<any>(null)
     const [stepStatuses, setStepStatuses] = useState<Record<string, StepStatus>>({})
+    const [selectedResultStepId, setSelectedResultStepId] = useState<string | null>(null)
 
     // Progress tracking state
     const [executionProgress, setExecutionProgress] = useState(0)
@@ -117,6 +127,147 @@ export default function CanvasPage() {
         }
         return () => clearInterval(interval)
     }, [isExecuting, executionStartTime])
+
+    useEffect(() => {
+        if (!showResultsDialog) return
+        // Default to summary if available, otherwise first step
+        if (executionResult?.final_result?.summary) {
+            setSelectedResultStepId('__summary__')
+        } else {
+            const stepIds = executionResult?.step_results ? Object.keys(executionResult.step_results) : []
+            if (stepIds.length > 0) {
+                setSelectedResultStepId(stepIds[0])
+            } else {
+                setSelectedResultStepId(null)
+            }
+        }
+    }, [showResultsDialog, executionResult?.step_results])
+
+    const parseCSV = (csvText: string): string[][] => {
+        const lines = csvText.split('\n').filter(line => line.trim())
+        return lines.map(line => {
+            const matches = line.match(/(?:"([^"]*)"|([^,]+))/g)
+            return matches ? matches.map(m => m.replace(/^"|"$/g, '').trim()) : []
+        })
+    }
+
+    const copyToClipboard = (content: string) => {
+        navigator.clipboard.writeText(content)
+        toast.success('Copied to clipboard')
+    }
+
+    const downloadAsFile = (content: string, stepId: string, type: 'md' | 'csv' | 'jpeg', agentType?: string) => {
+        const element = document.createElement('a')
+        if (type === 'jpeg') {
+            // Count image steps to determine image number
+            let imageNumber = 1
+            if (executionResult?.step_results) {
+                const stepIds = Object.keys(executionResult.step_results)
+                const imageSteps = stepIds.filter(id => {
+                    const result = executionResult.step_results[id]
+                    return result?.agent_type === 'image_generation' || result?.agent_type === 'linkedin_headshot'
+                })
+                const currentIndex = imageSteps.indexOf(stepId)
+                if (currentIndex !== -1) {
+                    imageNumber = currentIndex + 1
+                }
+            }
+            const workflowName = selectedWorkflow?.name || 'Workflow'
+            const sanitizedName = workflowName.replace(/[^a-zA-Z0-9]/g, '_')
+            const filename = `${sanitizedName}_Image_${imageNumber}`
+
+            // Download image with custom name
+            fetch(content)
+                .then(res => res.blob())
+                .then(blob => {
+                    const url = URL.createObjectURL(blob)
+                    element.href = url
+                    element.download = `${filename}.jpg`
+                    document.body.appendChild(element)
+                    element.click()
+                    document.body.removeChild(element)
+                    URL.revokeObjectURL(url)
+                    toast.success('Image downloaded')
+                })
+                .catch(() => {
+                    // Fallback to proxy method
+                    const downloadUrl = `/api/download?url=${encodeURIComponent(content)}`
+                    window.location.href = downloadUrl
+                    toast.success('Download started')
+                })
+            return
+        }
+        const blobType = type === 'md' ? 'text/markdown' : 'text/csv'
+        const file = new Blob([content], { type: blobType })
+        element.href = URL.createObjectURL(file)
+        element.download = `${stepId}.${type}`
+        document.body.appendChild(element)
+        element.click()
+        document.body.removeChild(element)
+        toast.success(`Downloaded as ${type.toUpperCase()}`)
+    }
+
+    const downloadAsPDF = (content: string, stepId: string) => {
+        const newWindow = window.open('', '_blank')
+        if (newWindow) {
+            // Convert markdown to HTML with proper table handling
+            let htmlContent = content
+
+            // Convert markdown tables to HTML tables
+            // Pattern matches: |header|...\n|---|...\n|row|...
+            const tableRegex = new RegExp('\\|(.+)\\|\\n\\|[\\-\\:\\s\\|]+\\|\\n((?:\\|.+\\|\\n?)+)', 'g')
+            htmlContent = htmlContent.replace(tableRegex, (match, header, rows) => {
+                const headerCells = header.split('|').filter((cell: string) => cell.trim()).map((cell: string) => `<th>${cell.trim()}</th>`).join('')
+                const bodyRows = rows.trim().split('\n').map((row: string) => {
+                    const cells = row.split('|').filter((cell: string) => cell.trim()).map((cell: string) => `<td>${cell.trim()}</td>`).join('')
+                    return `<tr>${cells}</tr>`
+                }).join('')
+                return `<table><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`
+            })
+
+            // Convert other markdown elements
+            htmlContent = htmlContent
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/^- (.+)$/gm, '<li>$1</li>')
+                .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+                .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n/g, '<br>')
+
+            htmlContent = '<p>' + htmlContent + '</p>'
+
+            newWindow.document.write('<html><head><title>' + stepId + '</title>')
+            newWindow.document.write(`<style>
+                body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; max-width: 900px; margin: 0 auto; }
+                h1 { font-size: 28px; margin-top: 32px; margin-bottom: 16px; font-weight: 700; }
+                h2 { font-size: 24px; margin-top: 28px; margin-bottom: 14px; font-weight: 600; }
+                h3 { font-size: 20px; margin-top: 24px; margin-bottom: 12px; font-weight: 600; }
+                p { margin-bottom: 12px; line-height: 1.7; }
+                ul, ol { margin-left: 24px; margin-bottom: 16px; line-height: 1.7; }
+                li { margin-bottom: 6px; }
+                code { background: #f3f4f6; padding: 3px 8px; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
+                pre { background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+                table { border-collapse: collapse; width: 100%; margin: 20px 0; border: 1px solid #e5e7eb; }
+                th { background: #f9fafb; border: 1px solid #e5e7eb; padding: 12px; text-align: left; font-weight: 600; }
+                td { border: 1px solid #e5e7eb; padding: 10px; }
+                tr:nth-child(even) { background: #f9fafb; }
+                strong { font-weight: 600; }
+                em { font-style: italic; }
+            </style>`)
+            newWindow.document.write('</head><body>')
+            newWindow.document.write('<div>' + htmlContent + '</div>')
+            newWindow.document.write('</body></html>')
+            newWindow.document.close()
+            newWindow.setTimeout(() => {
+                newWindow.print()
+                newWindow.close()
+            }, 500)
+        }
+    }
 
     const fetchWorkflows = async () => {
         try {
@@ -440,14 +591,27 @@ export default function CanvasPage() {
     // Get required user inputs from workflow
     const getRequiredInputs = (): string[] => {
         if (!selectedWorkflow?.workflow_plan?.steps) return []
-        const inputs = new Set<string>()
+        const seen = new Set<string>()
+        const inputs: string[] = []
         for (const step of selectedWorkflow.workflow_plan.steps) {
             if (step.input_mapping?.from_user) {
-                step.input_mapping.from_user.forEach(field => inputs.add(field))
+                step.input_mapping.from_user.forEach(field => {
+                    const normalized = field.replace(/\s+/g, ' ').trim()
+                    const key = normalized.toLowerCase()
+                    if (!key || seen.has(key)) return
+                    seen.add(key)
+                    inputs.push(normalized)
+                })
             }
         }
-        return Array.from(inputs)
+        return inputs
     }
+
+    useEffect(() => {
+        if (showExecuteDialog) {
+            setInputStepIndex(0)
+        }
+    }, [showExecuteDialog, selectedWorkflow?.id])
 
     if (isLoading && workflows.length === 0) {
         return (
@@ -691,51 +855,95 @@ export default function CanvasPage() {
                                                     Execute
                                                 </Button>
                                             </DialogTrigger>
-                                            <DialogContent>
+                                            <DialogContent className="max-w-xl w-[95vw] max-h-[85vh] overflow-hidden">
                                                 <DialogHeader>
                                                     <DialogTitle>Execute Workflow</DialogTitle>
                                                     <DialogDescription>
                                                         Provide inputs for the workflow
                                                     </DialogDescription>
                                                 </DialogHeader>
-                                                <div className="space-y-4 py-4">
-                                                    {getRequiredInputs().map(field => (
-                                                        <div key={field} className="space-y-2">
-                                                            <Label className="capitalize">{field.replace(/_/g, ' ')}</Label>
-                                                            <textarea
-                                                                className="w-full min-h-[80px] p-3 border rounded-md bg-background text-sm"
-                                                                value={userInputs[field] || ''}
-                                                                onChange={(e) => setUserInputs({
-                                                                    ...userInputs,
-                                                                    [field]: e.target.value
-                                                                })}
-                                                                placeholder={`Enter ${field}...`}
-                                                            />
-                                                        </div>
-                                                    ))}
-                                                    {getRequiredInputs().length === 0 && (
-                                                        <div className="space-y-2">
-                                                            <Label>General Input</Label>
-                                                            <textarea
-                                                                className="w-full min-h-[100px] p-3 border rounded-md bg-background text-sm"
-                                                                value={userInputs.user_input || ''}
-                                                                onChange={(e) => setUserInputs({
-                                                                    ...userInputs,
-                                                                    user_input: e.target.value
-                                                                })}
-                                                                placeholder="Enter your input for the workflow..."
-                                                            />
-                                                        </div>
-                                                    )}
+                                                <div className="py-4 overflow-y-auto max-h-[55vh] pr-1">
+                                                    {(() => {
+                                                        const requiredInputs = getRequiredInputs()
+                                                        if (requiredInputs.length === 0) {
+                                                            return (
+                                                                <div className="space-y-2">
+                                                                    <Label>General Input</Label>
+                                                                    <textarea
+                                                                        className="w-full min-h-[140px] p-3 border rounded-md bg-background text-sm resize-none"
+                                                                        value={userInputs.user_input || ''}
+                                                                        onChange={(e) => setUserInputs({
+                                                                            ...userInputs,
+                                                                            user_input: e.target.value
+                                                                        })}
+                                                                        placeholder="Enter your input for the workflow..."
+                                                                    />
+                                                                </div>
+                                                            )
+                                                        }
+
+                                                        const activeField = requiredInputs[inputStepIndex]
+                                                        return (
+                                                            <div className="space-y-4">
+                                                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                                    <span>Question {inputStepIndex + 1} of {requiredInputs.length}</span>
+                                                                    <span>{Math.round(((inputStepIndex + 1) / requiredInputs.length) * 100)}% complete</span>
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    <Label className="capitalize break-words">{activeField.replace(/_/g, ' ')}</Label>
+                                                                    <textarea
+                                                                        className="w-full min-h-[180px] p-3 border rounded-md bg-background text-sm resize-none"
+                                                                        value={userInputs[activeField] || ''}
+                                                                        onChange={(e) => setUserInputs({
+                                                                            ...userInputs,
+                                                                            [activeField]: e.target.value
+                                                                        })}
+                                                                        placeholder={`Enter ${activeField}...`}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    })()}
                                                 </div>
                                                 <DialogFooter>
-                                                    <Button variant="outline" onClick={() => setShowExecuteDialog(false)}>
-                                                        Cancel
-                                                    </Button>
-                                                    <Button onClick={executeWorkflow}>
-                                                        <Play className="h-4 w-4 mr-1" />
-                                                        Run Workflow
-                                                    </Button>
+                                                    {getRequiredInputs().length > 0 && (
+                                                        <div className="flex w-full items-center justify-between">
+                                                            <Button
+                                                                variant="outline"
+                                                                onClick={() => setInputStepIndex(prev => Math.max(prev - 1, 0))}
+                                                                disabled={inputStepIndex === 0}
+                                                            >
+                                                                Back
+                                                            </Button>
+                                                            <div className="flex gap-2">
+                                                                <Button variant="outline" onClick={() => setShowExecuteDialog(false)}>
+                                                                    Cancel
+                                                                </Button>
+                                                                {inputStepIndex < getRequiredInputs().length - 1 ? (
+                                                                    <Button onClick={() => setInputStepIndex(prev => Math.min(prev + 1, getRequiredInputs().length - 1))}>
+                                                                        Next
+                                                                        <ArrowRight className="h-4 w-4 ml-1" />
+                                                                    </Button>
+                                                                ) : (
+                                                                    <Button onClick={executeWorkflow}>
+                                                                        <Play className="h-4 w-4 mr-1" />
+                                                                        Run Workflow
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {getRequiredInputs().length === 0 && (
+                                                        <>
+                                                            <Button variant="outline" onClick={() => setShowExecuteDialog(false)}>
+                                                                Cancel
+                                                            </Button>
+                                                            <Button onClick={executeWorkflow}>
+                                                                <Play className="h-4 w-4 mr-1" />
+                                                                Run Workflow
+                                                            </Button>
+                                                        </>
+                                                    )}
                                                 </DialogFooter>
                                             </DialogContent>
                                         </Dialog>
@@ -827,7 +1035,7 @@ export default function CanvasPage() {
 
             {/* Results Dialog */}
             <Dialog open={showResultsDialog} onOpenChange={setShowResultsDialog}>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-7xl w-[98vw] max-h-[95vh] overflow-hidden flex flex-col">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             {executionResult?.status === 'completed' ? (
@@ -838,51 +1046,183 @@ export default function CanvasPage() {
                             Workflow Results
                         </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        {executionResult?.final_result?.summary && (
-                            <div className="space-y-2">
-                                <Label className="text-lg font-semibold">Summary</Label>
-                                <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm">
-                                    {executionResult.final_result.summary}
-                                </div>
+                    <div className="py-2">
+                        {executionResult?.error && (
+                            <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-500 rounded-lg mb-3">
+                                <p className="text-sm text-red-600 dark:text-red-400">{executionResult.error}</p>
                             </div>
                         )}
 
-                        {executionResult?.step_results && (
-                            <div className="space-y-2">
-                                <Label className="text-lg font-semibold">Step Results</Label>
-                                <div className="space-y-3">
-                                    {Object.entries(executionResult.step_results).map(([stepId, result]: [string, any]) => (
-                                        <div key={stepId} className="border rounded-lg p-4">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                {result.error ? (
-                                                    <XCircle className="h-4 w-4 text-red-500" />
-                                                ) : (
-                                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                                )}
-                                                <span className="font-medium">{stepId}</span>
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-[75vh]">
+                            <div className="border rounded-lg p-3 flex flex-col lg:col-span-1">
+                                <Label className="text-sm font-semibold mb-2">Steps</Label>
+                                <ScrollArea className="flex-1">
+                                    <div className="space-y-1.5 pr-2">
+                                        {executionResult?.final_result?.summary && (
+                                            <button
+                                                type="button"
+                                                className={`w-full text-left p-2.5 rounded-md border transition-colors ${selectedResultStepId === '__summary__'
+                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
+                                                    : 'hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
+                                                    }`}
+                                                onClick={() => setSelectedResultStepId('__summary__')}
+                                            >
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <MessageSquare className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                                                    <span className="text-xs font-medium truncate">Summary</span>
+                                                </div>
+                                                <span className="text-[10px] text-muted-foreground truncate block">Workflow Summary</span>
+                                            </button>
+                                        )}
+                                        {executionResult?.step_results && Object.entries(executionResult.step_results).map(([stepId, result]: [string, any]) => (
+                                            <button
+                                                key={stepId}
+                                                type="button"
+                                                className={`w-full text-left p-2.5 rounded-md border transition-colors ${selectedResultStepId === stepId
+                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
+                                                    : 'hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
+                                                    }`}
+                                                onClick={() => setSelectedResultStepId(stepId)}
+                                            >
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    {result.error ? (
+                                                        <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                                                    ) : (
+                                                        <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                                                    )}
+                                                    <span className="text-xs font-medium truncate">{stepId}</span>
+                                                </div>
                                                 {result.agent_type && (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        ({result.agent_type})
-                                                    </span>
+                                                    <span className="text-[10px] text-muted-foreground truncate block">{result.agent_type}</span>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+
+                            <div className="border rounded-lg p-4 flex flex-col lg:col-span-4 overflow-hidden">
+                                {(() => {
+                                    const result = selectedResultStepId === '__summary__' ? executionResult?.final_result : executionResult?.step_results?.[selectedResultStepId as string]
+                                    const content = result?.error || result?.response || result?.summary || (result ? (typeof result === 'string' ? result : JSON.stringify(result, null, 2)) : 'Select a step to view its output.')
+                                    const agentType = result?.agent_type
+                                    const isSummary = selectedResultStepId === '__summary__'
+                                    const isImage = (agentType === 'image_generation' || agentType === 'linkedin_headshot') && (typeof content === 'string' && content.startsWith('http'))
+                                    const isAdCopy = agentType === 'ad_copy'
+                                    const isSpecializedText = isSummary || agentType === 'deep_research' || agentType === 'email_sequence' || agentType === 'sales_script'
+
+                                    return (
+                                        <>
+                                            <div className="flex items-center justify-between mb-3">
+                                                <Label className="text-base font-semibold">{selectedResultStepId || 'Step Output'}</Label>
+                                                {result && !result.error && (
+                                                    <div className="flex gap-2">
+                                                        {isImage ? (
+                                                            <Button variant="outline" size="sm" onClick={() => downloadAsFile(content, selectedResultStepId as string, 'jpeg')}>
+                                                                <Download className="h-4 w-4 mr-2" />
+                                                                Download
+                                                            </Button>
+                                                        ) : isAdCopy ? (
+                                                            <Button variant="outline" size="sm" onClick={() => downloadAsFile(content, selectedResultStepId as string, 'csv')} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
+                                                                <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
+                                                                .CSV
+                                                            </Button>
+                                                        ) : isSpecializedText ? (
+                                                            <>
+                                                                <Button variant="outline" size="sm" onClick={() => copyToClipboard(content)}>
+                                                                    <Copy className="h-4 w-4 mr-2" />
+                                                                    Copy
+                                                                </Button>
+                                                                <Button variant="outline" size="sm" onClick={() => downloadAsFile(content, selectedResultStepId as string, 'md')}>
+                                                                    <Download className="h-4 w-4 mr-2" />
+                                                                    .MD
+                                                                </Button>
+                                                                <Button variant="outline" size="sm" onClick={() => downloadAsPDF(content, selectedResultStepId as string)}>
+                                                                    <FileText className="h-4 w-4 mr-2" />
+                                                                    PDF
+                                                                </Button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Button variant="outline" size="sm" onClick={() => copyToClipboard(content)}>
+                                                                    <Copy className="h-4 w-4 mr-2" />
+                                                                    Copy
+                                                                </Button>
+                                                                <Button variant="outline" size="sm" onClick={() => downloadAsFile(content, selectedResultStepId as string, 'md')}>
+                                                                    <Download className="h-4 w-4 mr-2" />
+                                                                    .MD
+                                                                </Button>
+                                                                <Button variant="outline" size="sm" onClick={() => downloadAsFile(content, selectedResultStepId as string, 'csv')} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
+                                                                    <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
+                                                                    .CSV
+                                                                </Button>
+                                                                <Button variant="outline" size="sm" onClick={() => downloadAsPDF(content, selectedResultStepId as string)}>
+                                                                    <FileText className="h-4 w-4 mr-2" />
+                                                                    PDF
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
-                                            <ScrollArea className="h-[200px]">
-                                                <pre className="text-xs whitespace-pre-wrap bg-muted p-3 rounded">
-                                                    {result.error || result.response || JSON.stringify(result, null, 2)}
-                                                </pre>
-                                            </ScrollArea>
-                                        </div>
-                                    ))}
-                                </div>
+                                            <div className="flex-1 min-h-0 bg-muted rounded-lg p-4">
+                                                <ScrollArea className="h-full">
+                                                    {isImage ? (
+                                                        <div className="flex justify-center items-center h-full">
+                                                            <img src={content} alt="Generated Asset" className="max-w-full max-h-full rounded-lg shadow-lg object-contain" />
+                                                        </div>
+                                                    ) : isAdCopy ? (
+                                                        <div className="overflow-x-auto">
+                                                            <Table>
+                                                                <TableHeader>
+                                                                    <TableRow>
+                                                                        {parseCSV(content)[0]?.map((header, i) => (
+                                                                            <TableHead key={i} className="font-bold">{header}</TableHead>
+                                                                        ))}
+                                                                    </TableRow>
+                                                                </TableHeader>
+                                                                <TableBody>
+                                                                    {parseCSV(content).slice(1).map((row, i) => (
+                                                                        <TableRow key={i}>
+                                                                            {row.map((cell, j) => (
+                                                                                <TableCell key={j}>{cell}</TableCell>
+                                                                            ))}
+                                                                        </TableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="markdown-container prose dark:prose-invert max-w-none prose-base pr-3">
+                                                            {isSummary && (
+                                                                <div className="mb-6 p-6 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 border border-purple-200 dark:border-purple-800 rounded-xl shadow-sm">
+                                                                    <div className="flex items-center gap-3 mb-3">
+                                                                        <div className="p-2 bg-purple-500 rounded-lg shadow-md flex items-center justify-center">
+                                                                            <Sparkles className="h-5 w-5 text-white" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <h3 className="text-xl font-bold text-purple-900 dark:text-purple-100">Workflow Summary</h3>
+                                                                            <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Strategic Insights & Findings</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="h-px w-full bg-purple-200 dark:bg-purple-800 my-4" />
+                                                                    <p className="text-sm text-muted-foreground leading-relaxed italic">
+                                                                        The following summary encapsulates the key outcomes from the orchestrated AI agents in this workflow.
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                                {content}
+                                                            </ReactMarkdown>
+                                                        </div>
+                                                    )}
+                                                </ScrollArea>
+                                            </div>
+                                        </>
+                                    )
+                                })()}
                             </div>
-                        )}
-
-                        {executionResult?.error && (
-                            <div className="p-4 bg-red-50 dark:bg-red-950/30 border border-red-500 rounded-lg">
-                                <p className="text-red-600 dark:text-red-400">{executionResult.error}</p>
-                            </div>
-                        )}
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button onClick={() => setShowResultsDialog(false)}>Close</Button>
