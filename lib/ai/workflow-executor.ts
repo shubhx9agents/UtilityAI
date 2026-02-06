@@ -330,6 +330,16 @@ export class WorkflowExecutionService {
             }
         }
 
+        // Check if all relevant results are images
+        const allImages = relevantResults.every(r => r.agent_type === 'image_generation' || r.agent_type === 'linkedin_headshot')
+        if (allImages && relevantResults.length > 0) {
+            return {
+                response: relevantResults.length === 1 ? relevantResults[0].response : relevantResults.map(r => r.response),
+                agent_type: relevantResults[0].agent_type,
+                individual_results: relevantResults
+            }
+        }
+
         switch (strategy.type) {
             case 'concatenate':
                 return {

@@ -512,12 +512,18 @@ export default function CanvasPage() {
                 setExecutionResult({
                     execution_id: data.execution.id,
                     status: data.execution.status,
-                    final_result: data.execution.final_result,
+                    user_inputs: data.execution.user_inputs,
+                    final_result: data.execution.final_result ? {
+                        ...data.execution.final_result,
+                        // If the only result is an image, or it's an image-only workflow, tag it
+                        agent_type: data.execution.steps?.find((s: any) => s.agent_type === 'image_generation' || s.agent_type === 'linkedin_headshot')?.agent_type
+                    } : null,
                     step_results: data.execution.steps?.reduce((acc: any, step: any) => {
                         acc[step.step_id] = {
                             agent_type: step.agent_type,
                             response: step.output_data?.response,
-                            error: step.error_message
+                            error: step.error_message,
+                            input: step.input_data
                         }
                         return acc
                     }, {})
@@ -1122,6 +1128,22 @@ export default function CanvasPage() {
                                 <Label className="text-sm font-semibold mb-2">Steps</Label>
                                 <ScrollArea className="flex-1">
                                     <div className="space-y-1.5 pr-2">
+                                        {executionResult?.user_inputs && (
+                                            <button
+                                                type="button"
+                                                className={`w-full text-left p-2.5 rounded-md border transition-colors mb-2 ${selectedResultStepId === '__inputs__'
+                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
+                                                    : 'hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
+                                                    }`}
+                                                onClick={() => setSelectedResultStepId('__inputs__')}
+                                            >
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <Settings className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                                    <span className="text-xs font-medium truncate">Run Inputs</span>
+                                                </div>
+                                                <span className="text-[10px] text-muted-foreground truncate block">Initial Parameters</span>
+                                            </button>
+                                        )}
                                         {executionResult?.final_result?.summary && (
                                             <button
                                                 type="button"
@@ -1167,13 +1189,15 @@ export default function CanvasPage() {
 
                             <div className="border rounded-lg p-4 flex flex-col lg:col-span-4 overflow-hidden">
                                 {(() => {
-                                    const result = selectedResultStepId === '__summary__' ? executionResult?.final_result : executionResult?.step_results?.[selectedResultStepId as string]
-                                    const content = result?.error || result?.response || result?.summary || (result ? (typeof result === 'string' ? result : JSON.stringify(result, null, 2)) : 'Select a step to view its output.')
+                                    const isInputs = selectedResultStepId === '__inputs__'
+                                    const result = isInputs ? executionResult?.user_inputs : (selectedResultStepId === '__summary__' ? executionResult?.final_result : executionResult?.step_results?.[selectedResultStepId as string])
+                                    const content = isInputs ? (typeof result === 'object' ? JSON.stringify(result, null, 2) : result) : (result?.error || result?.response || result?.summary || (result ? (typeof result === 'string' ? result : JSON.stringify(result, null, 2)) : 'Select a step to view its output.'))
                                     const agentType = result?.agent_type
                                     const isSummary = selectedResultStepId === '__summary__'
-                                    const isImage = (agentType === 'image_generation' || agentType === 'linkedin_headshot') && (typeof content === 'string' && content.startsWith('http'))
+                                    const isImage = (agentType === 'image_generation' || agentType === 'linkedin_headshot' || isSummary) &&
+                                        (typeof content === 'string' && (content.startsWith('http') || content.startsWith('data:image/')))
                                     const isAdCopy = agentType === 'ad_copy'
-                                    const isSpecializedText = isSummary || agentType === 'deep_research' || agentType === 'email_sequence' || agentType === 'sales_script'
+                                    const isSpecializedText = isSummary || agentType === 'deep_research' || agentType === 'email_sequence' || agentType === 'sales_script' || isInputs
 
                                     return (
                                         <>
@@ -1234,6 +1258,21 @@ export default function CanvasPage() {
                                                     {isImage ? (
                                                         <div className="flex justify-center items-center h-full">
                                                             <img src={content} alt="Generated Asset" className="max-w-full max-h-full rounded-lg shadow-lg object-contain" />
+                                                        </div>
+                                                    ) : isInputs ? (
+                                                        <div className="space-y-6">
+                                                            <div className="grid grid-cols-1 gap-4">
+                                                                {Object.entries(result || {}).map(([key, value]: [string, any]) => (
+                                                                    <div key={key} className="border-b pb-4 last:border-0">
+                                                                        <Label className="text-xs font-bold uppercase text-muted-foreground mb-1 block">{key.replace(/_/g, ' ')}</Label>
+                                                                        {typeof value === 'string' && value.startsWith('data:image/') ? (
+                                                                            <img src={value} alt={key} className="max-w-xs rounded-lg border shadow-sm mt-2" />
+                                                                        ) : (
+                                                                            <p className="text-sm whitespace-pre-wrap">{typeof value === 'object' ? JSON.stringify(value, null, 2) : value}</p>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         </div>
                                                     ) : isAdCopy ? (
                                                         <div className="overflow-x-auto">
