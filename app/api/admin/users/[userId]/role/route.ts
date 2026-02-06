@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, updateUserRole } from '@/lib/admin'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 import { createClient } from '@/lib/supabase/server'
-import { UserRoleType } from '@/types'
+import { updateUserRoleSchema, validateInput, validationErrorResponse, uuidSchema } from '@/lib/validations'
 
 export async function POST(
     request: NextRequest,
@@ -13,15 +13,22 @@ export async function POST(
         await requireAdmin()
 
         const { userId } = await params
-        const body = await request.json()
-        const { role } = body as { role: UserRoleType }
 
-        if (!role || (role !== 'user' && role !== 'admin')) {
-            return NextResponse.json(
-                { error: 'Invalid role. Must be "user" or "admin"' },
-                { status: 400 }
-            )
+        // Validate user ID
+        const userIdValidation = uuidSchema.safeParse(userId)
+        if (!userIdValidation.success) {
+            return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 })
         }
+
+        const body = await request.json()
+
+        // Validate input with Zod (rejects extra fields)
+        const validation = validateInput(updateUserRoleSchema, body)
+        if (!validation.success) {
+            return NextResponse.json(validationErrorResponse(validation.errors), { status: 400 })
+        }
+
+        const { role } = validation.data
 
         // Get current admin user
         const supabase = await createClient()

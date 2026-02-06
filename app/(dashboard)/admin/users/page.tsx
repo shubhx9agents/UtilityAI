@@ -267,6 +267,7 @@ export default function UserManagementPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="user">User</SelectItem>
+                                    <SelectItem value="mod">Moderator</SelectItem>
                                     <SelectItem value="admin">Admin</SelectItem>
                                 </SelectContent>
                             </Select>
@@ -274,6 +275,8 @@ export default function UserManagementPage() {
                         <div className="text-sm text-muted-foreground">
                             {newRole === 'admin' ? (
                                 <p>⚠️ Admins have full access to the admin panel and can manage other users.</p>
+                            ) : newRole === 'mod' ? (
+                                <p>🛡️ Moderators can view audit logs and all sessions for support purposes.</p>
                             ) : (
                                 <p>Regular users have access to all agent features but cannot access the admin panel.</p>
                             )}

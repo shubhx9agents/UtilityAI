@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "UtilityAI - AI-Powered Business Tools",
   description: "Transform your business with AI-powered agents for marketing, sales, and growth",
+  verification: {
+    google: "h3GP97K8nD8z85",
+  },
 };
 
 export default function RootLayout({

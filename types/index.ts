@@ -3,7 +3,7 @@ export interface Profile {
     id: string
     email: string
     name: string
-    role: 'user' | 'admin'
+    role: 'user' | 'mod' | 'admin'
     account_type: 'basic' | 'premium' | 'enterprise'
     must_change_password: boolean
     api_keys?: Record<string, string>
@@ -148,7 +148,7 @@ export interface ApiResponse<T = any> {
 }
 
 // Admin & Audit Types
-export type UserRoleType = 'user' | 'admin'
+export type UserRoleType = 'user' | 'mod' | 'admin'
 
 export interface UserRole {
     id: string

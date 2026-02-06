@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { CreateSessionRequest, AgentSession } from '@/types'
+import { AgentSession } from '@/types'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
+import { createSessionSchema, validateInput, validationErrorResponse } from '@/lib/validations'
+import { sanitizeJson } from '@/utils/sanitize'
 
 export async function POST(request: NextRequest) {
     try {
@@ -14,15 +16,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const body: CreateSessionRequest = await request.json()
-        const { agent_type, form_data, response, refined_prompt, chat_messages = [] } = body
+        const body = await request.json()
 
-        if (!agent_type || !form_data) {
-            return NextResponse.json(
-                { error: 'agent_type and form_data are required' },
-                { status: 400 }
-            )
+        // Validate input with Zod (rejects extra fields)
+        const validation = validateInput(createSessionSchema, body)
+        if (!validation.success) {
+            return NextResponse.json(validationErrorResponse(validation.errors), { status: 400 })
         }
+
+        const { agent_type, form_data, response, refined_prompt, chat_messages = [] } = validation.data
+
+        // Sanitize form data
+        const sanitizedFormData = sanitizeJson(form_data as Record<string, unknown>)
 
         // Generate session name
         const now = new Date()
@@ -42,7 +47,7 @@ export async function POST(request: NextRequest) {
                 user_id: user.id,
                 agent_type,
                 session_name: sessionName,
-                form_data,
+                form_data: sanitizedFormData,
                 response,
                 refined_prompt,
                 chat_messages,
