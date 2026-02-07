@@ -6,210 +6,206 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import {
-    LayoutDashboard,
-    Sparkles,
-    Layers,
-    GitBranch,
-    StickyNote,
-    FolderOpen,
-    Settings,
-    LogOut,
-    Shield,
-    Menu,
-    X,
+  LayoutDashboard,
+  Sparkles,
+  Layers,
+  Settings,
+  LogOut,
+  Shield,
+  Menu,
+  X,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Onboarding', href: '/onboarding', icon: Sparkles },
-    { name: 'AI Agents', href: '/agents', icon: Sparkles },
-    { name: 'Canvas', href: '/canvas', icon: Layers },
-    { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Onboarding', href: '/onboarding', icon: Sparkles },
+  { name: 'AI Agents', href: '/agents', icon: Sparkles },
+  { name: 'Canvas', href: '/canvas', icon: Layers },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 export default function DashboardLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode
+  children: React.ReactNode
 }) {
-    const pathname = usePathname()
-    const router = useRouter()
-    const { user, signOut } = useAuth()
-    const [sidebarOpen, setSidebarOpen] = useState(false)
-    const [isAdmin, setIsAdmin] = useState(false)
+  const pathname = usePathname()
+  const router = useRouter()
+  const { user, signOut } = useAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
-    // Check if user is admin
-    useEffect(() => {
-        const checkAdminStatus = async () => {
-            try {
-                const res = await fetch('/api/admin/check')
-                const data = await res.json()
-                // console.log('Admin check response:', data)
-                setIsAdmin(data.isAdmin === true)
-            } catch (error) {
-                console.error('Failed to check admin status:', error)
-                setIsAdmin(false)
-            }
-        }
-        if (user) {
-            checkAdminStatus()
-        }
-    }, [user, pathname])
-
-    const handleSignOut = async () => {
-        await signOut()
-        router.push('/login')
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const res = await fetch('/api/admin/check')
+        const data = await res.json()
+        setIsAdmin(data.isAdmin === true)
+      } catch (error) {
+        console.error('Failed to check admin status:', error)
+        setIsAdmin(false)
+      }
     }
+    if (user) {
+      checkAdminStatus()
+    }
+  }, [user, pathname])
 
-    return (
-        <div className="min-h-screen bg-background">
-            {/* Mobile sidebar backdrop */}
-            {sidebarOpen && (
-                <div
-                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                />
-            )}
+  const handleSignOut = async () => {
+    await signOut()
+    router.push('/login')
+  }
 
-            {/* Sidebar */}
-            <aside
-                className={`fixed top-0 left-0 z-50 h-full w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-                    }`}
+  return (
+    <div className="min-h-screen">
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-stone-900/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      {/* Dark sidebar */}
+      <aside
+        className={`fixed top-0 left-0 z-50 h-full w-64 transform border-r border-zinc-800 bg-zinc-900 transition-transform duration-200 ease-out lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex h-full flex-col">
+          <div className="flex h-16 items-center justify-between border-b border-zinc-800 px-5">
+            <Link href="/dashboard" className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-zinc-900">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <span className="font-heading text-lg font-semibold text-white">
+                UtilityAI
+              </span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white lg:hidden"
+              aria-label="Close menu"
             >
-                <div className="flex flex-col h-full">
-                    {/* Logo */}
-                    <div className="flex items-center justify-between h-16 px-6 border-b border-border">
-                        <Link href="/dashboard" className="flex items-center space-x-2">
-                            <Sparkles className="h-6 w-6 text-primary" />
-                            <span className="text-xl font-bold">UtilityAI</span>
-                        </Link>
-                        <button
-                            onClick={() => setSidebarOpen(false)}
-                            className="lg:hidden"
-                        >
-                            <X className="h-6 w-6" />
-                        </button>
-                    </div>
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
-                    {/* Navigation */}
-                    <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-                        {navigation.map((item) => {
-                            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-                            return (
-                                <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                                        ? 'bg-primary text-primary-foreground shadow-md'
-                                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-[1.02]'
-                                        }`}
-                                    onClick={(e) => {
-                                        // Only close sidebar on mobile (< lg breakpoint)
-                                        const isMobile = window.innerWidth < 1024
-                                        if (isMobile) {
-                                            setSidebarOpen(false)
-                                        }
-                                    }}
-                                >
-                                    <item.icon className="h-5 w-5" />
-                                    <span>{item.name}</span>
-                                </Link>
-                            )
-                        })}
+          <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-5">
+            {navigation.map((item) => {
+              const isActive =
+                pathname === item.href || pathname?.startsWith(item.href + '/')
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-zinc-800 text-white'
+                      : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-100'
+                  }`}
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                      setSidebarOpen(false)
+                    }
+                  }}
+                >
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  <span>{item.name}</span>
+                </Link>
+              )
+            })}
 
-                        {/* Admin Link - Only visible to admins */}
-                        {isAdmin && (
-                            <>
-                                <div className="border-t border-border my-2" />
-                                <Link
-                                    href="/admin"
-                                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pathname?.startsWith('/admin')
-                                        ? 'bg-purple-600 text-white shadow-md'
-                                        : 'text-muted-foreground hover:bg-purple-50 dark:hover:bg-purple-950 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-[1.02]'
-                                        }`}
-                                    onClick={(e) => {
-                                        const isMobile = window.innerWidth < 1024
-                                        if (isMobile) {
-                                            setSidebarOpen(false)
-                                        }
-                                    }}
-                                >
-                                    <Shield className="h-5 w-5" />
-                                    <span>Admin Panel</span>
-                                </Link>
-                            </>
-                        )}
-                    </nav>
+            {isAdmin && (
+              <>
+                <div className="my-3 border-t border-zinc-800" />
+                <Link
+                  href="/admin"
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    pathname?.startsWith('/admin')
+                      ? 'bg-amber-500/20 text-amber-400'
+                      : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-100'
+                  }`}
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                      setSidebarOpen(false)
+                    }
+                  }}
+                >
+                  <Shield className="h-5 w-5 shrink-0" />
+                  <span>Admin Panel</span>
+                </Link>
+              </>
+            )}
+          </nav>
 
-                    {/* User Profile Card */}
-                    <div className="p-4 border-t border-border">
-                        <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-4 space-y-3">
-                            {/* User Info */}
-                            <div className="flex items-center space-x-3">
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-sm font-medium text-white">
-                                        {user?.user_metadata?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase()}
-                                    </span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold truncate">
-                                        {user?.user_metadata?.name || user?.email?.split('@')[0]}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground truncate">Free Plan</p>
-                                </div>
-                            </div>
-
-                            {/* Progress Bar */}
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-muted-foreground">Usage</span>
-                                    <span className="font-medium">75%</span>
-                                </div>
-                                <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                                    <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-300" style={{ width: '75%' }} />
-                                </div>
-                                <p className="text-xs text-muted-foreground">750 / 1000 credits used</p>
-                            </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="mt-3 space-y-2">
-                            <ThemeToggle />
-                            <Button
-                                variant="outline"
-                                className="w-full justify-start"
-                                onClick={handleSignOut}
-                            >
-                                <LogOut className="h-4 w-4 mr-2" />
-                                Sign Out
-                            </Button>
-                        </div>
-                    </div>
+          <div className="border-t border-zinc-800 p-4">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-800/50 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400">
+                  <span className="text-sm font-semibold">
+                    {user?.user_metadata?.name?.charAt(0).toUpperCase() ||
+                      user?.email?.charAt(0).toUpperCase() || '?'}
+                  </span>
                 </div>
-            </aside>
-
-            {/* Main content */}
-            <div className="lg:pl-64">
-                {/* Top bar */}
-                <header className="sticky top-0 z-30 h-14 sm:h-16 bg-card border-b border-border">
-                    <div className="flex items-center justify-between h-full px-3 sm:px-4 lg:px-8">
-                        <button
-                            onClick={() => setSidebarOpen(true)}
-                            className="lg:hidden"
-                        >
-                            <Menu className="h-6 w-6" />
-                        </button>
-                        <div className="flex-1" />
-                        {/* Add any top-right items here */}
-                    </div>
-                </header>
-
-                {/* Page content */}
-                <main className="p-3 sm:p-4 lg:p-8">
-                    {children}
-                </main>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-zinc-100">
+                    {user?.user_metadata?.name || user?.email?.split('@')[0]}
+                  </p>
+                  <p className="text-xs text-zinc-500">Free Plan</p>
+                </div>
+              </div>
+              <div className="mt-3 space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-zinc-500">Usage</span>
+                  <span className="text-zinc-300">75%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-zinc-700">
+                  <div
+                    className="h-full rounded-full bg-amber-500/80 transition-all"
+                    style={{ width: '75%' }}
+                  />
+                </div>
+                <p className="text-xs text-zinc-500">750 / 1000 credits</p>
+              </div>
             </div>
+            <div className="mt-3 flex flex-col gap-2">
+              <ThemeToggle />
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                onClick={handleSignOut}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
+          </div>
         </div>
-    )
+      </aside>
+
+      {/* Warm main area */}
+      <div className="dashboard-warm min-h-screen bg-warm-bg lg:pl-64">
+        <header className="sticky top-0 z-30 flex h-14 items-center border-b border-warm-border bg-warm-surface/80 backdrop-blur sm:h-16">
+          <div className="flex w-full items-center justify-between px-4 sm:px-6 lg:px-8">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="rounded-lg p-2 text-stone-600 hover:bg-warm-muted lg:hidden"
+              aria-label="Open menu"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            <div className="flex-1" />
+          </div>
+        </header>
+
+        <main className="p-4 sm:p-6 lg:p-8">{children}</main>
+      </div>
+    </div>
+  )
 }

@@ -765,7 +765,7 @@ export default function CanvasPage() {
     if (isLoading && workflows.length === 0) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
             </div>
         )
     }
@@ -775,17 +775,17 @@ export default function CanvasPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Canvas Orchestrator</h1>
+                    <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Canvas Orchestrator</h1>
                     <p className="text-muted-foreground mt-2">
                         Design multi-agent workflows and orchestrate AI agents
                     </p>
                 </div>
                 {showOnboardingBanner && (
-                    <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-                        <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                        <Sparkles className="h-5 w-5 text-amber-500" />
                         <div>
-                            <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Complete your profile for better AI results</p>
-                            <p className="text-xs text-purple-700 dark:text-purple-300">Agents work better with business context.</p>
+                            <p className="text-sm font-medium text-foreground">Complete your profile for better AI results</p>
+                            <p className="text-xs text-muted-foreground">Agents work better with business context.</p>
                         </div>
                         <Button size="sm" variant="outline" className="ml-auto" asChild>
                             <a href="/onboarding">Complete Profile</a>
@@ -811,7 +811,7 @@ export default function CanvasPage() {
                         <DialogContent className="max-w-2xl">
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
-                                    <Sparkles className="h-5 w-5 text-purple-500" />
+                                    <Sparkles className="h-5 w-5 text-amber-500" />
                                     AI Orchestrator
                                 </DialogTitle>
                                 <DialogDescription>
@@ -836,13 +836,13 @@ export default function CanvasPage() {
                                             <div
                                                 key={agent.id}
                                                 className={`p-3 border rounded-lg cursor-pointer transition-all ${selectedAgents.includes(agent.id)
-                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
-                                                    : 'hover:border-gray-400'
+                                                    ? 'border-amber-500 bg-amber-500/10'
+                                                    : 'hover:border-warm-border'
                                                     }`}
                                                 onClick={() => toggleAgentSelection(agent.id)}
                                             >
                                                 <div className="flex items-center gap-2">
-                                                    <Bot className="h-4 w-4 text-purple-500" />
+                                                    <Bot className="h-4 w-4 text-amber-500" />
                                                     <span className="font-medium text-sm">{agent.name}</span>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
@@ -926,9 +926,9 @@ export default function CanvasPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Workflows Sidebar */}
                 <div className="lg:col-span-4">
-                    <Card>
+                    <Card className="border-warm-border bg-warm-surface">
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-lg">Workflows</CardTitle>
+                            <CardTitle className="text-lg text-foreground">Workflows</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <ScrollArea className="h-[500px]">
@@ -942,14 +942,14 @@ export default function CanvasPage() {
                                             <div
                                                 key={workflow.id}
                                                 className={`p-3 border rounded-lg cursor-pointer transition-all ${selectedWorkflow?.id === workflow.id
-                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
-                                                    : 'hover:border-gray-400'
+                                                    ? 'border-amber-500 bg-amber-500/10'
+                                                    : 'hover:border-warm-border'
                                                     }`}
                                                 onClick={() => selectWorkflow(workflow)}
                                             >
                                                 <div className="flex items-center justify-between gap-2">
                                                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                        <GitBranch className="h-4 w-4 text-purple-500 flex-shrink-0" />
+                                                        <GitBranch className="h-4 w-4 text-amber-500 flex-shrink-0" />
                                                         <span className="font-medium text-sm truncate">{workflow.name}</span>
                                                     </div>
                                                     <Button
@@ -978,8 +978,8 @@ export default function CanvasPage() {
 
                 {/* Canvas Area */}
                 <div className="lg:col-span-8">
-                    <Card className="min-h-[600px]">
-                        <CardHeader className="pb-3 border-b">
+                    <Card className="min-h-[600px] border-warm-border bg-warm-surface">
+                        <CardHeader className="pb-3 border-b border-warm-border">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0">
                                 <div>
                                     <CardTitle className="text-lg">
@@ -1064,7 +1064,7 @@ export default function CanvasPage() {
                                                                     {activeInput.type === 'image' ? (
                                                                         <div className="space-y-3">
                                                                             <div
-                                                                                className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:border-purple-400 transition-colors cursor-pointer bg-muted/30"
+                                                                                className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:border-amber-500/50 transition-colors cursor-pointer bg-muted/30"
                                                                                 onClick={() => document.getElementById(`upload-${activeInput.field}`)?.click()}
                                                                             >
                                                                                 <input
@@ -1101,7 +1101,7 @@ export default function CanvasPage() {
                                                                         </div>
                                                                     ) : (
                                                                         <textarea
-                                                                            className="w-full min-h-[180px] p-3 border rounded-md bg-background text-sm resize-none focus:ring-2 focus:ring-purple-500 transition-all outline-none"
+                                                                            className="w-full min-h-[180px] p-3 border rounded-md bg-background text-sm resize-none focus:ring-2 focus:ring-amber-500 transition-all outline-none"
                                                                             value={userInputs[activeInput.field] || ''}
                                                                             onChange={(e) => setUserInputs({
                                                                                 ...userInputs,
@@ -1172,7 +1172,7 @@ export default function CanvasPage() {
                                 </div>
                             ) : nodes.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-[450px] text-center">
-                                    <Wand2 className="h-16 w-16 text-purple-400 mb-4" />
+                                    <Wand2 className="h-16 w-16 text-amber-500 mb-4" />
                                     <h3 className="text-lg font-medium">Empty Workflow</h3>
                                     <p className="text-muted-foreground mt-2 max-w-md">
                                         Use the AI Orchestrator to generate steps for this workflow
@@ -1194,7 +1194,7 @@ export default function CanvasPage() {
                                                 >
                                                     <div className="flex items-center justify-between mb-2">
                                                         <div className="flex items-center gap-2">
-                                                            <Bot className="h-5 w-5 text-purple-500" />
+                                                            <Bot className="h-5 w-5 text-amber-500" />
                                                             <span className="font-medium">
                                                                 {agents.find(a => a.id === step.agent_id)?.name || step.agent_id}
                                                             </span>
@@ -1205,7 +1205,7 @@ export default function CanvasPage() {
                                                         {step.description}
                                                     </p>
                                                     {step.depends_on && step.depends_on.length > 0 && (
-                                                        <p className="text-xs text-purple-600 mt-2">
+                                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
                                                             Depends on: {step.depends_on.join(', ')}
                                                         </p>
                                                     )}
@@ -1272,8 +1272,8 @@ export default function CanvasPage() {
                                             <button
                                                 type="button"
                                                 className={`w-full text-left p-2.5 rounded-md border transition-colors mb-2 ${selectedResultStepId === '__inputs__'
-                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
-                                                    : 'hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
+                                                    ? 'border-amber-500 bg-amber-500/10'
+                                                    : 'hover:border-warm-border hover:bg-warm-muted'
                                                     }`}
                                                 onClick={() => setSelectedResultStepId('__inputs__')}
                                             >
@@ -1288,8 +1288,8 @@ export default function CanvasPage() {
                                             <button
                                                 type="button"
                                                 className={`w-full text-left p-2.5 rounded-md border transition-colors ${selectedResultStepId === '__summary__'
-                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
-                                                    : 'hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
+                                                    ? 'border-amber-500 bg-amber-500/10'
+                                                    : 'hover:border-warm-border hover:bg-warm-muted'
                                                     }`}
                                                 onClick={() => setSelectedResultStepId('__summary__')}
                                             >
@@ -1305,8 +1305,8 @@ export default function CanvasPage() {
                                                 key={stepId}
                                                 type="button"
                                                 className={`w-full text-left p-2.5 rounded-md border transition-colors ${selectedResultStepId === stepId
-                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
-                                                    : 'hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
+                                                    ? 'border-amber-500 bg-amber-500/10'
+                                                    : 'hover:border-warm-border hover:bg-warm-muted'
                                                     }`}
                                                 onClick={() => setSelectedResultStepId(stepId)}
                                             >
@@ -1337,7 +1337,7 @@ export default function CanvasPage() {
                                     const isImage = (agentType === 'image_generation' || agentType === 'linkedin_headshot' || isSummary) &&
                                         (typeof content === 'string' && (content.startsWith('http') || content.startsWith('data:image/')))
                                     const isAdCopy = agentType === 'ad_copy'
-                                    const isSpecializedText = isSummary || agentType === 'deep_research' || agentType === 'email_sequence' || agentType === 'sales_script' || isInputs
+                                    const isSpecializedText = isSummary || agentType === 'deep_research' || isInputs
 
                                     return (
                                         <>
@@ -1438,17 +1438,17 @@ export default function CanvasPage() {
                                                     ) : (
                                                         <div className="markdown-container prose dark:prose-invert max-w-none prose-base pr-3">
                                                             {isSummary && (
-                                                                <div className="mb-6 p-6 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 border border-purple-200 dark:border-purple-800 rounded-xl shadow-sm">
+                                                                <div className="mb-6 p-6 bg-amber-500/10 border border-amber-500/30 rounded-xl shadow-sm">
                                                                     <div className="flex items-center gap-3 mb-3">
-                                                                        <div className="p-2 bg-purple-500 rounded-lg shadow-md flex items-center justify-center">
-                                                                            <Sparkles className="h-5 w-5 text-white" />
+                                                                        <div className="p-2 bg-amber-500 rounded-lg flex items-center justify-center">
+                                                                            <Sparkles className="h-5 w-5 text-zinc-900" />
                                                                         </div>
                                                                         <div>
-                                                                            <h3 className="text-xl font-bold text-purple-900 dark:text-purple-100">Workflow Summary</h3>
-                                                                            <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Strategic Insights & Findings</p>
+                                                                            <h3 className="text-xl font-bold text-foreground">Workflow Summary</h3>
+                                                                            <p className="text-sm text-muted-foreground font-medium">Strategic Insights & Findings</p>
                                                                         </div>
                                                                     </div>
-                                                                    <div className="h-px w-full bg-purple-200 dark:bg-purple-800 my-4" />
+                                                                    <div className="h-px w-full bg-amber-500/30 my-4" />
                                                                     <p className="text-sm text-muted-foreground leading-relaxed italic">
                                                                         The following summary encapsulates the key outcomes from the orchestrated AI agents in this workflow.
                                                                     </p>
@@ -1478,7 +1478,7 @@ export default function CanvasPage() {
                 <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <History className="h-5 w-5 text-purple-500" />
+                            <History className="h-5 w-5 text-amber-500" />
                             Execution History
                         </DialogTitle>
                         <DialogDescription>
@@ -1496,7 +1496,7 @@ export default function CanvasPage() {
                             executionHistory.map((execution: any) => (
                                 <div
                                     key={execution.id}
-                                    className="border rounded-lg p-4 hover:border-purple-400 cursor-pointer transition-colors"
+                                    className="border rounded-lg p-4 hover:border-amber-500/50 cursor-pointer transition-colors"
                                     onClick={() => {
                                         viewExecution(execution.id)
                                         setShowHistoryDialog(false)
@@ -1547,10 +1547,10 @@ export default function CanvasPage() {
             {/* Execution Progress Overlay */}
             {isExecuting && (
                 <div className="fixed bottom-6 right-0 left-0 px-6 sm:left-auto sm:px-0 sm:right-6 z-50 w-full sm:w-80">
-                    <Card className="border-purple-500 shadow-lg">
+                    <Card className="border-amber-500/50 border-warm-border bg-warm-surface shadow-lg">
                         <CardContent className="p-4">
                             <div className="flex items-center gap-3 mb-3">
-                                <Loader2 className="h-5 w-5 text-purple-500 animate-spin" />
+                                <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
                                 <span className="font-medium">Executing Workflow...</span>
                             </div>
                             <div className="space-y-2">
@@ -1560,7 +1560,7 @@ export default function CanvasPage() {
                                 </div>
                                 <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                     <div
-                                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+                                        className="h-full bg-amber-500 transition-all duration-300"
                                         style={{ width: `${executionProgress}%` }}
                                     />
                                 </div>

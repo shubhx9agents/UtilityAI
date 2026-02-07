@@ -43,8 +43,7 @@ export const agentTypeSchema = z.enum([
     'deep_research',
     'image_generation',
     'linkedin_headshot',
-    'email_sequence',
-    'sales_script',
+
 ])
 
 export const chatMessageSchema = z.object({
@@ -184,7 +183,7 @@ export interface ZodIssue {
     code: string
 }
 
-export type ValidationResult<T> = 
+export type ValidationResult<T> =
     | { success: true; data: T }
     | { success: false; errors: ZodIssue[] }
 
@@ -197,18 +196,18 @@ export function validateInput<T extends z.ZodSchema>(
     data: unknown
 ): ValidationResult<z.infer<T>> {
     const result = schema.safeParse(data)
-    
+
     if (result.success) {
         return { success: true, data: result.data }
     }
-    
+
     // Convert Zod errors to our format
     const errors: ZodIssue[] = result.error.issues.map(issue => ({
         path: issue.path,
         message: issue.message,
         code: issue.code,
     }))
-    
+
     return { success: false, errors }
 }
 

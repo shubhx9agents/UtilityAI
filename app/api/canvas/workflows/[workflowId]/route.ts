@@ -29,11 +29,11 @@ export async function GET(
         }
 
         // Also return canvas representation
-        const canvasData = data.workflow_plan?.steps?.length > 0 
+        const canvasData = data.workflow_plan?.steps?.length > 0
             ? workflowToCanvas(data.workflow_plan)
             : { nodes: [], edges: [] }
 
-        return NextResponse.json({ 
+        return NextResponse.json({
             workflow: data,
             canvas: canvasData
         })
@@ -49,6 +49,7 @@ export async function PUT(
     { params }: { params: Promise<{ workflowId: string }> }
 ) {
     try {
+        console.log('[API] PUT /api/canvas/workflows/[id] called')
         const { workflowId } = await params
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
@@ -67,9 +68,9 @@ export async function PUT(
         if (body.workflow_plan !== undefined) {
             const validationErrors = validateWorkflowPlan(body.workflow_plan)
             if (validationErrors.length > 0) {
-                return NextResponse.json({ 
+                return NextResponse.json({
                     error: 'Invalid workflow plan',
-                    validation_errors: validationErrors 
+                    validation_errors: validationErrors
                 }, { status: 400 })
             }
             updates.workflow_plan = body.workflow_plan

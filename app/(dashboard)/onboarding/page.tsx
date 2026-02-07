@@ -175,7 +175,7 @@ export default function OnboardingPage() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
             </div>
         )
     }
@@ -184,20 +184,20 @@ export default function OnboardingPage() {
         <div className="max-w-4xl mx-auto py-8 px-4">
             {/* Header */}
             <div className="text-center mb-10">
-                <h1 className="text-3xl font-bold tracking-tight">Onboarding</h1>
+                <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Onboarding</h1>
                 <p className="text-muted-foreground mt-2">
                     Step {currentStep} of {steps.length}: {steps[currentStep - 1].title}
                 </p>
                 {/* Progress Bar */}
-                <div className="w-full max-w-md mx-auto h-2 bg-secondary mt-4 rounded-full overflow-hidden">
+                <div className="w-full max-w-md mx-auto h-2 bg-warm-muted mt-4 rounded-full overflow-hidden">
                     <div
-                        className="h-full bg-purple-600 transition-all duration-300 ease-in-out"
+                        className="h-full bg-amber-500 transition-all duration-300 ease-in-out"
                         style={{ width: `${(currentStep / steps.length) * 100}%` }}
                     />
                 </div>
             </div>
 
-            <Card className="max-w-2xl mx-auto border-2 shadow-lg">
+            <Card className="max-w-2xl mx-auto border-warm-border bg-warm-surface shadow-sm">
                 <CardHeader>
                     <CardTitle>{steps[currentStep - 1].title}</CardTitle>
                     <CardDescription>{steps[currentStep - 1].description}</CardDescription>
@@ -421,7 +421,7 @@ export default function OnboardingPage() {
                             type="button"
                             onClick={(e) => handleSave(true, e)}
                             disabled={isSaving}
-                            className="bg-green-600 hover:bg-green-700"
+                            className="bg-amber-500 text-zinc-900 hover:bg-amber-600"
                         >
                             {isSaving ? (
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

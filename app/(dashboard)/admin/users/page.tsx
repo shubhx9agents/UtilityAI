@@ -20,6 +20,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AdminUser, UserRoleType } from '@/types'
 import { Users, Search, ChevronLeft, Shield, Crown, User } from 'lucide-react'
 import Link from 'next/link'
@@ -107,8 +108,8 @@ export default function UserManagementPage() {
                     </Button>
                 </Link>
                 <div className="flex items-center gap-2 mb-2">
-                    <Users className="h-6 w-6 text-primary" />
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">User Management</h1>
+                    <Users className="h-6 w-6 text-amber-500" />
+                    <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-foreground">User Management</h1>
                 </div>
                 <p className="text-sm sm:text-base text-muted-foreground">
                     Manage user accounts and roles
@@ -117,41 +118,39 @@ export default function UserManagementPage() {
 
             {/* Stats */}
             <div className="grid gap-4 md:grid-cols-3">
-                <Card className="border-2">
+                <Card className="border-warm-border bg-warm-surface">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{users.length}</div>
+                        <div className="font-heading text-2xl font-bold text-foreground">{users.length}</div>
                     </CardContent>
                 </Card>
-
-                <Card className="border-2">
+                <Card className="border-warm-border bg-warm-surface">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Admins</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Admins</CardTitle>
                         <Crown className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{adminCount}</div>
+                        <div className="font-heading text-2xl font-bold text-foreground">{adminCount}</div>
                     </CardContent>
                 </Card>
-
-                <Card className="border-2">
+                <Card className="border-warm-border bg-warm-surface">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Regular Users</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Regular Users</CardTitle>
                         <User className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{userCount}</div>
+                        <div className="font-heading text-2xl font-bold text-foreground">{userCount}</div>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Search */}
-            <Card className="border-2">
+            <Card className="border-warm-border bg-warm-surface">
                 <CardHeader>
-                    <CardTitle>Search Users</CardTitle>
+                    <CardTitle className="text-foreground">Search Users</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="relative">
@@ -166,84 +165,78 @@ export default function UserManagementPage() {
                 </CardContent>
             </Card>
 
-            {/* Users List */}
-            <Card className="border-2">
+            {/* Users List - Table */}
+            <Card className="border-warm-border bg-warm-surface">
                 <CardHeader>
-                    <CardTitle>All Users</CardTitle>
+                    <CardTitle className="text-foreground">All Users</CardTitle>
                     <CardDescription>
                         Showing {filteredUsers.length} of {users.length} users
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                     {loading ? (
                         <div className="text-center py-12">
-                            <Shield className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                            <Shield className="h-8 w-8 animate-spin mx-auto mb-4 text-amber-500" />
                             <p className="text-muted-foreground">Loading users...</p>
                         </div>
                     ) : error ? (
-                        <div className="text-center py-12 text-destructive">
+                        <div className="text-center py-12 text-destructive px-6">
                             <p>{error}</p>
                         </div>
                     ) : filteredUsers.length === 0 ? (
-                        <div className="text-center py-12 text-muted-foreground">
+                        <div className="text-center py-12 text-muted-foreground px-6">
                             <p>No users found</p>
                         </div>
                     ) : (
-                        <div className="space-y-2">
-                            {filteredUsers.map((user) => (
-                                <div
-                                    key={user.id}
-                                    className="p-3 sm:p-4 rounded-lg border bg-card hover:bg-accent transition-colors"
-                                >
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                        <div className="flex-1 min-w-0 space-y-2">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="text-sm font-medium truncate">
-                                                    {user.email}
-                                                </span>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="border-warm-border hover:bg-warm-muted/50">
+                                        <TableHead className="text-foreground">Email</TableHead>
+                                        <TableHead className="text-foreground">Role</TableHead>
+                                        <TableHead className="text-foreground">Joined</TableHead>
+                                        <TableHead className="text-foreground">Last Login</TableHead>
+                                        <TableHead className="text-foreground">Sessions</TableHead>
+                                        <TableHead className="text-right text-foreground">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredUsers.map((user) => (
+                                        <TableRow key={user.id} className="border-warm-border hover:bg-warm-muted/50">
+                                            <TableCell className="font-medium text-foreground">{user.email}</TableCell>
+                                            <TableCell>
                                                 {user.role === 'admin' ? (
-                                                    <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 px-2 py-1 rounded flex items-center gap-1">
-                                                        <Crown className="h-3 w-3" />
-                                                        Admin
+                                                    <span className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-1 rounded inline-flex items-center gap-1">
+                                                        <Crown className="h-3 w-3" /> Admin
                                                     </span>
                                                 ) : (
-                                                    <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 px-2 py-1 rounded flex items-center gap-1">
-                                                        <User className="h-3 w-3" />
-                                                        User
+                                                    <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded inline-flex items-center gap-1">
+                                                        <User className="h-3 w-3" /> User
                                                     </span>
                                                 )}
-                                            </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-muted-foreground">
-                                                <div>
-                                                    <span className="font-medium">Joined:</span>{' '}
-                                                    {new Date(user.created_at).toLocaleDateString()}
-                                                </div>
-                                                <div>
-                                                    <span className="font-medium">Last Login:</span>{' '}
-                                                    {user.last_sign_in_at
-                                                        ? new Date(user.last_sign_in_at).toLocaleDateString()
-                                                        : 'Never'}
-                                                </div>
-                                                <div>
-                                                    <span className="font-medium">Sessions:</span>{' '}
-                                                    {user.session_count}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                setSelectedUser(user)
-                                                setNewRole(user.role)
-                                            }}
-                                            className="shrink-0"
-                                        >
-                                            Change Role
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground">{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                                            <TableCell className="text-muted-foreground">
+                                                {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'Never'}
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground">{user.session_count}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="rounded-lg border-warm-border"
+                                                    onClick={() => {
+                                                        setSelectedUser(user)
+                                                        setNewRole(user.role)
+                                                    }}
+                                                >
+                                                    Change Role
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
                         </div>
                     )}
                 </CardContent>

@@ -26,6 +26,14 @@
     --ring: 262 83% 58%;
     --radius: 0.75rem;
 
+    /* Dashboard warm panel (fallbacks when not in dashboard) */
+    --dash-bg: 30 25% 97%;
+    --dash-surface: 0 0% 100%;
+    --dash-border: 30 15% 88%;
+    --dash-muted: 30 10% 92%;
+    --dash-accent: 38 92% 50%;
+    --dash-accent-muted: 38 60% 94%;
+
     /* Custom colors for icons */
     --icon-blue: 217 91% 60%;
     --icon-purple: 271 81% 56%;
@@ -57,6 +65,14 @@
     --border: 216 34% 17%;
     --input: 216 34% 17%;
     --ring: 263 70% 50%;
+
+    /* Dashboard warm panel - dark mode */
+    --dash-bg: 30 15% 11%;
+    --dash-surface: 30 12% 14%;
+    --dash-border: 30 10% 20%;
+    --dash-muted: 30 10% 18%;
+    --dash-accent: 38 92% 55%;
+    --dash-accent-muted: 38 30% 18%;
 
     /* Custom colors for icons - vibrant in dark mode */
     --icon-blue: 217 91% 60%;
@@ -235,4 +251,74 @@
 .animate-gradient {
   background-size: 200% 200%;
   animation: gradient 3s ease infinite;
+}
+
+/* Dashboard: warm main area (used with dark sidebar) */
+.dashboard-warm {
+  --dash-bg: 30 25% 97%;
+  --dash-surface: 0 0% 100%;
+  --dash-border: 30 15% 88%;
+  --dash-muted: 30 10% 92%;
+  --dash-accent: 38 92% 50%;
+  --dash-accent-muted: 38 60% 94%;
+}
+
+/* Modern dark mode for dashboard main area (zinc + amber) */
+.dark .dashboard-warm {
+  --dash-bg: 240 6% 8%;
+  --dash-surface: 240 5% 11%;
+  --dash-border: 240 4% 18%;
+  --dash-muted: 240 4% 15%;
+  --dash-accent: 38 92% 55%;
+  --dash-accent-muted: 38 40% 22%;
+}
+
+/* Dashboard content uses theme foreground so text is readable in light/dark */
+.dashboard-warm .dash-heading { color: hsl(var(--foreground)); }
+.dashboard-warm .dash-muted { color: hsl(var(--muted-foreground)); }
+
+/* Bento grid layouts */
+.bento-grid {
+  display: grid;
+  gap: 1rem;
+  grid-auto-rows: minmax(80px, auto);
+}
+
+.bento-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.bento-grid-4 .span-2 {
+  grid-column: span 2;
+}
+
+.bento-grid-4 .span-2-row {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.bento-grid-4 .row-2 {
+  grid-row: span 2;
+}
+
+@media (max-width: 1024px) {
+  .bento-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bento-grid-4 .span-2,
+  .bento-grid-4 .span-2-row {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .bento-grid-4 {
+    grid-template-columns: 1fr;
+  }
+  .bento-grid-4 .span-2,
+  .bento-grid-4 .span-2-row,
+  .bento-grid-4 .row-2 {
+    grid-column: span 1;
+    grid-row: span 1;
+  }
 }

@@ -16,15 +16,13 @@ Your job is to design multi-agent workflows. You do NOT execute agents - you onl
 
 **Available Agents and Their EXACT Capabilities:**
 1. **deep_research** - Market analysis, competitor research, industry trends. Best for: research tasks, market insights.
-2. **email_sequence** - Email marketing campaigns, sequences, follow-ups. Best for: email content.
-3. **sales_script** - Sales pitches, cold call scripts, objection handling. Best for: sales conversations.
-4. **ad_copy** - High-converting ad copy for multiple platforms (Facebook, Instagram, LinkedIn, Google). Creates variations with different angles. Outputs CSV format. Best for: advertising campaigns, A/B testing ad variations.
-5. **image_generation** - Generate ONE advertisement image per call. LIMITATION: Can only create 1 image at a time.
-6. **linkedin_headshot** - Generate professional LinkedIn headshots. LIMITATION: Only for profile photos.
+2. **ad_copy** - High-converting ad copy for multiple platforms (Facebook, Instagram, LinkedIn, Google). Creates variations with different angles. Outputs CSV format. Best for: advertising campaigns, A/B testing ad variations.
+3. **image_generation** - Generate ONE advertisement image per call. LIMITATION: Can only create 1 image at a time.
+4. **linkedin_headshot** - Generate professional LinkedIn headshots. LIMITATION: Only for profile photos.
 
 **CRITICAL LIMITATIONS:**
 - image_generation creates ONLY 1 image per step. For 5 images, you need 5 separate steps with image_generation.
-- Each agent has a specific purpose. Use ad_copy for advertising copy, email_sequence for email marketing, and sales_script for sales conversations.
+- Each agent has a specific purpose. Use ad_copy for advertising copy.
 - ad_copy outputs CSV format with columns: Platform, Angle, Headline, Body, CTA.
 - Be realistic about what each agent can do.
 
@@ -60,7 +58,7 @@ This requires 4 steps:
 4. step_4_image_3 (image_generation) - Create third ad image
 
 **Rules:**
-- Use clear step_ids like "step_1_research", "step_2_email"
+- Use clear step_ids like "step_1_research", "step_2_ad_copy"
 - For multiple images, create multiple image_generation steps
 - Match agent_id to the task type correctly
 - Avoid circular dependencies
@@ -82,14 +80,7 @@ export const ORCHESTRATOR_AGENTS: Record<string, { name: string; capabilities: s
         name: 'LinkedIn Headshot',
         capabilities: ['Generate professional headshots', 'Profile photo enhancement']
     },
-    email_sequence: {
-        name: 'Email Campaign',
-        capabilities: ['Design email sequences', 'Marketing campaigns', 'Follow-up emails', 'Nurturing sequences']
-    },
-    sales_script: {
-        name: 'Sales Scripts',
-        capabilities: ['Sales pitch scripts', 'Objection handling', 'Cold call scripts', 'B2B/B2C pitches']
-    },
+
     ad_copy: {
         name: 'Ad Copy Generator',
         capabilities: ['Generate high-converting ad copy for multiple platforms', 'Create variations with different angles (Problem-Solution, Benefit-Driven, Emotional)', 'Platform-specific copy (Facebook, Instagram, LinkedIn, Google)', 'CSV output with Platform, Angle, Headline, Body, CTA', 'A/B testing variations']

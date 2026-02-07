@@ -20,6 +20,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AuditLog, AuditAction } from '@/types'
 import { Clock, Filter, ChevronLeft, ChevronRight, Search, Shield, Trash2 } from 'lucide-react'
 import Link from 'next/link'
@@ -134,8 +135,8 @@ export default function AuditLogsPage() {
                     </Button>
                 </Link>
                 <div className="flex items-center gap-2 mb-2">
-                    <Clock className="h-6 w-6 text-primary" />
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Audit Logs</h1>
+                    <Clock className="h-6 w-6 text-amber-500" />
+                    <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Audit Logs</h1>
                 </div>
                 <p className="text-sm sm:text-base text-muted-foreground">
                     Complete audit trail of all system activities
@@ -143,10 +144,10 @@ export default function AuditLogsPage() {
             </div>
 
             {/* Filters */}
-            <Card className="border-2">
+            <Card className="border-warm-border bg-warm-surface">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Filter className="h-5 w-5" />
+                    <CardTitle className="flex items-center gap-2 text-foreground">
+                        <Filter className="h-5 w-5 text-amber-500" />
                         Filters
                     </CardTitle>
                 </CardHeader>
@@ -185,11 +186,11 @@ export default function AuditLogsPage() {
             </Card>
 
             {/* Logs Table */}
-            <Card className="border-2">
+            <Card className="border-warm-border bg-warm-surface">
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <div>
-                            <CardTitle>Activity Log</CardTitle>
+                            <CardTitle className="text-foreground">Activity Log</CardTitle>
                             <CardDescription>
                                 Showing {filteredLogs.length} of {totalCount} entries
                             </CardDescription>
@@ -197,6 +198,7 @@ export default function AuditLogsPage() {
                         <Button
                             variant="destructive"
                             size="sm"
+                            className="rounded-lg"
                             onClick={() => setShowClearDialog(true)}
                             disabled={totalCount === 0}
                         >
@@ -205,73 +207,54 @@ export default function AuditLogsPage() {
                         </Button>
                     </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                     {loading ? (
                         <div className="text-center py-12">
-                            <Shield className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                            <Shield className="h-8 w-8 animate-spin mx-auto mb-4 text-amber-500" />
                             <p className="text-muted-foreground">Loading audit logs...</p>
                         </div>
                     ) : error ? (
-                        <div className="text-center py-12 text-destructive">
+                        <div className="text-center py-12 text-destructive px-6">
                             <p>{error}</p>
                         </div>
                     ) : filteredLogs.length === 0 ? (
-                        <div className="text-center py-12 text-muted-foreground">
+                        <div className="text-center py-12 text-muted-foreground px-6">
                             <p>No audit logs found</p>
                         </div>
                     ) : (
-                        <div className="space-y-2">
-                            {filteredLogs.map((log) => (
-                                <div
-                                    key={log.id}
-                                    className="p-3 sm:p-4 rounded-lg border bg-card hover:bg-accent transition-colors"
-                                >
-                                    <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                                        <div className="flex-1 min-w-0 space-y-2">
-                                            <div className="flex items-center gap-2 flex-wrap">
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="border-warm-border hover:bg-warm-muted/50">
+                                        <TableHead className="text-foreground">Action</TableHead>
+                                        <TableHead className="text-foreground">User</TableHead>
+                                        <TableHead className="text-foreground">Time</TableHead>
+                                        <TableHead className="text-foreground">Resource</TableHead>
+                                        <TableHead className="text-foreground">IP</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredLogs.map((log) => (
+                                        <TableRow key={log.id} className="border-warm-border hover:bg-warm-muted/50">
+                                            <TableCell>
                                                 <span className={`text-xs font-mono px-2 py-1 rounded ${getActionColor(log.action)}`}>
                                                     {log.action}
                                                 </span>
-                                                <span className="text-sm font-medium truncate">
-                                                    {log.user_email || 'System'}
-                                                </span>
-                                            </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
-                                                <div>
-                                                    <span className="font-medium">Time:</span>{' '}
-                                                    {new Date(log.created_at).toLocaleString()}
-                                                </div>
-                                                {log.resource_type && (
-                                                    <div>
-                                                        <span className="font-medium">Resource:</span>{' '}
-                                                        {log.resource_type}
-                                                    </div>
-                                                )}
-                                                {log.ip_address && (
-                                                    <div>
-                                                        <span className="font-medium">IP:</span>{' '}
-                                                        {log.ip_address}
-                                                    </div>
-                                                )}
-                                                {log.details && Object.keys(log.details).length > 0 && (
-                                                    <div className="sm:col-span-2">
-                                                        <span className="font-medium">Details:</span>{' '}
-                                                        <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                                                            {JSON.stringify(log.details)}
-                                                        </code>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                            </TableCell>
+                                            <TableCell className="font-medium text-foreground">{log.user_email || 'System'}</TableCell>
+                                            <TableCell className="text-muted-foreground">{new Date(log.created_at).toLocaleString()}</TableCell>
+                                            <TableCell className="text-muted-foreground">{log.resource_type || '—'}</TableCell>
+                                            <TableCell className="text-muted-foreground text-sm">{log.ip_address || '—'}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
                         </div>
                     )}
 
                     {/* Pagination */}
                     {!loading && totalPages > 1 && (
-                        <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                        <div className="flex items-center justify-between mt-6 pt-4 border-t border-warm-border px-6 pb-6">
                             <p className="text-sm text-muted-foreground">
                                 Page {currentPage} of {totalPages}
                             </p>

@@ -47,79 +47,67 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex">
-            {/* Animated background elements */}
+        <div className="relative min-h-screen overflow-hidden bg-zinc-950 text-zinc-100 flex">
+            {/* Animated background elements - Warm Amber Theme */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
             </div>
 
             {/* Left Side - Branding */}
             <div className="hidden lg:flex lg:w-1/2 relative z-10 flex-col justify-center items-center p-12">
                 <div className="max-w-xl">
                     <Link href="/" className="flex items-center space-x-3 mb-8 animate-slide-up">
-                        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                            <Sparkles className="h-9 w-9 text-white" />
+                        <div className="h-16 w-16 rounded-2xl bg-amber-500 flex items-center justify-center text-zinc-900">
+                            <Sparkles className="h-9 w-9" />
                         </div>
-                        <span className="text-4xl font-bold text-white">UtilityAI</span>
+                        <span className="font-heading text-4xl font-bold text-zinc-100">UtilityAI</span>
                     </Link>
 
-                    <h1 className="text-5xl font-bold text-white mb-6 animate-fade-in">
+                    <h1 className="font-heading text-5xl font-bold text-zinc-100 mb-6 animate-fade-in">
                         Transform Your Business with AI
                     </h1>
-                    <p className="text-xl text-gray-300 mb-8 animate-fade-in">
+                    <p className="text-xl text-zinc-400 mb-8 animate-fade-in">
                         Access powerful AI agents, automate workflows, and boost productivity with our comprehensive platform.
                     </p>
 
                     {/* Features */}
                     <div className="space-y-4 animate-slide-up">
-                        <div className="flex items-center space-x-3">
-                            <div className="h-10 w-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                                <svg className="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
+                        {[
+                            "10+ Specialized AI Agents",
+                            "Automated Workflows",
+                            "Real-time Collaboration"
+                        ].map((feature, i) => (
+                            <div key={i} className="flex items-center space-x-3">
+                                <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                                    <Sparkles className="h-5 w-5 text-amber-500" />
+                                </div>
+                                <span className="text-zinc-300 text-lg">{feature}</span>
                             </div>
-                            <span className="text-gray-200 text-lg">10+ Specialized AI Agents</span>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                            <div className="h-10 w-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                                <svg className="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                            </div>
-                            <span className="text-gray-200 text-lg">Automated Workflows</span>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                            <div className="h-10 w-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                                <svg className="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                            </div>
-                            <span className="text-gray-200 text-lg">Real-time Collaboration</span>
-                        </div>
+                        ))}
                     </div>
                 </div>
             </div>
 
             {/* Right Side - Login Form */}
-            <div className="w-full lg:w-1/2 relative z-10 flex items-center justify-center">
+            <div className="w-full lg:w-1/2 relative z-10 flex items-center justify-center p-4">
                 {/* Logo for mobile */}
                 <Link href="/" className="lg:hidden absolute top-6 left-6 flex items-center space-x-2 animate-slide-up">
-                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                        <Sparkles className="h-6 w-6 text-white" />
+                    <div className="h-10 w-10 rounded-xl bg-amber-500 flex items-center justify-center text-zinc-900">
+                        <Sparkles className="h-6 w-6" />
                     </div>
-                    <span className="text-2xl font-bold text-white">UtilityAI</span>
+                    <span className="font-heading text-2xl font-bold text-zinc-100">UtilityAI</span>
                 </Link>
 
-                <Card className="relative w-full max-w-md glass border-white/20 shadow-2xl animate-scale-in">
+                <Card className="relative w-full max-w-md border-zinc-800 bg-zinc-900/80 shadow-2xl backdrop-blur-sm animate-scale-in">
                     <CardHeader className="space-y-1 text-center pb-6">
-                        <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center animate-pulse">
-                            <Lock className="h-8 w-8 text-white" />
+                        <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-amber-500/10 flex items-center justify-center animate-pulse">
+                            <Lock className="h-8 w-8 text-amber-500" />
                         </div>
-                        <CardTitle className="text-3xl font-bold text-white">
+                        <CardTitle className="font-heading text-3xl font-bold text-zinc-100">
                             Welcome Back
                         </CardTitle>
-                        <CardDescription className="text-gray-300">
+                        <CardDescription className="text-zinc-400">
                             Sign in to access your AI-powered workspace
                         </CardDescription>
                     </CardHeader>
@@ -131,9 +119,9 @@ export default function LoginPage() {
                                 </div>
                             )}
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-gray-200">Email</Label>
+                                <Label htmlFor="email" className="text-zinc-300">Email</Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
                                     <Input
                                         id="email"
                                         type="email"
@@ -142,14 +130,14 @@ export default function LoginPage() {
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
                                         disabled={loading}
-                                        className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-purple-500 focus:ring-purple-500/20"
+                                        className="pl-10 bg-zinc-950/50 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:ring-amber-500/20"
                                     />
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="password" className="text-gray-200">Password</Label>
+                                <Label htmlFor="password" className="text-zinc-300">Password</Label>
                                 <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
                                     <Input
                                         id="password"
                                         type="password"
@@ -158,16 +146,16 @@ export default function LoginPage() {
                                         onChange={(e) => setPassword(e.target.value)}
                                         required
                                         disabled={loading}
-                                        className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-purple-500 focus:ring-purple-500/20"
+                                        className="pl-10 bg-zinc-950/50 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:ring-amber-500/20"
                                     />
                                 </div>
                             </div>
                             <div className="flex items-center justify-between text-sm">
-                                <label className="flex items-center space-x-2 text-gray-300 cursor-pointer">
-                                    <input type="checkbox" className="rounded border-white/20 bg-white/5 text-purple-600 focus:ring-purple-500/20" />
+                                <label className="flex items-center space-x-2 text-zinc-400 cursor-pointer hover:text-zinc-300 transition-colors">
+                                    <input type="checkbox" className="rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500/20" />
                                     <span>Remember me</span>
                                 </label>
-                                <Link href="#" className="text-purple-400 hover:text-purple-300 transition-colors">
+                                <Link href="#" className="text-amber-500 hover:text-amber-400 transition-colors font-medium">
                                     Forgot password?
                                 </Link>
                             </div>
@@ -175,12 +163,12 @@ export default function LoginPage() {
                         <CardFooter className="flex flex-col space-y-4">
                             <Button
                                 type="submit"
-                                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg shadow-purple-500/50 hover:shadow-xl hover:shadow-purple-500/60 transition-all duration-300 group"
+                                className="w-full bg-amber-500 text-zinc-900 hover:bg-amber-600 font-semibold shadow-lg shadow-amber-500/20 transition-all duration-300 group"
                                 disabled={loading}
                             >
                                 {loading ? (
                                     <span className="flex items-center">
-                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-zinc-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
@@ -196,17 +184,17 @@ export default function LoginPage() {
 
                             <div className="relative">
                                 <div className="absolute inset-0 flex items-center">
-                                    <span className="w-full border-t border-white/10" />
+                                    <span className="w-full border-t border-zinc-800" />
                                 </div>
                                 <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-card px-2 text-gray-400">Or continue with</span>
+                                    <span className="bg-zinc-900 px-2 text-zinc-500">Or continue with</span>
                                 </div>
                             </div>
 
                             <Button
                                 type="button"
                                 variant="outline"
-                                className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/30 transition-all duration-300"
+                                className="w-full border-zinc-800 bg-zinc-950/50 text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100 transition-all duration-300"
                                 onClick={handleGoogleSignIn}
                                 disabled={loading}
                             >
@@ -230,9 +218,9 @@ export default function LoginPage() {
                                 </svg>
                                 Continue with Google
                             </Button>
-                            <div className="text-sm text-center text-gray-300">
+                            <div className="text-sm text-center text-zinc-400">
                                 Don't have an account?{' '}
-                                <Link href="/register" className="text-purple-400 hover:text-purple-300 font-medium transition-colors">
+                                <Link href="/register" className="text-amber-500 hover:text-amber-400 font-medium transition-colors">
                                     Sign up for free
                                 </Link>
                             </div>
@@ -241,8 +229,8 @@ export default function LoginPage() {
                 </Card>
             </div>
 
-            {/* Decorative elements */}
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/50 to-transparent" />
+            {/* Decorative footer line */}
+            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
         </div>
     )
 }

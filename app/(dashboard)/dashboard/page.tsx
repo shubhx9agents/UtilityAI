@@ -3,265 +3,226 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import Link from 'next/link'
 import {
-    Sparkles,
-    Layers,
-    GitBranch,
-    StickyNote,
-    FolderOpen,
-    TrendingUp,
-    Zap,
-    Target,
+  Sparkles,
+  Layers,
+  TrendingUp,
+  Zap,
+  Target,
+  ArrowRight,
+  CheckCircle2,
 } from 'lucide-react'
 
 const quickActions = [
-    {
-        title: 'Start Onboarding',
-        description: 'Complete your business profile',
-        href: '/onboarding',
-        icon: Sparkles,
-        color: 'text-blue-500',
-    },
-    {
-        title: 'AI Agents',
-        description: 'Access 4 specialized AI agents',
-        href: '/agents',
-        icon: Zap,
-        color: 'text-purple-500',
-    },
-    {
-        title: 'New Canvas',
-        description: 'Design your strategy',
-        href: '/canvas',
-        icon: Layers,
-        color: 'text-orange-500',
-    },
+  {
+    title: 'Start New Flow',
+    description: 'Automate a new task',
+    href: '/onboarding',
+    icon: Sparkles,
+    accent: 'amber',
+  },
+  {
+    title: 'Edit Project',
+    description: 'Continue on canvas',
+    href: '/canvas',
+    icon: Layers,
+    accent: 'teal',
+  },
+  {
+    title: 'Voice Command',
+    description: 'Quick AI request',
+    href: '/voice',
+    icon: Target,
+    accent: 'rose',
+  },
 ]
 
 const stats = [
-    { name: 'AI Agents', value: '4', icon: Sparkles },
-    { name: 'Active Sessions', value: '12', icon: Zap },
+  { name: 'AI Agents', value: '4', icon: Sparkles },
+  { name: 'Active Sessions', value: '12', icon: Zap },
 ]
 
+const agentsList = [
+  { name: 'Deep Research', href: '/agents/deep_research', desc: 'Market analysis' },
+  { name: 'Ad Image Generation', href: '/agents/image_generation', desc: 'Ad visuals' },
+  { name: 'LinkedIn Headshot', href: '/agents/linkedin_headshot', desc: 'Profile photos' },
+  { name: 'Ad Copy Generator', href: '/agents/ad_copy', desc: 'Ad variations' },
+]
+
+const gettingStartedSteps = [
+  { step: 'Complete onboarding', action: 'Start', href: '/onboarding' },
+  { step: 'Try an AI agent', action: 'Explore', href: '/agents' },
+  { step: 'Explore premium features', action: 'View Plans', href: '/upgrade' },
+]
+
+const accentBg: Record<string, string> = {
+  amber: 'bg-amber-100 text-amber-700',
+  teal: 'bg-teal-100 text-teal-700',
+  rose: 'bg-rose-100 text-rose-700',
+}
+
 export default function DashboardPage() {
-    const { user } = useAuth()
+  const { user } = useAuth()
+  const displayName =
+    user?.user_metadata?.name ||
+    (user?.email ? user.email.split('@')[0] : 'there')
 
-    return (
-        <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in">
-            {/* Welcome Banner with Gradient */}
-            <div className="gradient-purple rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 text-white shadow-xl">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-medium opacity-90 mb-2">SYSTEM ONLINE</p>
-                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-2 sm:mb-3 break-words">
-                            Welcome back{user?.user_metadata?.name ? `, ${user.user_metadata.name}` : user?.email ? `, ${user.email.split('@')[0]}` : ''}
-                        </h1>
-                        <p className="text-white/80 text-sm sm:text-base md:text-lg">
-                            Your AI credits are healthy with <span className="font-semibold">850 tokens</span> remaining for this billing cycle.
-                        </p>
-                    </div>
-                    <Link href="/upgrade">
-                        <Button className="bg-white text-purple-600 hover:bg-white/90 font-semibold px-4 sm:px-6 w-full sm:w-auto">
-                            Upgrade Plan
-                        </Button>
-                    </Link>
-                </div>
-            </div>
-
-            {/* Quick Action Buttons */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Link href="/onboarding">
-                    <button className="group bg-card hover:bg-accent border border-border rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg text-left w-full">
-                        <div className="flex flex-col items-center text-center space-y-3">
-                            <div className="icon-badge icon-badge-blue">
-                                <Sparkles className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-foreground">Start New Flow</h3>
-                                <p className="text-sm text-muted-foreground">Automate a new task</p>
-                            </div>
-                        </div>
-                    </button>
-                </Link>
-
-                <Link href="/canvas">
-                    <button className="group bg-card hover:bg-accent border border-border rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg text-left w-full">
-                        <div className="flex flex-col items-center text-center space-y-3">
-                            <div className="icon-badge icon-badge-cyan">
-                                <Layers className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-foreground">Edit Project</h3>
-                                <p className="text-sm text-muted-foreground">Continue working</p>
-                            </div>
-                        </div>
-                    </button>
-                </Link>
-
-                <Link href="/voice">
-                    <button className="group bg-card hover:bg-accent border border-border rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg text-left w-full">
-                        <div className="flex flex-col items-center text-center space-y-3">
-                            <div className="icon-badge icon-badge-purple">
-                                <Target className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-foreground">Voice Command</h3>
-                                <p className="text-sm text-muted-foreground">Quick AI request</p>
-                            </div>
-                        </div>
-                    </button>
-                </Link>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat) => (
-                    <Card key={stat.name}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                {stat.name}
-                            </CardTitle>
-                            <stat.icon className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stat.value}</div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-
-            {/* AI Agents Section */}
+  return (
+    <div className="space-y-8">
+      {/* Welcome - warm card */}
+      <Card className="overflow-hidden border-warm-border bg-warm-surface">
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-transparent p-6 sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h2 className="text-2xl font-bold tracking-tight mb-6">AI Agents</h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-                    <Link href="/agents/deep_research">
-                        <Card className="card-hover cursor-pointer group border-border bg-card">
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="icon-badge icon-badge-purple">
-                                            <Target className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">Deep Research</CardTitle>
-                                            <CardDescription>Comprehensive market analysis</CardDescription>
-                                        </div>
-                                    </div>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                        </Card>
-                    </Link>
-
-                    <Link href="/agents/image_generation">
-                        <Card className="card-hover cursor-pointer group border-border bg-card">
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="icon-badge icon-badge-pink">
-                                            <Sparkles className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">Ad Image Generation</CardTitle>
-                                            <CardDescription>AI-powered ad visuals</CardDescription>
-                                        </div>
-                                    </div>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                        </Card>
-                    </Link>
-
-                    <Link href="/agents/linkedin_headshot">
-                        <Card className="card-hover cursor-pointer group border-border bg-card">
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="icon-badge icon-badge-green">
-                                            <TrendingUp className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">LinkedIn Headshot</CardTitle>
-                                            <CardDescription>Professional profile photos</CardDescription>
-                                        </div>
-                                    </div>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                        </Card>
-                    </Link>
-
-                    <Link href="/agents/ad_copy">
-                        <Card className="card-hover cursor-pointer group border-border bg-card">
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="icon-badge icon-badge-orange">
-                                            <Zap className="h-6 w-6 text-orange-500" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-lg group-hover:text-primary transition-colors">Ad Copy Generator</CardTitle>
-                                            <CardDescription>High-converting ad variations</CardDescription>
-                                        </div>
-                                    </div>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                        </Card>
-                    </Link>
-                </div>
+              <p className="text-xs font-medium uppercase tracking-wider text-amber-700/80">
+                System online
+              </p>
+              <h1 className="font-heading mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                Welcome back, {displayName}
+              </h1>
+              <p className="mt-2 text-muted-foreground">
+                <span className="font-semibold text-foreground">850 tokens</span>{' '}
+                remaining this billing cycle.
+              </p>
             </div>
-
-
-            {/* Getting Started */}
-            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-blue-200 dark:border-blue-800">
-                <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                        <Target className="h-5 w-5 text-blue-600" />
-                        <span>Getting Started</span>
-                    </CardTitle>
-                    <CardDescription>
-                        Complete these steps to get the most out of UtilityAI
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm">Complete onboarding</span>
-                        <Link href="/onboarding">
-                            <Button size="sm">Start</Button>
-                        </Link>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm">Try an AI agent</span>
-                        <Link href="/agents">
-                            <Button size="sm" variant="outline">Explore</Button>
-                        </Link>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm">Explore premium features</span>
-                        <Link href="/upgrade">
-                            <Button size="sm" variant="outline">View Plans</Button>
-                        </Link>
-                    </div>
-                </CardContent>
-            </Card>
+            <Link href="/upgrade" className="shrink-0">
+              <Button className="rounded-lg bg-amber-500 font-medium text-stone-900 hover:bg-amber-600">
+                Upgrade Plan
+              </Button>
+            </Link>
+          </div>
         </div>
-    )
+      </Card>
+
+      {/* Bento: quick actions + stats */}
+      <div className="bento-grid bento-grid-4 gap-4">
+        {quickActions.map((action) => (
+          <Link key={action.title} href={action.href}>
+            <Card className="h-full border-warm-border bg-warm-surface transition hover:border-amber-200 hover:shadow-md">
+              <CardContent className="flex flex-col items-center p-6 text-center">
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl ${accentBg[action.accent]}`}
+                >
+                  <action.icon className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 font-heading font-semibold text-foreground">
+                  {action.title}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">{action.description}</p>
+                <span className="mt-3 inline-flex items-center text-sm font-medium text-amber-600">
+                  Go <ArrowRight className="ml-1 h-4 w-4" />
+                </span>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+
+        {stats.map((stat) => (
+          <Card
+            key={stat.name}
+            className="border-warm-border bg-warm-surface"
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {stat.name}
+              </CardTitle>
+              <stat.icon className="h-4 w-4 text-stone-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="font-heading text-2xl font-bold text-foreground">
+                {stat.value}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* AI Agents bento */}
+      <div>
+        <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">
+          AI Agents
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Launch an agent or chain them in the canvas.
+        </p>
+        <div className="bento-grid bento-grid-4 mt-4 gap-4">
+          {agentsList.map((agent) => (
+            <Link key={agent.name} href={agent.href}>
+              <Card className="group h-full border-warm-border bg-warm-surface transition hover:border-amber-200 hover:shadow-md">
+                <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                      <Target className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base group-hover:text-amber-600">
+                        {agent.name}
+                      </CardTitle>
+                      <CardDescription>{agent.desc}</CardDescription>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-5 w-5 shrink-0 text-stone-400 transition group-hover:translate-x-0.5 group-hover:text-amber-600" />
+                </CardHeader>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Getting started - table */}
+      <Card className="border-warm-border bg-warm-surface">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-heading text-lg">
+            <CheckCircle2 className="h-5 w-5 text-amber-600" />
+            Getting Started
+          </CardTitle>
+          <CardDescription>
+            Complete these to get the most out of UtilityAI
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-warm-border hover:bg-warm-muted/50">
+                <TableHead className="font-medium text-foreground">Step</TableHead>
+                <TableHead className="w-[140px] text-right font-medium text-stone-700">
+                  Action
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {gettingStartedSteps.map((row) => (
+                <TableRow
+                  key={row.step}
+                  className="border-warm-border hover:bg-warm-muted/50"
+                >
+                  <TableCell className="text-foreground">{row.step}</TableCell>
+                  <TableCell className="text-right">
+                    <Link href={row.href}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-lg border-warm-border"
+                      >
+                        {row.action}
+                      </Button>
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }

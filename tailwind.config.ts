@@ -18,7 +18,19 @@ const config: Config = {
             },
         },
         extend: {
+            fontFamily: {
+                sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+                heading: ["var(--font-heading)", "var(--font-sans)", "sans-serif"],
+            },
             colors: {
+                warm: {
+                    bg: "hsl(var(--dash-bg))",
+                    surface: "hsl(var(--dash-surface))",
+                    border: "hsl(var(--dash-border))",
+                    muted: "hsl(var(--dash-muted))",
+                    accent: "hsl(var(--dash-accent))",
+                    "accent-muted": "hsl(var(--dash-accent-muted))",
+                },
                 border: 'hsl(var(--border))',
                 input: 'hsl(var(--input))',
                 ring: 'hsl(var(--ring))',

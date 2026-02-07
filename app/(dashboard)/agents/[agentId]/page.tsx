@@ -171,9 +171,9 @@ export default function AgentPage() {
                         </Button>
                     </Link>
                 </div>
-                <Card>
+                <Card className="border-warm-border bg-warm-surface">
                     <CardHeader>
-                        <CardTitle>Agent Not Found</CardTitle>
+                        <CardTitle className="text-foreground">Agent Not Found</CardTitle>
                         <CardDescription>
                             The requested AI agent could not be found.
                         </CardDescription>
@@ -501,11 +501,11 @@ export default function AgentPage() {
             </div>
 
             {showOnboardingBanner && (
-                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-                    <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                    <Sparkles className="h-5 w-5 text-amber-500" />
                     <div>
-                        <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Complete your profile for better AI results</p>
-                        <p className="text-xs text-purple-700 dark:text-purple-300">Agents work better with business context.</p>
+                        <p className="text-sm font-medium text-foreground">Complete your profile for better AI results</p>
+                        <p className="text-xs text-muted-foreground">Agents work better with business context.</p>
                     </div>
                     <Button size="sm" variant="outline" className="ml-auto" asChild>
                         <a href="/onboarding">Complete Profile</a>
@@ -555,9 +555,9 @@ export default function AgentPage() {
 
             <div className="grid gap-6 lg:grid-cols-2">
                 {/* Input Section */}
-                <Card>
+                <Card className="border-warm-border bg-warm-surface">
                     <CardHeader>
-                        <CardTitle>Your Input</CardTitle>
+                        <CardTitle className="text-foreground">Your Input</CardTitle>
                         <CardDescription>
                             Answer the following questions to get started
                         </CardDescription>
@@ -634,9 +634,9 @@ export default function AgentPage() {
                 </Card>
 
                 {/* Response Section */}
-                <Card>
+                <Card className="border-warm-border bg-warm-surface">
                     <CardHeader>
-                        <CardTitle>AI Response</CardTitle>
+                        <CardTitle className="text-foreground">AI Response</CardTitle>
                         <CardDescription>
                             Your personalized results will appear here
                         </CardDescription>
@@ -746,7 +746,7 @@ export default function AgentPage() {
 
             {/* Chat Conversation Section - Only for enabled agents */}
             {isChatEnabled && (
-                <Card className="mt-6">
+                <Card className="mt-6 border-warm-border bg-warm-surface">
                     <CardHeader className="pb-3">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div>
