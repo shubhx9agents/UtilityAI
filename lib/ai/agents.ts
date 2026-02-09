@@ -436,6 +436,13 @@ ${userInput}`
         }
 
         try {
+            const backgroundPreference = typeof context.headshot_background === 'string' ? context.headshot_background : ''
+            const outfitPreference = typeof context.headshot_outfit === 'string' ? context.headshot_outfit : ''
+            const preferenceNotes = [
+                backgroundPreference ? `Preferred background: ${backgroundPreference}` : '',
+                outfitPreference ? `Preferred attire: ${outfitPreference}` : ''
+            ].filter(Boolean).join('\n')
+
             // 1. Groq Call - Refine the prompt for LinkedIn Professionalism
             const systemMessage = `
             You are an expert AI prompt engineer specializing in professional photography and portraiture.
@@ -446,13 +453,15 @@ ${userInput}`
             CRITICAL REQUIREMENTS:
             1. The user's face MUST NOT CHANGE. It must be perfectly preserved and look very realistic.
             2. The style must be professional, high-end, and natural (avoid over-retouching).
-            3. Detailed background: Neutral office, modern library, or soft-focus minimalist architectural background.
+            3. Detailed background: Use the user's preferred background if provided. Otherwise pick a neutral office, modern library, or soft-focus minimalist architectural background.
             4. Lighting: Soft cinematic studio lighting, butterfly lighting, or natural window light.
-            5. Attire: Professional business wear (blazer, suit, or smart professional blouse/shirt).
+            5. Attire: Use the user's preferred attire if provided. Otherwise choose professional business wear (blazer, suit, or smart professional blouse/shirt).
             6. Resolution: High definition, 8k, sharp focus on the eyes, cinematic quality.
             
             Output ONLY the refined prompt text.
             `.trim()
+
+            const groqUserInput = preferenceNotes ? `${userInput}\n${preferenceNotes}` : userInput
 
             const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
@@ -464,7 +473,7 @@ ${userInput}`
                     model: 'llama-3.3-70b-versatile',
                     messages: [
                         { role: 'system', content: systemMessage },
-                        { role: 'user', content: userInput }
+                        { role: 'user', content: groqUserInput }
                     ]
                 })
             })

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIGS } from '@/lib/ai/agents'
 import { AgentType, AgentSession } from '@/types'
@@ -35,6 +36,8 @@ export default function AgentPage() {
     const [refinedPrompt, setRefinedPrompt] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [headshotBackground, setHeadshotBackground] = useState('')
+    const [headshotOutfit, setHeadshotOutfit] = useState('')
     const [hasAutofilled, setHasAutofilled] = useState(false)
     const [showOnboardingBanner, setShowOnboardingBanner] = useState(false)
     const supabase = createClient()
@@ -221,9 +224,18 @@ export default function AgentPage() {
                 reference_image: formData['Reference Image (Optional)']
             }
         } else if (agentId === 'linkedin_headshot') {
-            fullInput = `Additional Details: ${additionalDetails}`
+            const backgroundTemplate = headshotBackground || formData['Background Template'] || ''
+            const outfitTemplate = headshotOutfit || formData['Clothing Template'] || ''
+            const preferenceLines = [
+                backgroundTemplate ? `Preferred background: ${backgroundTemplate}` : '',
+                outfitTemplate ? `Preferred attire: ${outfitTemplate}` : ''
+            ].filter(Boolean)
+
+            fullInput = `Additional Details: ${additionalDetails}${preferenceLines.length > 0 ? `\n${preferenceLines.join('\n')}` : ''}`
             context = {
-                user_image: formData['User Image']
+                user_image: formData['User Image'],
+                ...(backgroundTemplate ? { headshot_background: backgroundTemplate } : {}),
+                ...(outfitTemplate ? { headshot_outfit: outfitTemplate } : {})
             }
         } else {
             // Construct the input from form data
@@ -465,6 +477,8 @@ export default function AgentPage() {
         console.log('Chat messages length:', session.chat_messages?.length)
 
         setFormData(session.form_data || {})
+        setHeadshotBackground(session.form_data?.['Background Template'] || '')
+        setHeadshotOutfit(session.form_data?.['Clothing Template'] || '')
         setResponse(session.response || '')
         setRefinedPrompt(session.refined_prompt || '')
         setChatMessages(session.chat_messages || [])
@@ -482,6 +496,8 @@ export default function AgentPage() {
         setAdditionalDetails('')
         setResponse('')
         setRefinedPrompt('')
+        setHeadshotBackground('')
+        setHeadshotOutfit('')
         setChatMessages([])
         setCurrentSessionId(null)
         setShowChat(false)
@@ -605,6 +621,56 @@ export default function AgentPage() {
                                     </div>
                                 ))}
                             </div>
+                            {agentId === 'linkedin_headshot' && (
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label>Background Template</Label>
+                                        <Select
+                                            value={headshotBackground}
+                                            onValueChange={(value) => {
+                                                setHeadshotBackground(value)
+                                                handleInputChange('Background Template', value)
+                                            }}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Choose a background" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Auto (professional neutral)">Auto (professional neutral)</SelectItem>
+                                                <SelectItem value="Office (modern corporate workspace)">Office</SelectItem>
+                                                <SelectItem value="Office (glass wall modern)">Glass wall office</SelectItem>
+                                                <SelectItem value="Staircase (modern architectural)">Staircase</SelectItem>
+                                                <SelectItem value="Library (modern professional)">Library</SelectItem>
+                                                <SelectItem value="Window (soft natural light)">Window</SelectItem>
+                                                <SelectItem value="Meeting room (executive boardroom)">Meeting room</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Clothing Template</Label>
+                                        <Select
+                                            value={headshotOutfit}
+                                            onValueChange={(value) => {
+                                                setHeadshotOutfit(value)
+                                                handleInputChange('Clothing Template', value)
+                                            }}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Choose attire" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Auto (professional business wear)">Auto (professional)</SelectItem>
+                                                <SelectItem value="Blazer">Blazer</SelectItem>
+                                                <SelectItem value="Suit">Suit</SelectItem>
+                                                <SelectItem value="Vest">Vest</SelectItem>
+                                                <SelectItem value="Shirt and trousers">Shirt and trousers</SelectItem>
+                                                <SelectItem value="Blouse">Blouse</SelectItem>
+                                                <SelectItem value="Business casual">Business casual</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            )}
                             <div className="space-y-2">
                                 <Label htmlFor="additional">Additional Details (Optional)</Label>
                                 <textarea
