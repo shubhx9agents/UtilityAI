@@ -299,9 +299,16 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       <footer className="border-t border-border py-8">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mb-6 flex justify-center">
+            <Link href="/privacy">
+              <Button variant="outline" className="rounded-lg">
+                Privacy
+              </Button>
+            </Link>
+          </div>
+
           <p className="text-center text-sm text-muted-foreground">
             © {new Date().getFullYear()} UtilityAI. All rights reserved.
           </p>
@@ -310,3 +317,5 @@ export default function HomePage() {
     </div>
   )
 }
+
+
