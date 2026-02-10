@@ -201,10 +201,71 @@ ${rawOutput}
 
         try {
             // 1. Market Research using Perplexity
-            const searchPrompt = `Conduct a deep-dive research for the following request: ${userInput}. 
-            Identify current market trends, top-performing competitor ad examples, and platform-specific high-converting hooks.
-            Analyze specific psychological triggers for the target audience. 
-            STRICTLY RESEARCH FOR THE REQUESTED PLATFORMS ONLY if specified in the input.`
+            const searchPrompt = `Role: You are an expert Direct Response Marketing Strategist and Deep-Dive Market Researcher.
+
+Task: Conduct a comprehensive market research and competitive analysis based on the user's request: "${userInput}".
+ You must reverse-engineer the top players in the market to provide a blueprint for entry and domination.
+
+Instructions:
+1.  **Scope:** Analyze both local (specifically India if implied by context) and global top competitors.
+2.  **Data Extraction:** Do not just list facts. You must analyze the *business model*, *funnels*, and *psychology* behind the competitors.
+3.  **Inference:** If specific pricing or ad data is not explicitly public, use your knowledge base to estimate typical market rates and infer strategies based on common industry patterns.
+
+Output Format:
+You must strictly structure your response into the following 7 numbered sections:
+
+### 1. Top Competitors (India + Global)
+Select 3-5 top competitors. For each, provide a detailed breakdown including:
+* **Name & Website**
+* **Niche & Audience:** (Who specifically are they targeting?)
+* **What they sell:** (Core offer)
+* **Funnel Type:** (e.g., Content -> VSL -> Call, or Free Guide -> Course)
+* **Core Promise & USP:** (What makes them unique?)
+* **Pricing:** (Specific price points or estimated ranges)
+* **Lead Magnet:** (What are they giving away for free?)
+
+### 2. Ad Research
+Analyze the advertising strategy (Meta/YouTube/Search). For each major competitor, identify:
+* **Hooks:** The first sentence/visual used to grab attention.
+* **Message:** The core argument.
+* **Creative Style:** (e.g., Selfie video, infographic, testimonial).
+* **Angle:** Classify the psychological angle used (e.g., Status, Pain, Desire, Logic, Fear).
+
+### 3. Landing Page & Funnel Breakdown
+Reverse engineer their conversion mechanisms.
+* **Page Structure:** How is information flowed?
+* **Headlines & Emotional Triggers:** What emotions are they leveraging?
+* **Social Proof:** How do they prove results?
+* **Upsells/Downsells:** What happens after the first "yes"?
+
+### 4. Messaging Patterns Working in the Market
+Synthesize the data to find commonalities.
+* **Repeated Pains & Desires:** What is everyone talking about?
+* **Common Hooks & Objections:** What barriers are they addressing?
+* **Winning Angles:** What specific promises are converting right now?
+
+### 5. Customer Insights (Avatar Research)
+Create a deep psychological profile of the target customer.
+* **Top 10 Pains:** (Specific, visceral problems).
+* **Top 10 Desires:** (What they strictly want).
+* **Top 10 Objections:** (Why they wouldn't buy).
+* **Buying Triggers:** Why do they finally say yes?
+
+### 6. Gap & Opportunity Analysis
+Based on the above, identify where a new entrant can win.
+* **Market Missing:** What are competitors ignoring?
+* **Competitor Blindspots:** What are they not saying?
+* **Suggested USP:** A unique angle for the user.
+* **Category Definition:** Define a specific sub-niche.
+* **Pricing Recommendation:** Where should the user price their offer?
+
+### 7. Proposed Funnel + Ad Direction
+Create a strategy for the user.
+* **Best Hooks:** Write 3 specific hooks based on the research.
+* **Winning Angles:** Which psychological levers to pull.
+* **Creative Formats:** What type of content should be created.
+* **Funnel Outline:** A step-by-step customer journey.
+* **Key Launch Messages:** The core arguments to use in copy.`
 
             const perplexityRes = await fetch('https://api.perplexity.ai/chat/completions', {
                 method: 'POST',

@@ -315,47 +315,51 @@ export default function AgentPage() {
     const downloadAsMarkdown = () => downloadAsFile('md')
     const downloadAsCSV = () => downloadAsFile('csv')
 
-    const downloadAsPDF = () => {
-        const printContent = document.getElementById('report-content')
-        if (!printContent) return
+    const downloadAsPDF = async () => {
+        const reportContent = document.getElementById('report-content')
+        if (!reportContent) return
 
-        const originalContent = document.body.innerHTML
-        const printStyles = `
-            <style>
-                @media print {
-                    body * { visibility: hidden; }
-                    #report-content, #report-content * { visibility: visible; }
-                    #report-content {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        padding: 20px;
-                    }
-                    .no-print { display: none !important; }
-                }
-            </style>
+        const { default: html2pdf } = await import('html2pdf.js')
+        const exportStyles = document.createElement('style')
+        exportStyles.textContent = `
+            #report-content.pdf-export {
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+            }
+            #report-content.pdf-export table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+            #report-content.pdf-export th,
+            #report-content.pdf-export td {
+                border: 1px solid #e5e7eb !important;
+                padding: 8px !important;
+                vertical-align: top !important;
+            }
         `
 
-        const newWindow = window.open('', '_blank')
-        if (newWindow) {
-            newWindow.document.write('<html><head><title>AI Agent Report</title>')
-            newWindow.document.write(printStyles)
-            // Add Tailwind and global styles for the new window
-            const links = document.querySelectorAll('link[rel="stylesheet"]')
-            links.forEach(link => {
-                newWindow.document.write(link.outerHTML)
-            })
-            newWindow.document.write('</head><body>')
-            newWindow.document.write(printContent.outerHTML)
-            newWindow.document.write('</body></html>')
-            newWindow.document.close()
+        const previousClassName = reportContent.className
+        document.head.appendChild(exportStyles)
+        reportContent.className = `${previousClassName} pdf-export`.trim()
 
-            // Wait for resources to load before printing
-            newWindow.setTimeout(() => {
-                newWindow.print()
-                newWindow.close()
-            }, 500)
+        try {
+            await html2pdf()
+                .set({
+                    margin: [12, 12, 12, 12],
+                    filename: `${agentId}-report.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak: { mode: ['css', 'legacy'] }
+                })
+                .from(reportContent)
+                .save()
+        } finally {
+            reportContent.className = previousClassName
+            document.head.removeChild(exportStyles)
         }
     }
 
@@ -737,10 +741,12 @@ export default function AgentPage() {
                                                 <Download className="h-4 w-4 mr-2" />
                                                 .MD
                                             </Button>
-                                            <Button variant="outline" size="sm" onClick={downloadAsCSV} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
-                                                <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
-                                                .CSV
-                                            </Button>
+                                            {agentId !== 'deep_research' && (
+                                                <Button variant="outline" size="sm" onClick={downloadAsCSV} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
+                                                    <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
+                                                    .CSV
+                                                </Button>
+                                            )}
                                             <Button variant="outline" size="sm" onClick={downloadAsPDF}>
                                                 <FileText className="h-4 w-4 mr-2" />
                                                 PDF
