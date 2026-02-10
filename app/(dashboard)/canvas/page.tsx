@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,21 +27,17 @@ import {
     Layers,
     Plus,
     Play,
-    Pause,
     Trash2,
     Save,
     Wand2,
     ArrowRight,
-    ArrowDown,
     CheckCircle2,
     XCircle,
     Loader2,
-    Clock,
     GitBranch,
     Sparkles,
     Bot,
     Settings,
-    Eye,
     History,
     Timer,
     BarChart3,
@@ -49,13 +45,34 @@ import {
     Copy,
     Download,
     MessageSquare,
-    Upload
+    Upload,
+    Maximize2,
+    Minimize2,
+    X
 } from 'lucide-react'
 import { Workflow, WorkflowPlan, WorkflowStep, AgentType, CanvasNode, CanvasEdge } from '@/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from 'sonner'
+import ReactFlow, {
+    addEdge,
+    Background,
+    Connection,
+    Controls,
+    Edge,
+    Handle,
+    MarkerType,
+    MiniMap,
+    Node,
+    NodeProps,
+    Panel,
+    Position,
+    ReactFlowInstance,
+    useEdgesState,
+    useNodesState,
+} from 'reactflow'
+import 'reactflow/dist/style.css'
 
 interface OrchestratorAgent {
     id: string
@@ -74,6 +91,95 @@ interface OnboardingData {
 
 type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
 
+type FlowNodeKind = 'agent' | 'input' | 'output'
+
+type FlowNodeData = {
+    label: string
+    nodeType: FlowNodeKind
+    agentType?: AgentType
+    description?: string
+    inputs?: string[]
+    outputs?: string[]
+    status?: StepStatus
+}
+
+const AGENT_NODE_LIBRARY: Record<string, { inputs: string[]; outputs: string[] }> = {
+    deep_research: {
+        inputs: ['user_input', 'audience', 'goals'],
+        outputs: ['research_summary', 'insights'],
+    },
+    ad_copy: {
+        inputs: ['user_input', 'platforms', 'tone'],
+        outputs: ['ad_copy_csv'],
+    },
+    image_generation: {
+        inputs: ['base_image', 'prompt', 'reference_image'],
+        outputs: ['image_url'],
+    },
+    linkedin_headshot: {
+        inputs: ['user_image'],
+        outputs: ['headshot_url'],
+    },
+}
+
+const getStatusClassName = (status: StepStatus) => {
+    switch (status) {
+        case 'completed':
+            return 'border-green-500 bg-green-50 dark:bg-green-950/30'
+        case 'running':
+            return 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-[0_0_0_2px_rgba(59,130,246,0.15)]'
+        case 'failed':
+            return 'border-red-500 bg-red-50 dark:bg-red-950/30'
+        case 'skipped':
+            return 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30'
+        default:
+            return 'border-gray-300 dark:border-gray-700 bg-background'
+    }
+}
+
+const AgentNode = ({ data }: NodeProps<FlowNodeData>) => {
+    const status = data.status || 'pending'
+    return (
+        <div className={`min-w-[230px] rounded-xl border-2 p-3 shadow-sm transition-all ${getStatusClassName(status)}`}>
+            <Handle type="target" position={Position.Left} className="!bg-amber-500" />
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                        <Bot className="h-4 w-4" />
+                    </div>
+                    <div>
+                        <div className="text-sm font-semibold text-foreground">{data.label}</div>
+                        {data.agentType && (
+                            <div className="text-[11px] text-muted-foreground">{data.agentType}</div>
+                        )}
+                    </div>
+                </div>
+                <span className="rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                    {status}
+                </span>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground line-clamp-1">
+                {data.description || 'Single-step action in the workflow.'}
+            </p>
+            <Handle type="source" position={Position.Right} className="!bg-amber-500" />
+        </div>
+    )
+}
+
+const InputNode = ({ data }: NodeProps<FlowNodeData>) => (
+    <div className="rounded-xl border-2 border-dashed border-amber-500/60 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-700">
+        <Handle type="source" position={Position.Right} className="!bg-amber-500" />
+        {data.label || 'Input'}
+    </div>
+)
+
+const OutputNode = ({ data }: NodeProps<FlowNodeData>) => (
+    <div className="rounded-xl border-2 border-green-500/60 bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-700">
+        <Handle type="target" position={Position.Left} className="!bg-green-500" />
+        {data.label || 'Output'}
+    </div>
+)
+
 export default function CanvasPage() {
     // Workflows state
     const [workflows, setWorkflows] = useState<Workflow[]>([])
@@ -86,14 +192,21 @@ export default function CanvasPage() {
     const [showOnboardingBanner, setShowOnboardingBanner] = useState(false)
 
     // Canvas state
-    const [nodes, setNodes] = useState<CanvasNode[]>([])
-    const [edges, setEdges] = useState<CanvasEdge[]>([])
+    const [flowNodes, setFlowNodes, onFlowNodesChange] = useNodesState<FlowNodeData>([])
+    const [flowEdges, setFlowEdges, onFlowEdgesChange] = useEdgesState([])
+    const [flowInstance, setFlowInstance] = useState<ReactFlowInstance | null>(null)
+    const [isCanvasDirty, setIsCanvasDirty] = useState(false)
+    const [isSavingCanvas, setIsSavingCanvas] = useState(false)
+    const [isCanvasFullscreen, setIsCanvasFullscreen] = useState(false)
+    const nextNodeIndexRef = useRef(1)
 
     // Dialog states
     const [showNewWorkflowDialog, setShowNewWorkflowDialog] = useState(false)
     const [showOrchestratorDialog, setShowOrchestratorDialog] = useState(false)
     const [showExecuteDialog, setShowExecuteDialog] = useState(false)
     const [showResultsDialog, setShowResultsDialog] = useState(false)
+    const [showAddNodeDialog, setShowAddNodeDialog] = useState(false)
+    const [showNodeEditorDialog, setShowNodeEditorDialog] = useState(false)
 
     // Form states
     const [newWorkflowName, setNewWorkflowName] = useState('')
@@ -102,6 +215,14 @@ export default function CanvasPage() {
     const [workflowMode, setWorkflowMode] = useState<'sequential' | 'parallel'>('sequential')
     const [userInputs, setUserInputs] = useState<Record<string, string>>({})
     const [inputStepIndex, setInputStepIndex] = useState(0)
+    const [newNodeAgentId, setNewNodeAgentId] = useState<AgentType | ''>('')
+    const [newNodeDescription, setNewNodeDescription] = useState('')
+    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+    const [nodeEditorValues, setNodeEditorValues] = useState({
+        description: '',
+        inputs: '',
+        outputs: '',
+    })
 
     // Execution state
     const [isExecuting, setIsExecuting] = useState(false)
@@ -115,6 +236,7 @@ export default function CanvasPage() {
     const [executionStartTime, setExecutionStartTime] = useState<Date | null>(null)
     const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string>('')
     const [elapsedTime, setElapsedTime] = useState<string>('00:00')
+    const [isExecutionOverlayHidden, setIsExecutionOverlayHidden] = useState(false)
 
     // Execution history state
     const [executionHistory, setExecutionHistory] = useState<any[]>([])
@@ -332,6 +454,66 @@ export default function CanvasPage() {
         }
     }
 
+    const nodeTypes = useMemo(() => ({
+        agent: AgentNode,
+        input: InputNode,
+        output: OutputNode,
+    }), [])
+
+    const getAgentIo = useCallback((agentId?: AgentType) => {
+        if (!agentId) {
+            return { inputs: ['user_input'], outputs: ['output'] }
+        }
+        return AGENT_NODE_LIBRARY[agentId] || { inputs: ['user_input'], outputs: ['output'] }
+    }, [])
+
+    const mapCanvasNodeToFlowNode = useCallback((node: CanvasNode): Node<FlowNodeData> => {
+        const agentType = node.data.agent_type as AgentType | undefined
+        const io = getAgentIo(agentType)
+        const inputs = node.data.inputs?.length ? node.data.inputs : io.inputs
+        const outputs = node.data.outputs?.length ? node.data.outputs : io.outputs
+        const nodeType: FlowNodeKind = node.type === 'merge' ? 'output' : node.type
+        return {
+            id: node.id,
+            type: nodeType,
+            position: node.position,
+            data: {
+                label: node.data.label,
+                nodeType,
+                agentType,
+                description: node.data.description,
+                inputs,
+                outputs,
+                status: (node.data.status as StepStatus) || 'pending',
+            }
+        }
+    }, [getAgentIo])
+
+    const mapCanvasEdgeToFlowEdge = useCallback((edge: CanvasEdge): Edge => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        type: 'smoothstep',
+        markerEnd: { type: MarkerType.ArrowClosed },
+    }), [])
+
+    const normalizeFlowEdges = useCallback((edges: Edge[]) => {
+        const usedSources = new Set<string>()
+        const usedTargets = new Set<string>()
+        const normalized: Edge[] = []
+
+        for (const edge of edges) {
+            if (usedSources.has(edge.source) || usedTargets.has(edge.target)) {
+                continue
+            }
+            usedSources.add(edge.source)
+            usedTargets.add(edge.target)
+            normalized.push(edge)
+        }
+
+        return normalized
+    }, [])
+
     const createWorkflow = async () => {
         if (!newWorkflowName.trim()) return
 
@@ -362,15 +544,19 @@ export default function CanvasPage() {
                 const res = await fetch(`/api/canvas/workflows/${workflow.id}`)
                 const data = await res.json()
                 if (data.canvas) {
-                    setNodes(data.canvas.nodes)
-                    setEdges(data.canvas.edges)
+                    setFlowNodes(data.canvas.nodes.map(mapCanvasNodeToFlowNode))
+                    const mappedEdges = data.canvas.edges.map(mapCanvasEdgeToFlowEdge)
+                    setFlowEdges(normalizeFlowEdges(mappedEdges))
+                    setIsCanvasDirty(false)
+                    nextNodeIndexRef.current = data.canvas.nodes.length + 1
                 }
             } catch (error) {
                 console.error('Failed to load canvas:', error)
             }
         } else {
-            setNodes([])
-            setEdges([])
+            setFlowNodes([])
+            setFlowEdges([])
+            setIsCanvasDirty(false)
         }
     }
 
@@ -435,7 +621,7 @@ export default function CanvasPage() {
         }
     }
 
-    const updateWorkflowPlan = async (plan: WorkflowPlan) => {
+    const updateWorkflowPlan = async (plan: WorkflowPlan, options?: { reloadCanvas?: boolean }) => {
         if (!selectedWorkflow) return
 
         try {
@@ -446,11 +632,14 @@ export default function CanvasPage() {
             })
             const data = await res.json()
             if (data.workflow) {
-                setSelectedWorkflow(data.workflow)
+                const updatedWorkflow = data.workflow as Workflow
+                setSelectedWorkflow(updatedWorkflow)
                 setWorkflows(workflows.map(w =>
-                    w.id === data.workflow.id ? data.workflow : w
+                    w.id === updatedWorkflow.id ? updatedWorkflow : w
                 ))
-                selectWorkflow(data.workflow)
+                if (options?.reloadCanvas !== false) {
+                    selectWorkflow(updatedWorkflow)
+                }
             }
         } catch (error) {
             console.error('Failed to update workflow:', error)
@@ -463,11 +652,214 @@ export default function CanvasPage() {
             setWorkflows(workflows.filter(w => w.id !== workflowId))
             if (selectedWorkflow?.id === workflowId) {
                 setSelectedWorkflow(null)
-                setNodes([])
-                setEdges([])
+                setFlowNodes([])
+                setFlowEdges([])
+                setIsCanvasDirty(false)
             }
         } catch (error) {
             console.error('Failed to delete workflow:', error)
+        }
+    }
+
+    const handleNodesChange = useCallback((changes: any[]) => {
+        onFlowNodesChange(changes)
+        const hasMeaningfulChange = changes.some(change => change.type !== 'select')
+        if (hasMeaningfulChange) {
+            setIsCanvasDirty(true)
+        }
+    }, [onFlowNodesChange])
+
+    const handleEdgesChange = useCallback((changes: any[]) => {
+        onFlowEdgesChange(changes)
+        const hasMeaningfulChange = changes.some(change => change.type !== 'select')
+        if (hasMeaningfulChange) {
+            setIsCanvasDirty(true)
+        }
+    }, [onFlowEdgesChange])
+
+    const handleConnect = useCallback((connection: Connection) => {
+        setFlowEdges(edges => {
+            const pruned = edges.filter(edge => (
+                edge.source !== connection.source && edge.target !== connection.target
+            ))
+            const nextEdges = addEdge({
+                ...connection,
+                type: 'smoothstep',
+                markerEnd: { type: MarkerType.ArrowClosed },
+            }, pruned)
+            return normalizeFlowEdges(nextEdges)
+        })
+        setIsCanvasDirty(true)
+    }, [setFlowEdges, normalizeFlowEdges])
+
+    const openNodeEditor = useCallback((nodeId: string) => {
+        const node = flowNodes.find(item => item.id === nodeId)
+        if (!node || node.data.nodeType !== 'agent') return
+        setSelectedNodeId(nodeId)
+        setNodeEditorValues({
+            description: node.data.description || '',
+            inputs: (node.data.inputs || []).join(', '),
+            outputs: (node.data.outputs || []).join(', '),
+        })
+        setShowNodeEditorDialog(true)
+    }, [flowNodes])
+
+    const applyNodeEditorChanges = () => {
+        if (!selectedNodeId) return
+        setFlowNodes(nodes => nodes.map(node => {
+            if (node.id !== selectedNodeId) return node
+            const inputs = nodeEditorValues.inputs
+                .split(',')
+                .map(value => value.trim())
+                .filter(Boolean)
+            const outputs = nodeEditorValues.outputs
+                .split(',')
+                .map(value => value.trim())
+                .filter(Boolean)
+
+            return {
+                ...node,
+                data: {
+                    ...node.data,
+                    description: nodeEditorValues.description.trim(),
+                    inputs,
+                    outputs,
+                }
+            }
+        }))
+        setIsCanvasDirty(true)
+        setShowNodeEditorDialog(false)
+    }
+
+    const handleAddNode = () => {
+        if (!newNodeAgentId) {
+            toast.error('Select an agent to add')
+            return
+        }
+        const agentName = agents.find(agent => agent.id === newNodeAgentId)?.name || newNodeAgentId
+        const io = getAgentIo(newNodeAgentId)
+        const index = nextNodeIndexRef.current
+        const position = {
+            x: (index % 3) * 280,
+            y: Math.floor(index / 3) * 200,
+        }
+        nextNodeIndexRef.current += 1
+
+        const id = `step_${Date.now()}_${newNodeAgentId}`
+        setFlowNodes(nodes => nodes.concat({
+            id,
+            type: 'agent',
+            position,
+            data: {
+                label: agentName,
+                nodeType: 'agent',
+                agentType: newNodeAgentId,
+                description: newNodeDescription.trim() || `Run ${agentName} agent`,
+                inputs: io.inputs,
+                outputs: io.outputs,
+                status: 'pending',
+            },
+        }))
+        setIsCanvasDirty(true)
+        setShowAddNodeDialog(false)
+        setNewNodeAgentId('')
+        setNewNodeDescription('')
+    }
+
+    const buildWorkflowPlanFromCanvas = useCallback((): WorkflowPlan | null => {
+        if (!selectedWorkflow) return null
+        const agentNodes = flowNodes.filter(node => node.data.nodeType === 'agent')
+        if (agentNodes.length === 0) return null
+
+        const agentNodeIds = new Set(agentNodes.map(node => node.id))
+        const steps: WorkflowStep[] = agentNodes.map(node => {
+            const incomingEdge = flowEdges.find(edge => (
+                edge.target === node.id && agentNodeIds.has(edge.source)
+            ))
+            const incoming = incomingEdge ? [incomingEdge.source] : []
+
+            const fromSteps: Record<string, string[]> = {}
+            if (incomingEdge) {
+                fromSteps[incomingEdge.source] = ['output']
+            }
+
+            const inputs = (node.data.inputs && node.data.inputs.length > 0)
+                ? node.data.inputs
+                : ['user_input']
+            const userInputSpecs = inputs.map((field) => {
+                const type: 'text' | 'image' = field.toLowerCase().includes('image') ? 'image' : 'text'
+                return {
+                    field,
+                    label: field.replace(/_/g, ' '),
+                    type,
+                }
+            })
+
+            return {
+                step_id: node.id,
+                agent_id: node.data.agentType || 'deep_research',
+                description: node.data.description || `Run ${node.data.label}`,
+                depends_on: incoming,
+                input_mapping: {
+                    from_user: inputs,
+                    from_steps: incoming.length > 0 ? fromSteps : {},
+                    user_input_specs: userInputSpecs,
+                },
+                outputs: node.data.outputs && node.data.outputs.length > 0
+                    ? node.data.outputs
+                    : ['output'],
+                position: node.position,
+            }
+        })
+
+        const leafSteps = agentNodes
+            .filter(node => !flowEdges.some(edge => edge.source === node.id && agentNodeIds.has(edge.target)))
+            .map(node => node.id)
+        const leafStepId = leafSteps.length > 0
+            ? leafSteps[leafSteps.length - 1]
+            : null
+
+        return {
+            workflow_name: selectedWorkflow.name,
+            steps,
+            final_response_strategy: {
+                type: 'merge_and_summarize',
+                from_steps: leafStepId ? [leafStepId] : [],
+                instructions: 'Combine all outputs',
+            }
+        }
+    }, [flowEdges, flowNodes, selectedWorkflow])
+
+    const syncWorkflowPlanFromCanvas = useCallback(async () => {
+        if (!selectedWorkflow) return false
+        if (!isCanvasDirty) return true
+
+        const plan = buildWorkflowPlanFromCanvas()
+        if (!plan) {
+            toast.error('Add at least one agent node before saving')
+            return false
+        }
+
+        try {
+            setIsSavingCanvas(true)
+            await updateWorkflowPlan(plan, { reloadCanvas: false })
+            setIsCanvasDirty(false)
+            toast.success('Canvas saved')
+            return true
+        } catch (error) {
+            console.error('Failed to save canvas:', error)
+            toast.error('Failed to save canvas')
+            return false
+        } finally {
+            setIsSavingCanvas(false)
+        }
+    }, [buildWorkflowPlanFromCanvas, isCanvasDirty, selectedWorkflow, updateWorkflowPlan])
+
+    const openExecuteDialog = async () => {
+        if (!selectedWorkflow) return
+        const synced = await syncWorkflowPlanFromCanvas()
+        if (synced) {
+            setShowExecuteDialog(true)
         }
     }
 
@@ -482,12 +874,13 @@ export default function CanvasPage() {
             setExecutionStartTime(new Date())
             setElapsedTime('00:00')
 
-            const totalSteps = selectedWorkflow.workflow_plan.steps.length
+            const planForExecution = buildWorkflowPlanFromCanvas() || selectedWorkflow.workflow_plan
+            const totalSteps = planForExecution.steps.length
             const avgTimePerStep = 15 // seconds estimate per step
 
             // Initialize step statuses
             const initialStatuses: Record<string, StepStatus> = {}
-            selectedWorkflow.workflow_plan.steps.forEach(step => {
+            planForExecution.steps.forEach(step => {
                 initialStatuses[step.step_id] = 'pending'
             })
             setStepStatuses(initialStatuses)
@@ -614,35 +1007,48 @@ export default function CanvasPage() {
         )
     }
 
-    const getStatusIcon = (status: StepStatus) => {
-        switch (status) {
-            case 'completed':
-                return <CheckCircle2 className="h-4 w-4 text-green-500" />
-            case 'running':
-                return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
-            case 'failed':
-                return <XCircle className="h-4 w-4 text-red-500" />
-            case 'skipped':
-                return <Clock className="h-4 w-4 text-yellow-500" />
-            default:
-                return <Clock className="h-4 w-4 text-gray-400" />
-        }
-    }
+    useEffect(() => {
+        setFlowNodes(nodes => nodes.map(node => {
+            if (node.data.nodeType !== 'agent') return node
+            const status = stepStatuses[node.id] || (isExecuting ? 'running' : 'pending')
+            return {
+                ...node,
+                data: {
+                    ...node.data,
+                    status,
+                },
+            }
+        }))
+    }, [isExecuting, stepStatuses, setFlowNodes])
 
-    const getStatusColor = (status: StepStatus) => {
-        switch (status) {
-            case 'completed':
-                return 'border-green-500 bg-green-50 dark:bg-green-950/30'
-            case 'running':
-                return 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
-            case 'failed':
-                return 'border-red-500 bg-red-50 dark:bg-red-950/30'
-            case 'skipped':
-                return 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30'
-            default:
-                return 'border-gray-300 dark:border-gray-600'
+    useEffect(() => {
+        setFlowEdges(edges => edges.map(edge => {
+            const sourceStatus = stepStatuses[edge.source] || (isExecuting ? 'running' : 'pending')
+            let stroke = '#e5e7eb'
+            if (sourceStatus === 'completed') stroke = '#22c55e'
+            if (sourceStatus === 'failed') stroke = '#ef4444'
+            if (sourceStatus === 'running') stroke = '#3b82f6'
+
+            return {
+                ...edge,
+                animated: sourceStatus === 'running',
+                style: { stroke, strokeWidth: 2 },
+            }
+        }))
+    }, [isExecuting, stepStatuses, setFlowEdges])
+
+    useEffect(() => {
+        if (isExecuting) {
+            setIsExecutionOverlayHidden(false)
         }
-    }
+    }, [isExecuting])
+
+    useEffect(() => {
+        if (!flowInstance) return
+        requestAnimationFrame(() => {
+            flowInstance.fitView({ padding: 0.2 })
+        })
+    }, [flowInstance, isCanvasFullscreen, flowNodes.length])
 
     // Get required user inputs from workflow
     const getRequiredInputs = (): Array<{ field: string, label: string, type: 'text' | 'image' }> => {
@@ -684,6 +1090,44 @@ export default function CanvasPage() {
         }
         reader.readAsDataURL(file)
     }
+
+    const renderCanvasFlow = (containerClassName: string) => (
+        <div className={containerClassName}>
+            <ReactFlow
+                nodes={flowNodes}
+                edges={flowEdges}
+                nodeTypes={nodeTypes}
+                onInit={setFlowInstance}
+                onNodesChange={handleNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onConnect={handleConnect}
+                onNodeDoubleClick={(_, node) => openNodeEditor(node.id)}
+                fitView
+                fitViewOptions={{ padding: 0.2 }}
+                minZoom={0.3}
+                maxZoom={1.5}
+                snapToGrid
+                snapGrid={[20, 20]}
+                deleteKeyCode={['Backspace', 'Delete']}
+            >
+                <Panel position="top-left" className="m-3 rounded-lg border border-warm-border bg-background/90 px-3 py-2 text-xs shadow-sm">
+                    <div className="font-semibold text-foreground">Canvas Controls</div>
+                    <div className="text-[11px] text-muted-foreground">Drag nodes, connect handles, double-click to edit.</div>
+                </Panel>
+                <Background gap={18} size={1} color="#e5e7eb" />
+                <MiniMap
+                    pannable
+                    zoomable
+                    nodeColor={(node) => {
+                        if (node.data?.nodeType === 'output') return '#22c55e'
+                        if (node.data?.nodeType === 'input') return '#f59e0b'
+                        return '#f97316'
+                    }}
+                />
+                <Controls showInteractive={false} />
+            </ReactFlow>
+        </div>
+    )
 
     useEffect(() => {
         if (showExecuteDialog) {
@@ -923,6 +1367,106 @@ export default function CanvasPage() {
                 </div>
             </div>
 
+            <Dialog open={showAddNodeDialog} onOpenChange={setShowAddNodeDialog}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Add Agent Node</DialogTitle>
+                        <DialogDescription>
+                            Choose an agent and drop it onto the workflow canvas.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label>Agent</Label>
+                            <Select value={newNodeAgentId} onValueChange={(value) => setNewNodeAgentId(value as AgentType)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select an agent" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {agents.map(agent => (
+                                        <SelectItem key={agent.id} value={agent.id}>
+                                            {agent.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Description</Label>
+                            <textarea
+                                className="w-full min-h-[90px] p-3 border rounded-md bg-background text-sm"
+                                placeholder="What should this agent do?"
+                                value={newNodeDescription}
+                                onChange={(e) => setNewNodeDescription(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowAddNodeDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleAddNode}>
+                            Add Node
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showNodeEditorDialog} onOpenChange={setShowNodeEditorDialog}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Configure Node</DialogTitle>
+                        <DialogDescription>
+                            Customize inputs, outputs, and the node description.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label>Description</Label>
+                            <textarea
+                                className="w-full min-h-[90px] p-3 border rounded-md bg-background text-sm"
+                                placeholder="Describe the node's responsibility"
+                                value={nodeEditorValues.description}
+                                onChange={(e) => setNodeEditorValues({
+                                    ...nodeEditorValues,
+                                    description: e.target.value,
+                                })}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Inputs (comma separated)</Label>
+                            <Input
+                                placeholder="user_input, audience, goals"
+                                value={nodeEditorValues.inputs}
+                                onChange={(e) => setNodeEditorValues({
+                                    ...nodeEditorValues,
+                                    inputs: e.target.value,
+                                })}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Outputs (comma separated)</Label>
+                            <Input
+                                placeholder="output, csv, image_url"
+                                value={nodeEditorValues.outputs}
+                                onChange={(e) => setNodeEditorValues({
+                                    ...nodeEditorValues,
+                                    outputs: e.target.value,
+                                })}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowNodeEditorDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={applyNodeEditorChanges}>
+                            Save Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Workflows Sidebar */}
                 <div className="lg:col-span-4">
@@ -990,7 +1534,28 @@ export default function CanvasPage() {
                                     )}
                                 </div>
                                 {selectedWorkflow && (
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowAddNodeDialog(true)}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            Add Node
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={syncWorkflowPlanFromCanvas}
+                                            disabled={!isCanvasDirty || isSavingCanvas}
+                                        >
+                                            {isSavingCanvas ? (
+                                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                            ) : (
+                                                <Save className="h-4 w-4 mr-1" />
+                                            )}
+                                            Save
+                                        </Button>
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -1010,20 +1575,27 @@ export default function CanvasPage() {
                                             <History className="h-4 w-4 mr-1" />
                                             History
                                         </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setIsCanvasFullscreen(true)}
+                                        >
+                                            <Maximize2 className="h-4 w-4 mr-1" />
+                                            Full Screen
+                                        </Button>
                                         <Dialog open={showExecuteDialog} onOpenChange={setShowExecuteDialog}>
-                                            <DialogTrigger asChild>
-                                                <Button
-                                                    size="sm"
-                                                    disabled={!selectedWorkflow?.workflow_plan?.steps?.length || isExecuting}
-                                                >
-                                                    {isExecuting ? (
-                                                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                                    ) : (
-                                                        <Play className="h-4 w-4 mr-1" />
-                                                    )}
-                                                    Execute
-                                                </Button>
-                                            </DialogTrigger>
+                                            <Button
+                                                size="sm"
+                                                onClick={openExecuteDialog}
+                                                disabled={(!selectedWorkflow?.workflow_plan?.steps?.length && flowNodes.length === 0) || isExecuting}
+                                            >
+                                                {isExecuting ? (
+                                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                ) : (
+                                                    <Play className="h-4 w-4 mr-1" />
+                                                )}
+                                                Execute
+                                            </Button>
                                             <DialogContent className="max-w-xl w-[95vw] max-h-[85vh] overflow-hidden">
                                                 <DialogHeader>
                                                     <DialogTitle>Execute Workflow</DialogTitle>
@@ -1170,78 +1742,122 @@ export default function CanvasPage() {
                                         Select a workflow from the sidebar or create a new one using the AI Orchestrator
                                     </p>
                                 </div>
-                            ) : nodes.length === 0 ? (
+                            ) : flowNodes.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-[450px] text-center">
                                     <Wand2 className="h-16 w-16 text-amber-500 mb-4" />
                                     <h3 className="text-lg font-medium">Empty Workflow</h3>
                                     <p className="text-muted-foreground mt-2 max-w-md">
-                                        Use the AI Orchestrator to generate steps for this workflow
+                                        Add nodes manually or use the AI Orchestrator to generate a starter workflow.
                                     </p>
-                                    <Button className="mt-4" onClick={() => setShowOrchestratorDialog(true)}>
-                                        <Sparkles className="h-4 w-4 mr-2" />
-                                        Design with AI
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    {/* Visual Workflow */}
-                                    <div className="flex flex-col items-center gap-4">
-                                        {selectedWorkflow.workflow_plan.steps.map((step, index) => (
-                                            <div key={step.step_id} className="flex flex-col items-center">
-                                                <div
-                                                    className={`p-4 border-2 rounded-lg w-full max-w-[300px] transition-all ${getStatusColor(stepStatuses[step.step_id] || 'pending')
-                                                        }`}
-                                                >
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <Bot className="h-5 w-5 text-amber-500" />
-                                                            <span className="font-medium">
-                                                                {agents.find(a => a.id === step.agent_id)?.name || step.agent_id}
-                                                            </span>
-                                                        </div>
-                                                        {getStatusIcon(stepStatuses[step.step_id] || 'pending')}
-                                                    </div>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {step.description}
-                                                    </p>
-                                                    {step.depends_on && step.depends_on.length > 0 && (
-                                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                                                            Depends on: {step.depends_on.join(', ')}
-                                                        </p>
-                                                    )}
-                                                </div>
-
-                                                {index < selectedWorkflow.workflow_plan.steps.length - 1 && (
-                                                    <ArrowDown className="h-6 w-6 text-muted-foreground my-2" />
-                                                )}
-                                            </div>
-                                        ))}
-
-                                        {/* Final Output Node */}
-                                        {selectedWorkflow.workflow_plan.final_response_strategy && (
-                                            <>
-                                                <ArrowDown className="h-6 w-6 text-muted-foreground my-2" />
-                                                <div className="p-4 border-2 border-green-500 bg-green-50 dark:bg-green-950/30 rounded-lg w-full max-w-[300px]">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                                        <span className="font-medium">Final Output</span>
-                                                    </div>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        Strategy: {selectedWorkflow.workflow_plan.final_response_strategy.type.replace(/_/g, ' ')}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground mt-1">
-                                                        {selectedWorkflow.workflow_plan.final_response_strategy.instructions}
-                                                    </p>
-                                                </div>
-                                            </>
-                                        )}
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                        <Button onClick={() => setShowAddNodeDialog(true)}>
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Add Node
+                                        </Button>
+                                        <Button variant="outline" onClick={() => setShowOrchestratorDialog(true)}>
+                                            <Sparkles className="h-4 w-4 mr-2" />
+                                            Design with AI
+                                        </Button>
                                     </div>
                                 </div>
+                            ) : (
+                                renderCanvasFlow(
+                                    'h-[520px] w-full rounded-xl border border-warm-border bg-gradient-to-br from-amber-50/40 via-white to-amber-100/40 dark:from-amber-950/20 dark:via-background dark:to-amber-900/30'
+                                )
                             )}
                         </CardContent>
                     </Card>
                 </div>
             </div>
+
+            {isCanvasFullscreen && (
+                <div className="fixed inset-0 z-50 bg-background">
+                    <div className="flex h-full flex-col">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warm-border bg-warm-surface px-4 py-3">
+                            <div className="text-sm font-semibold text-foreground">
+                                Full Screen Canvas
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {selectedWorkflow && (
+                                    <>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowAddNodeDialog(true)}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            Add Node
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={syncWorkflowPlanFromCanvas}
+                                            disabled={!isCanvasDirty || isSavingCanvas}
+                                        >
+                                            {isSavingCanvas ? (
+                                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                            ) : (
+                                                <Save className="h-4 w-4 mr-1" />
+                                            )}
+                                            Save
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowOrchestratorDialog(true)}
+                                        >
+                                            <Settings className="h-4 w-4 mr-1" />
+                                            Edit
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                fetchExecutionHistory()
+                                                setShowHistoryDialog(true)
+                                            }}
+                                        >
+                                            <History className="h-4 w-4 mr-1" />
+                                            History
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            onClick={openExecuteDialog}
+                                            disabled={(!selectedWorkflow?.workflow_plan?.steps?.length && flowNodes.length === 0) || isExecuting}
+                                        >
+                                            {isExecuting ? (
+                                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                            ) : (
+                                                <Play className="h-4 w-4 mr-1" />
+                                            )}
+                                            Execute
+                                        </Button>
+                                    </>
+                                )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsCanvasFullscreen(false)}
+                                >
+                                    <Minimize2 className="h-4 w-4 mr-1" />
+                                    Exit
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => setIsCanvasFullscreen(false)}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="flex-1">
+                            {renderCanvasFlow('h-full w-full bg-gradient-to-br from-amber-50/40 via-white to-amber-100/40 dark:from-amber-950/20 dark:via-background dark:to-amber-900/30')}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Results Dialog */}
             <Dialog open={showResultsDialog} onOpenChange={setShowResultsDialog}>
@@ -1545,13 +2161,23 @@ export default function CanvasPage() {
             </Dialog>
 
             {/* Execution Progress Overlay */}
-            {isExecuting && (
+            {isExecuting && !isExecutionOverlayHidden && (
                 <div className="fixed bottom-6 right-0 left-0 px-6 sm:left-auto sm:px-0 sm:right-6 z-50 w-full sm:w-80">
                     <Card className="border-amber-500/50 border-warm-border bg-warm-surface shadow-lg">
                         <CardContent className="p-4">
-                            <div className="flex items-center gap-3 mb-3">
-                                <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
-                                <span className="font-medium">Executing Workflow...</span>
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                    <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
+                                    <span className="font-medium">Executing Workflow...</span>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => setIsExecutionOverlayHidden(true)}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
                             </div>
                             <div className="space-y-2">
                                 <div className="flex justify-between text-sm">
@@ -1576,6 +2202,17 @@ export default function CanvasPage() {
                             </div>
                         </CardContent>
                     </Card>
+                </div>
+            )}
+            {isExecuting && isExecutionOverlayHidden && (
+                <div className="fixed bottom-6 right-6 z-50">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsExecutionOverlayHidden(false)}
+                    >
+                        Show progress
+                    </Button>
                 </div>
             )}
         </div>

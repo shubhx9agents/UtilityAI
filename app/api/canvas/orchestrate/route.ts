@@ -6,7 +6,8 @@ import {
     ORCHESTRATOR_AGENTS,
     buildOrchestratorPrompt,
     parseOrchestratorResponse,
-    generateDefaultWorkflow
+    generateDefaultWorkflow,
+    enforceLinearWorkflowPlan
 } from '@/lib/ai/orchestrator'
 import { AGENT_CONFIGS } from '@/lib/ai/agents'
 
@@ -291,6 +292,7 @@ export async function POST(request: NextRequest) {
 
         // Parse the response
         const result = parseOrchestratorResponse(llmResponse)
+        result.workflow_plan = enforceLinearWorkflowPlan(result.workflow_plan)
 
         const agentIds = extractAgentIdsFromPlan(result.workflow_plan)
         const existingInputs = result.workflow_plan.steps

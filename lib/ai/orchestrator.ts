@@ -58,6 +58,9 @@ This requires 4 steps:
 4. step_4_image_3 (image_generation) - Create third ad image
 
 **Rules:**
+- Always generate a SIMPLE LINEAR CHAIN (one-to-one connections).
+- Each step can depend on ONLY the immediately previous step (no branching).
+- final_response_strategy.from_steps must contain ONLY the last step_id.
 - Use clear step_ids like "step_1_research", "step_2_ad_copy"
 - For multiple images, create multiple image_generation steps
 - Match agent_id to the task type correctly
@@ -328,7 +331,12 @@ export function workflowToCanvas(plan: WorkflowPlan): { nodes: any[]; edges: any
 
     // Create nodes
     for (const step of plan.steps) {
-        const position = stepPositions.get(step.step_id) || { x: 0, y: 0 }
+        const position = step.position || stepPositions.get(step.step_id) || { x: 0, y: 0 }
+        const inputs = step.input_mapping?.user_input_specs?.map(spec => spec.field)
+            || step.input_mapping?.from_user
+            || []
+        const outputs = step.outputs || ['output']
+
         nodes.push({
             id: step.step_id,
             type: 'agent',
@@ -338,7 +346,9 @@ export function workflowToCanvas(plan: WorkflowPlan): { nodes: any[]; edges: any
                 step_id: step.step_id,
                 agent_type: step.agent_id,
                 description: step.description,
-                status: 'pending'
+                status: 'pending',
+                inputs,
+                outputs,
             }
         })
     }
@@ -350,8 +360,7 @@ export function workflowToCanvas(plan: WorkflowPlan): { nodes: any[]; edges: any
                 edges.push({
                     id: `${dep}-${step.step_id}`,
                     source: dep,
-                    target: step.step_id,
-                    label: 'then'
+                    target: step.step_id
                 })
             }
         }
@@ -375,12 +384,54 @@ export function workflowToCanvas(plan: WorkflowPlan): { nodes: any[]; edges: any
         edges.push({
             id: `${stepId}-final_output`,
             source: stepId,
-            target: 'final_output',
-            label: 'output'
+            target: 'final_output'
         })
     }
 
     return { nodes, edges }
+}
+
+// Enforce a simple linear chain (one-to-one) between steps
+export function enforceLinearWorkflowPlan(plan: WorkflowPlan): WorkflowPlan {
+    if (!plan.steps || plan.steps.length === 0) return plan
+
+    const order = getExecutionOrder(plan.steps)
+    const stepMap = new Map(plan.steps.map(step => [step.step_id, step]))
+    const steps: WorkflowStep[] = []
+
+    order.forEach((stepId, index) => {
+        const original = stepMap.get(stepId)
+        if (!original) return
+
+        const prevId = index > 0 ? order[index - 1] : null
+        const inputMapping = { ...(original.input_mapping || {}) }
+
+        if (prevId) {
+            const existingFromSteps = original.input_mapping?.from_steps || {}
+            inputMapping.from_steps = {
+                [prevId]: existingFromSteps[prevId] || ['output']
+            }
+        } else {
+            inputMapping.from_steps = {}
+        }
+
+        steps.push({
+            ...original,
+            depends_on: prevId ? [prevId] : [],
+            input_mapping: inputMapping,
+        })
+    })
+
+    const lastStepId = order[order.length - 1]
+
+    return {
+        ...plan,
+        steps,
+        final_response_strategy: {
+            ...plan.final_response_strategy,
+            from_steps: lastStepId ? [lastStepId] : [],
+        }
+    }
 }
 
 // Generate a default workflow from agent selection

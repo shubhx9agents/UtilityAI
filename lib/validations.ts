@@ -79,6 +79,16 @@ export const updateSessionSchema = z.object({
 export const stepInputMappingSchema = z.object({
     from_user: z.array(z.string()).optional(),
     from_steps: z.record(z.string(), z.array(z.string())).optional(),
+    from_history: z.object({
+        history_id: z.string(),
+        session_strategy: z.enum(['use_latest', 'use_all', 'use_specific']),
+        session_ids: z.array(z.string()).optional(),
+    }).optional(),
+    user_input_specs: z.array(z.object({
+        field: z.string().min(1).max(100),
+        label: z.string().min(1).max(200),
+        type: z.enum(['text', 'image']),
+    })).optional(),
 }).strict()
 
 export const workflowStepSchema = z.object({
@@ -87,10 +97,15 @@ export const workflowStepSchema = z.object({
     description: z.string().max(1000).optional(),
     depends_on: z.array(z.string()).optional(),
     input_mapping: stepInputMappingSchema.optional(),
+    outputs: z.array(z.string()).optional(),
+    position: z.object({
+        x: z.number(),
+        y: z.number(),
+    }).optional(),
 }).strict()
 
 export const finalResponseStrategySchema = z.object({
-    type: z.enum(['merge_and_summarize', 'last_step', 'specific_step', 'custom']),
+    type: z.enum(['merge_and_summarize', 'concatenate', 'select_best', 'custom', 'last_step', 'specific_step']),
     from_steps: z.array(z.string()).optional(),
     specific_step: z.string().optional(),
     instructions: z.string().max(2000).optional(),

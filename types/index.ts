@@ -242,6 +242,11 @@ export interface WorkflowStep {
     description: string
     depends_on: string[]
     input_mapping: StepInputMapping
+    outputs?: string[]
+    position?: {
+        x: number
+        y: number
+    }
 }
 
 // Final Response Strategy
@@ -390,6 +395,8 @@ export interface CanvasNode {
         description?: string
         status?: StepExecutionStatus
         output?: any
+        inputs?: string[]
+        outputs?: string[]
     }
 }
 
