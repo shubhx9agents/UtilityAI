@@ -11,7 +11,6 @@ import {
   Layers,
   Settings,
   LogOut,
-  Shield,
   Menu,
   X,
 } from 'lucide-react'
@@ -34,23 +33,6 @@ export default function DashboardLayout({
   const router = useRouter()
   const { user, signOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
-
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      try {
-        const res = await fetch('/api/admin/check')
-        const data = await res.json()
-        setIsAdmin(data.isAdmin === true)
-      } catch (error) {
-        console.error('Failed to check admin status:', error)
-        setIsAdmin(false)
-      }
-    }
-    if (user) {
-      checkAdminStatus()
-    }
-  }, [user, pathname])
 
   const handleSignOut = async () => {
     await signOut()
@@ -70,9 +52,8 @@ export default function DashboardLayout({
 
       {/* Dark sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 transform border-r border-zinc-800 bg-zinc-900 transition-transform duration-200 ease-out lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed top-0 left-0 z-50 h-full w-64 transform border-r border-zinc-800 bg-zinc-900 transition-transform duration-200 ease-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         <div className="flex h-full flex-col">
           <div className="flex h-16 items-center justify-between border-b border-zinc-800 px-5">
@@ -102,11 +83,10 @@ export default function DashboardLayout({
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    isActive
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive
                       ? 'bg-zinc-800 text-white'
                       : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-100'
-                  }`}
+                    }`}
                   onClick={() => {
                     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                       setSidebarOpen(false)
@@ -118,28 +98,6 @@ export default function DashboardLayout({
                 </Link>
               )
             })}
-
-            {isAdmin && (
-              <>
-                <div className="my-3 border-t border-zinc-800" />
-                <Link
-                  href="/admin"
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    pathname?.startsWith('/admin')
-                      ? 'bg-amber-500/20 text-amber-400'
-                      : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-100'
-                  }`}
-                  onClick={() => {
-                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-                      setSidebarOpen(false)
-                    }
-                  }}
-                >
-                  <Shield className="h-5 w-5 shrink-0" />
-                  <span>Admin Panel</span>
-                </Link>
-              </>
-            )}
           </nav>
 
           <div className="border-t border-zinc-800 p-4">
