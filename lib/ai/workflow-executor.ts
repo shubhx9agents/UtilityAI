@@ -243,6 +243,13 @@ export class WorkflowExecutionService {
             for (const field of step.input_mapping.from_user) {
                 if (userInputs[field] !== undefined) {
                     input[field] = userInputs[field]
+
+                    // Handle step-prefixed fields (e.g., "step_1_image_model" -> "image_model")
+                    // This allows unique inputs per step while preserving agent compatibility
+                    if (field.startsWith(`${step.step_id}_`)) {
+                        const originalField = field.substring(step.step_id.length + 1)
+                        input[originalField] = userInputs[field]
+                    }
                 }
             }
         }

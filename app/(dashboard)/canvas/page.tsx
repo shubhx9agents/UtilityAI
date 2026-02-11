@@ -119,11 +119,11 @@ const AGENT_NODE_LIBRARY: Record<string, { inputs: string[]; outputs: string[] }
         outputs: ['ad_copy_csv'],
     },
     image_generation: {
-        inputs: ['base_image', 'prompt', 'reference_image'],
+        inputs: ['base_image', 'prompt', 'reference_image', 'image_model'],
         outputs: ['image_url'],
     },
     linkedin_headshot: {
-        inputs: ['user_image'],
+        inputs: ['user_image', 'image_model'],
         outputs: ['headshot_url'],
     },
 }
@@ -789,14 +789,30 @@ export default function CanvasPage() {
                 fromSteps[incomingEdge.source] = ['output']
             }
 
-            const inputs = (node.data.inputs && node.data.inputs.length > 0)
-                ? node.data.inputs
+            let inputs = (node.data.inputs && node.data.inputs.length > 0)
+                ? [...node.data.inputs]
                 : ['user_input']
+
+            // Force image_model for image agents if not present to ensure user is always asked
+            const isImageAgent = node.data.agentType === 'image_generation' || node.data.agentType === 'linkedin_headshot'
+            if (isImageAgent && !inputs.some(i => i.toLowerCase().includes('image_model'))) {
+                inputs.push('image_model')
+            }
             const userInputSpecs = inputs.map((field) => {
-                const type: 'text' | 'image' = field.toLowerCase().includes('image') ? 'image' : 'text'
+                const isImageModel = field.toLowerCase().includes('image_model') || field.toLowerCase() === 'image model'
+                const type: 'text' | 'image' = field.toLowerCase().includes('image') && !isImageModel ? 'image' : 'text'
+
+                let processedField = field
+                let label = field.replace(/_/g, ' ')
+
+                if (isImageModel) {
+                    processedField = `${node.id}_image_model`
+                    label = `Model for ${node.data.label}`
+                }
+
                 return {
-                    field,
-                    label: field.replace(/_/g, ' '),
+                    field: processedField,
+                    label,
                     type,
                 }
             })
@@ -807,7 +823,7 @@ export default function CanvasPage() {
                 description: node.data.description || `Run ${node.data.label}`,
                 depends_on: incoming,
                 input_mapping: {
-                    from_user: inputs,
+                    from_user: userInputSpecs.map(s => s.field),
                     from_steps: incoming.length > 0 ? fromSteps : {},
                     user_input_specs: userInputSpecs,
                 },
@@ -1060,23 +1076,24 @@ export default function CanvasPage() {
     const getRequiredInputs = (): Array<{ field: string, label: string, type: 'text' | 'image' }> => {
         if (!selectedWorkflow?.workflow_plan?.steps) return []
 
-        // Priority 1: Use user_input_specs from the first step if it exists (new logic)
-        const firstStep = selectedWorkflow.workflow_plan.steps[0]
-        if (firstStep?.input_mapping?.user_input_specs) {
-            return firstStep.input_mapping.user_input_specs
-        }
-
-        // Priority 2: Fallback to old from_user array extraction if specs are missing
         const seen = new Set<string>()
         const inputs: Array<{ field: string, label: string, type: 'text' | 'image' }> = []
+
         for (const step of selectedWorkflow.workflow_plan.steps) {
-            if (step.input_mapping?.from_user) {
+            if (step.input_mapping?.user_input_specs) {
+                step.input_mapping.user_input_specs.forEach(spec => {
+                    if (!seen.has(spec.field)) {
+                        seen.add(spec.field)
+                        inputs.push(spec)
+                    }
+                })
+            } else if (step.input_mapping?.from_user) {
                 step.input_mapping.from_user.forEach(field => {
                     const key = field.toLowerCase().trim()
                     if (!key || seen.has(key)) return
                     seen.add(key)
                     inputs.push({
-                        field: key.replace(/\s+/g, '_'),
+                        field: field.replace(/\s+/g, '_').toLowerCase(),
                         label: field,
                         type: 'text'
                     })
@@ -1211,12 +1228,22 @@ export default function CanvasPage() {
             }
 
             const required = getRequiredInputs()
-            const needsImageModel = required.some(req => req.field === 'image_model' || req.label.toLowerCase() === 'image model')
-            if (needsImageModel && !userInputs.image_model) {
-                setUserInputs(prev => ({
-                    ...prev,
-                    image_model: DEFAULT_IMAGE_MODEL
-                }))
+            const imageModelFields = required.filter(req => req.field.includes('image_model') || req.label.toLowerCase().includes('image model'))
+
+            if (imageModelFields.length > 0) {
+                setUserInputs(prev => {
+                    const newInputs = { ...prev }
+                    let hasImageModelUpdates = false
+
+                    imageModelFields.forEach(req => {
+                        if (!newInputs[req.field]) {
+                            newInputs[req.field] = DEFAULT_IMAGE_MODEL
+                            hasImageModelUpdates = true
+                        }
+                    })
+
+                    return hasImageModelUpdates ? newInputs : prev
+                })
             }
         }
     }, [showExecuteDialog, selectedWorkflow?.id, onboardingData])
@@ -1639,7 +1666,7 @@ export default function CanvasPage() {
                                                         }
 
                                                         const activeInput = requiredInputs[inputStepIndex]
-                                                        const isImageModel = activeInput.field === 'image_model' || activeInput.label.toLowerCase() === 'image model'
+                                                        const isImageModel = activeInput.field.includes('image_model') || activeInput.label.toLowerCase().includes('image model')
                                                         return (
                                                             <div className="space-y-4">
                                                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
