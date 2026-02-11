@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { AuditAction, AuditLog } from '@/types'
+import { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Log an audit event to the database
@@ -13,6 +14,7 @@ export async function logAuditEvent({
     resourceId,
     details,
     request,
+    supabase,
 }: {
     userId?: string | null
     userEmail?: string | null
@@ -21,9 +23,10 @@ export async function logAuditEvent({
     resourceId?: string
     details?: Record<string, any>
     request?: Request
+    supabase?: SupabaseClient
 }): Promise<void> {
     try {
-        const supabase = await createClient()
+        const supabaseClient = supabase || await createClient()
 
         // Extract IP address and user agent from request if provided
         let ipAddress: string | null = null
@@ -41,7 +44,7 @@ export async function logAuditEvent({
         }
 
         // Insert audit log
-        const { error } = await supabase.from('audit_logs').insert({
+        const { error } = await supabaseClient.from('audit_logs').insert({
             user_id: userId || null,
             user_email: userEmail || null,
             action,
