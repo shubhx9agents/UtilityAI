@@ -25,6 +25,12 @@ import {
     TableRow,
 } from "@/components/ui/table"
 
+const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
+const IMAGE_MODEL_OPTIONS = [
+    { value: 'nano-banana-pro-preview', label: 'Nano Banana Pro (Gemini)' },
+    { value: 'seedream-4-0-250828', label: 'Seedream 4 (BytePlus)' },
+]
+
 export default function AgentPage() {
     const params = useParams()
     const agentId = params.agentId as AgentType
@@ -38,6 +44,7 @@ export default function AgentPage() {
     const [error, setError] = useState('')
     const [headshotBackground, setHeadshotBackground] = useState('')
     const [headshotOutfit, setHeadshotOutfit] = useState('')
+    const [imageModel, setImageModel] = useState(DEFAULT_IMAGE_MODEL)
     const [hasAutofilled, setHasAutofilled] = useState(false)
     const [showOnboardingBanner, setShowOnboardingBanner] = useState(false)
     const supabase = createClient()
@@ -132,6 +139,21 @@ export default function AgentPage() {
         fetchOnboardingAndAutofill()
     }, [agent, hasAutofilled])
 
+    useEffect(() => {
+        if (agentId === 'image_generation' || agentId === 'linkedin_headshot') {
+            const preset = typeof formData['Image Model'] === 'string' && formData['Image Model'].trim()
+                ? formData['Image Model']
+                : DEFAULT_IMAGE_MODEL
+            setImageModel(preset)
+            if (!formData['Image Model']) {
+                setFormData(prev => ({
+                    ...prev,
+                    'Image Model': preset
+                }))
+            }
+        }
+    }, [agentId])
+
     // Chat conversation state
     const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([])
     const [chatInput, setChatInput] = useState('')
@@ -221,7 +243,8 @@ export default function AgentPage() {
             fullInput = formData['Instructional Prompt'] || ''
             context = {
                 base_image: formData['Base Image'],
-                reference_image: formData['Reference Image (Optional)']
+                reference_image: formData['Reference Image (Optional)'],
+                image_model: formData['Image Model'] || imageModel
             }
         } else if (agentId === 'linkedin_headshot') {
             const backgroundTemplate = headshotBackground || formData['Background Template'] || ''
@@ -235,7 +258,8 @@ export default function AgentPage() {
             context = {
                 user_image: formData['User Image'],
                 ...(backgroundTemplate ? { headshot_background: backgroundTemplate } : {}),
-                ...(outfitTemplate ? { headshot_outfit: outfitTemplate } : {})
+                ...(outfitTemplate ? { headshot_outfit: outfitTemplate } : {}),
+                image_model: formData['Image Model'] || imageModel
             }
         } else {
             // Construct the input from form data
@@ -290,6 +314,17 @@ export default function AgentPage() {
 
     const downloadImage = () => {
         try {
+            if (response.startsWith('data:image/')) {
+                const link = document.createElement('a')
+                link.href = response
+                link.download = `${agentId}-image.png`
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                toast.success('Download started')
+                return
+            }
+
             // Use our proxy endpoint to bypass CORS and force download
             const downloadUrl = `/api/download?url=${encodeURIComponent(response)}`
             window.location.href = downloadUrl
@@ -483,6 +518,7 @@ export default function AgentPage() {
         setFormData(session.form_data || {})
         setHeadshotBackground(session.form_data?.['Background Template'] || '')
         setHeadshotOutfit(session.form_data?.['Clothing Template'] || '')
+        setImageModel(session.form_data?.['Image Model'] || DEFAULT_IMAGE_MODEL)
         setResponse(session.response || '')
         setRefinedPrompt(session.refined_prompt || '')
         setChatMessages(session.chat_messages || [])
@@ -502,6 +538,7 @@ export default function AgentPage() {
         setRefinedPrompt('')
         setHeadshotBackground('')
         setHeadshotOutfit('')
+        setImageModel(DEFAULT_IMAGE_MODEL)
         setChatMessages([])
         setCurrentSessionId(null)
         setShowChat(false)
@@ -588,7 +625,7 @@ export default function AgentPage() {
                                 {agent.questions.map((question, index) => (
                                     <div key={index} className="space-y-2">
                                         <Label htmlFor={`question-${index}`}>{question}</Label>
-                                        {question.toLowerCase().includes('image') ? (
+                                        {agent.image_fields?.includes(question) ? (
                                             <div className="flex items-center space-x-2">
                                                 <Input
                                                     id={`question-${index}`}
@@ -604,6 +641,25 @@ export default function AgentPage() {
                                                     </div>
                                                 )}
                                             </div>
+                                        ) : question.toLowerCase() === 'image model' ? (
+                                            <Select
+                                                value={imageModel}
+                                                onValueChange={(value) => {
+                                                    setImageModel(value)
+                                                    handleInputChange(question, value)
+                                                }}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a model" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {IMAGE_MODEL_OPTIONS.map(option => (
+                                                        <SelectItem key={option.value} value={option.value}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         ) : question.toLowerCase().includes('prompt') || question.toLowerCase().includes('beliefs') ? (
                                             <textarea
                                                 id={`question-${index}`}
@@ -776,7 +832,7 @@ export default function AgentPage() {
                                                 </TableBody>
                                             </Table>
                                         </div>
-                                    ) : (agentId === 'image_generation' || agentId === 'linkedin_headshot') && response.startsWith('http') ? (
+                                    ) : (agentId === 'image_generation' || agentId === 'linkedin_headshot') && (response.startsWith('http') || response.startsWith('data:image/')) ? (
                                         <div className="flex justify-center">
                                             <img
                                                 src={response}

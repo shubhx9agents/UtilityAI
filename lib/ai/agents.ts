@@ -50,18 +50,90 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     },
     image_generation: {
         system_message: 'Professional AI image editing prompts.',
-        questions: ['Base Image', 'Instructional Prompt', 'Reference Image (Optional)'],
+        questions: ['Base Image', 'Instructional Prompt', 'Reference Image (Optional)', 'Image Model'],
         image_fields: ['Base Image', 'Reference Image (Optional)'],
     },
     linkedin_headshot: {
         system_message: 'Generate a professional LinkedIn headshot from any image.',
-        questions: ['User Image'],
+        questions: ['User Image', 'Image Model'],
         image_fields: ['User Image'],
     },
 }
 
+const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
+const BYTEPLUS_IMAGE_MODELS = new Set(['seedream-4-0-250828'])
+
 export class AIAgentService {
     constructor() { }
+
+    private resolveImageModel(context: Record<string, any>): string {
+        const raw = typeof context.image_model === 'string'
+            ? context.image_model
+            : (typeof context['Image Model'] === 'string' ? context['Image Model'] : '')
+        const trimmed = raw.trim()
+        return trimmed || DEFAULT_IMAGE_MODEL
+    }
+
+    private isBytePlusModel(model: string): boolean {
+        return BYTEPLUS_IMAGE_MODELS.has(model)
+    }
+
+    private buildGeminiImageParts(images: string[]): Array<{ inlineData: { mimeType: string; data: string } }> {
+        const parts: Array<{ inlineData: { mimeType: string; data: string } }> = []
+        for (const image of images) {
+            const match = image.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/)
+            if (!match) continue
+            parts.push({
+                inlineData: {
+                    mimeType: match[1],
+                    data: match[2]
+                }
+            })
+        }
+        return parts
+    }
+
+    private async runGeminiImageGeneration(prompt: string, images: string[], model: string): Promise<string> {
+        const geminiApiKey = process.env.GEMINI_API_KEY
+        if (!geminiApiKey) {
+            throw new Error('GEMINI_API_KEY is missing in .env.local')
+        }
+
+        const parts = [{ text: prompt }, ...this.buildGeminiImageParts(images)]
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts }],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 2048
+                }
+            })
+        })
+
+        if (!res.ok) {
+            const text = await res.text()
+            throw new Error(`Gemini API Error: ${text.substring(0, 200)}`)
+        }
+
+        const data = await res.json()
+        const partsOut = data.candidates?.[0]?.content?.parts || []
+        const imagePart = partsOut.find((part: any) => part.inlineData?.data)
+        if (imagePart?.inlineData?.data) {
+            const mimeType = imagePart.inlineData.mimeType || 'image/png'
+            return `data:${mimeType};base64,${imagePart.inlineData.data}`
+        }
+
+        const textPart = partsOut.find((part: any) => typeof part.text === 'string')
+        if (textPart?.text && textPart.text.trim().startsWith('http')) {
+            return textPart.text.trim()
+        }
+
+        throw new Error('Gemini image generation returned no image data.')
+    }
 
     async runAgent(
         agentType: AgentType,
@@ -405,12 +477,13 @@ ${userInput}`
     private async runImageGeneration(userInput: string, context: Record<string, any>): Promise<{ response: string; refined_prompt: string }> {
         const groqApiKey = process.env.GROQ_API_KEY
         const bytePlusKey = process.env.BYTEPLUS_API_KEY
+        const imageModel = this.resolveImageModel(context)
 
         if (!groqApiKey) {
             throw new Error('GROQ_API_KEY is missing in .env.local')
         }
 
-        if (!bytePlusKey) {
+        if (this.isBytePlusModel(imageModel) && !bytePlusKey) {
             throw new Error('BYTEPLUS_API_KEY is missing in .env.local')
         }
 
@@ -439,40 +512,44 @@ ${userInput}`
             const groqData = await groqRes.json()
             const refinedPrompt = groqData.choices?.[0]?.message?.content || userInput
 
-            // 2. BytePlus
+            // 2. Image Generation (Gemini default, BytePlus optional)
             // Dynamically find images in context (as Canvas uses dynamic field names)
             const contextImages = Object.values(context).filter(val => typeof val === 'string' && val.startsWith('data:image/'))
 
-            const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${bytePlusKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: 'seedream-4-0-250828',
-                    prompt: refinedPrompt,
-                    image: contextImages.length > 0 ? contextImages.slice(0, 2) : [
-                        context.base_image,
-                        context.reference_image
-                    ].filter(Boolean),
-                    response_format: 'url',
-                    size: '2K'
-                })
-            })
+            const imageUrl = this.isBytePlusModel(imageModel)
+                ? await (async () => {
+                    const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${bytePlusKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: imageModel,
+                            prompt: refinedPrompt,
+                            image: contextImages.length > 0 ? contextImages.slice(0, 2) : [
+                                context.base_image,
+                                context.reference_image
+                            ].filter(Boolean),
+                            response_format: 'url',
+                            size: '2K'
+                        })
+                    })
 
-            if (!bytePlusRes.ok) {
-                const text = await bytePlusRes.text()
-                console.error('BytePlus API Error:', text)
-                throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
-            }
+                    if (!bytePlusRes.ok) {
+                        const text = await bytePlusRes.text()
+                        console.error('BytePlus API Error:', text)
+                        throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
+                    }
 
-            const bytePlusData = await bytePlusRes.json()
-            const imageUrl = bytePlusData.data?.[0]?.url || bytePlusData.url
-
-            if (!imageUrl) {
-                throw new Error('Image Generation failed: No URL returned from BytePlus.')
-            }
+                    const bytePlusData = await bytePlusRes.json()
+                    const url = bytePlusData.data?.[0]?.url || bytePlusData.url
+                    if (!url) {
+                        throw new Error('Image Generation failed: No URL returned from BytePlus.')
+                    }
+                    return url
+                })()
+                : await this.runGeminiImageGeneration(refinedPrompt, contextImages, imageModel)
 
             return {
                 response: imageUrl,
@@ -487,12 +564,13 @@ ${userInput}`
     private async runLinkedInHeadshot(userInput: string, context: Record<string, any>): Promise<{ response: string; refined_prompt: string }> {
         const groqApiKey = process.env.GROQ_API_KEY
         const bytePlusKey = process.env.BYTEPLUS_API_KEY
+        const imageModel = this.resolveImageModel(context)
 
         if (!groqApiKey) {
             throw new Error('GROQ_API_KEY is missing in .env.local')
         }
 
-        if (!bytePlusKey) {
+        if (this.isBytePlusModel(imageModel) && !bytePlusKey) {
             throw new Error('BYTEPLUS_API_KEY is missing in .env.local')
         }
 
@@ -546,39 +624,43 @@ ${userInput}`
             const groqData = await groqRes.json()
             const refinedPrompt = groqData.choices?.[0]?.message?.content || "Professional LinkedIn headshot, corporate style, high quality"
 
-            // 2. BytePlus Call
+            // 2. Image Generation (Gemini default, BytePlus optional)
             // Dynamically find images in context (as Canvas uses dynamic field names)
             const contextImages = Object.values(context).filter(val => typeof val === 'string' && val.startsWith('data:image/'))
 
-            const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${bytePlusKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: 'seedream-4-0-250828',
-                    prompt: refinedPrompt,
-                    image: contextImages.length > 0 ? [contextImages[0]] : [
-                        context.user_image
-                    ].filter(Boolean),
-                    response_format: 'url',
-                    size: '2K'
-                })
-            })
+            const imageUrl = this.isBytePlusModel(imageModel)
+                ? await (async () => {
+                    const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${bytePlusKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: imageModel,
+                            prompt: refinedPrompt,
+                            image: contextImages.length > 0 ? [contextImages[0]] : [
+                                context.user_image
+                            ].filter(Boolean),
+                            response_format: 'url',
+                            size: '2K'
+                        })
+                    })
 
-            if (!bytePlusRes.ok) {
-                const text = await bytePlusRes.text()
-                console.error('BytePlus API Error:', text)
-                throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
-            }
+                    if (!bytePlusRes.ok) {
+                        const text = await bytePlusRes.text()
+                        console.error('BytePlus API Error:', text)
+                        throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
+                    }
 
-            const bytePlusData = await bytePlusRes.json()
-            const imageUrl = bytePlusData.data?.[0]?.url || bytePlusData.url
-
-            if (!imageUrl) {
-                throw new Error('Image Generation failed: No URL returned from BytePlus.')
-            }
+                    const bytePlusData = await bytePlusRes.json()
+                    const url = bytePlusData.data?.[0]?.url || bytePlusData.url
+                    if (!url) {
+                        throw new Error('Image Generation failed: No URL returned from BytePlus.')
+                    }
+                    return url
+                })()
+                : await this.runGeminiImageGeneration(refinedPrompt, contextImages, imageModel)
 
             return {
                 response: imageUrl,

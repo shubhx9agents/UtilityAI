@@ -17,6 +17,8 @@ type AgentInputSpec = {
     image_fields?: string[]
 }
 
+const IMAGE_MODEL_LABEL = 'Image Model'
+
 const normalizeInputLabel = (label: string): string => {
     return label.replace(/\s+/g, ' ').trim()
 }
@@ -82,11 +84,13 @@ const buildCombinedInputs = async (
     groqApiKey: string
 ): Promise<Array<{ field: string, label: string, type: 'text' | 'image' }>> => {
     const specs = buildAgentInputSpecs(agentIds)
+    const needsImageModel = agentIds.some(id => id === 'image_generation' || id === 'linkedin_headshot')
 
     // Fallback logic
     const allQuestions = Array.from(new Set([
         ...existingInputs,
-        ...specs.flatMap(spec => spec.questions)
+        ...specs.flatMap(spec => spec.questions),
+        ...(needsImageModel ? [IMAGE_MODEL_LABEL] : [])
     ]))
 
     const fallbackInputs = allQuestions.map(q => {
@@ -107,7 +111,8 @@ RULES:
 1. MAX 10 questions total.
 2. If multiple agents ask for similar info (e.g., "Target Audience" and "Who is the audience?"), merge them into ONE question.
 3. Preserve the "type": "image" for fields that require image uploads (like base images or user photos).
-4. Return ONLY a JSON array of objects with this structure:
+4. If any image agent is included, ALWAYS include "Image Model" as a text field.
+5. Return ONLY a JSON array of objects with this structure:
    [{"field": "variable_name", "label": "Human Friendly Label", "type": "text" | "image"}]
 
 Agents and their specific questions:
@@ -142,6 +147,18 @@ ${JSON.stringify(existingInputs, null, 2)}
         const parsed = parseJsonOutput(llmResponse)
 
         if (parsed.length === 0) return fallbackInputs
+
+        const hasImageModel = parsed.some((item: any) => (item.label || '').toLowerCase() === 'image model' || item.field === 'image_model')
+        if (needsImageModel && !hasImageModel) {
+            if (parsed.length >= 10) {
+                parsed.pop()
+            }
+            parsed.push({
+                field: 'image_model',
+                label: IMAGE_MODEL_LABEL,
+                type: 'text'
+            })
+        }
 
         // Ensure valid structure and limit to 10
         return parsed.slice(0, 10).map((item: any) => ({

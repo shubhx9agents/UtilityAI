@@ -74,6 +74,12 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
+const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
+const IMAGE_MODEL_OPTIONS = [
+    { value: 'nano-banana-pro-preview', label: 'Nano Banana Pro (Gemini)' },
+    { value: 'seedream-4-0-250828', label: 'Seedream 4 (BytePlus)' },
+]
+
 interface OrchestratorAgent {
     id: string
     name: string
@@ -1203,6 +1209,15 @@ export default function CanvasPage() {
                     toast.success('Autofilled using your profile data!')
                 }
             }
+
+            const required = getRequiredInputs()
+            const needsImageModel = required.some(req => req.field === 'image_model' || req.label.toLowerCase() === 'image model')
+            if (needsImageModel && !userInputs.image_model) {
+                setUserInputs(prev => ({
+                    ...prev,
+                    image_model: DEFAULT_IMAGE_MODEL
+                }))
+            }
         }
     }, [showExecuteDialog, selectedWorkflow?.id, onboardingData])
 
@@ -1624,6 +1639,7 @@ export default function CanvasPage() {
                                                         }
 
                                                         const activeInput = requiredInputs[inputStepIndex]
+                                                        const isImageModel = activeInput.field === 'image_model' || activeInput.label.toLowerCase() === 'image model'
                                                         return (
                                                             <div className="space-y-4">
                                                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1671,6 +1687,25 @@ export default function CanvasPage() {
                                                                                 )}
                                                                             </div>
                                                                         </div>
+                                                                    ) : isImageModel ? (
+                                                                        <Select
+                                                                            value={userInputs[activeInput.field] || DEFAULT_IMAGE_MODEL}
+                                                                            onValueChange={(value) => setUserInputs({
+                                                                                ...userInputs,
+                                                                                [activeInput.field]: value
+                                                                            })}
+                                                                        >
+                                                                            <SelectTrigger>
+                                                                                <SelectValue placeholder="Select a model" />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                {IMAGE_MODEL_OPTIONS.map(option => (
+                                                                                    <SelectItem key={option.value} value={option.value}>
+                                                                                        {option.label}
+                                                                                    </SelectItem>
+                                                                                ))}
+                                                                            </SelectContent>
+                                                                        </Select>
                                                                     ) : (
                                                                         <textarea
                                                                             className="w-full min-h-[180px] p-3 border rounded-md bg-background text-sm resize-none focus:ring-2 focus:ring-amber-500 transition-all outline-none"
