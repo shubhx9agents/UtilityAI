@@ -210,7 +210,6 @@ export default function CanvasPage() {
     const [showNewWorkflowDialog, setShowNewWorkflowDialog] = useState(false)
     const [showOrchestratorDialog, setShowOrchestratorDialog] = useState(false)
     const [showExecuteDialog, setShowExecuteDialog] = useState(false)
-    const [showResultsDialog, setShowResultsDialog] = useState(false)
     const [showAddNodeDialog, setShowAddNodeDialog] = useState(false)
     const [showNodeEditorDialog, setShowNodeEditorDialog] = useState(false)
 
@@ -232,6 +231,10 @@ export default function CanvasPage() {
 
     // Execution state
     const [isExecuting, setIsExecuting] = useState(false)
+    const [showResultsDialog, setShowResultsDialog] = useState(false)
+    const [executionMode, setExecutionMode] = useState<'hybrid' | 'manual' | null>(null)
+    const [configInputs, setConfigInputs] = useState<Array<{ field: string, label: string, type: 'text' | 'image', group?: string }>>([])
+    const [isConfiguring, setIsConfiguring] = useState(false)
     const [executionResult, setExecutionResult] = useState<any>(null)
     const [stepStatuses, setStepStatuses] = useState<Record<string, StepStatus>>({})
     const [selectedResultStepId, setSelectedResultStepId] = useState<string | null>(null)
@@ -881,7 +884,44 @@ export default function CanvasPage() {
         if (!selectedWorkflow) return
         const synced = await syncWorkflowPlanFromCanvas()
         if (synced) {
+            setExecutionMode(null)
+            setConfigInputs([])
             setShowExecuteDialog(true)
+        }
+    }
+
+    const selectExecutionMode = async (mode: 'hybrid' | 'manual') => {
+        setExecutionMode(mode)
+        setIsConfiguring(true)
+        try {
+            const planForExecution = buildWorkflowPlanFromCanvas() || selectedWorkflow?.workflow_plan
+            const agentIds = planForExecution?.steps?.map((s: any) => s.agent_id) || []
+
+            const res = await fetch('/api/canvas/workflows/input-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode, agentIds })
+            })
+            const data = await res.json()
+
+            if (mode === 'manual') {
+                setConfigInputs(data.inputs || [])
+            } else {
+                // Hybrid: merge injected data into userInputs and set new questions
+                if (data.injected_data) {
+                    setUserInputs(prev => ({ ...prev, ...data.injected_data }))
+                    toast.success('Onboarding data injected!')
+                }
+                setConfigInputs(data.new_questions || [])
+            }
+            setInputStepIndex(0)
+        } catch (error) {
+            console.error('Failed to configure inputs:', error)
+            toast.error('AI Configuration failed. Falling back to default.')
+            setExecutionMode('manual')
+            setConfigInputs(getRequiredInputs())
+        } finally {
+            setIsConfiguring(false)
         }
     }
 
@@ -1073,11 +1113,11 @@ export default function CanvasPage() {
     }, [flowInstance, isCanvasFullscreen, flowNodes.length])
 
     // Get required user inputs from workflow
-    const getRequiredInputs = (): Array<{ field: string, label: string, type: 'text' | 'image' }> => {
+    const getRequiredInputs = (): Array<{ field: string, label: string, type: 'text' | 'image', group?: string }> => {
         if (!selectedWorkflow?.workflow_plan?.steps) return []
 
         const seen = new Set<string>()
-        const inputs: Array<{ field: string, label: string, type: 'text' | 'image' }> = []
+        const inputs: Array<{ field: string, label: string, type: 'text' | 'image', group?: string }> = []
 
         for (const step of selectedWorkflow.workflow_plan.steps) {
             if (step.input_mapping?.user_input_specs) {
@@ -1646,125 +1686,169 @@ export default function CanvasPage() {
                                                     </DialogDescription>
                                                 </DialogHeader>
                                                 <div className="py-4 overflow-y-auto max-h-[55vh] pr-1">
-                                                    {(() => {
-                                                        const requiredInputs = getRequiredInputs()
-                                                        if (requiredInputs.length === 0) {
+                                                    {!executionMode ? (
+                                                        <div className="grid grid-cols-1 gap-4 py-4">
+                                                            <Card
+                                                                className="cursor-pointer hover:border-amber-500 transition-all border-dashed"
+                                                                onClick={() => selectExecutionMode('hybrid')}
+                                                            >
+                                                                <CardHeader className="p-4">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="bg-amber-500/10 p-2 rounded-full text-amber-500">
+                                                                            <Sparkles className="h-5 w-5" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <CardTitle className="text-base">Hybrid Mode (Recommended)</CardTitle>
+                                                                            <CardDescription className="text-xs">Use my onboarding data & ask smart follow-ups</CardDescription>
+                                                                        </div>
+                                                                    </div>
+                                                                </CardHeader>
+                                                            </Card>
+                                                            <Card
+                                                                className="cursor-pointer hover:border-amber-500 transition-all border-dashed"
+                                                                onClick={() => selectExecutionMode('manual')}
+                                                            >
+                                                                <CardHeader className="p-4">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="bg-blue-500/10 p-2 rounded-full text-blue-500">
+                                                                            <Bot className="h-5 w-5" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <CardTitle className="text-base">Full Manual Mode</CardTitle>
+                                                                            <CardDescription className="text-xs">Manual input for all agents (unlimited questions)</CardDescription>
+                                                                        </div>
+                                                                    </div>
+                                                                </CardHeader>
+                                                            </Card>
+                                                        </div>
+                                                    ) : isConfiguring ? (
+                                                        <div className="flex flex-col items-center justify-center py-12 gap-4">
+                                                            <Loader2 className="h-10 w-10 animate-spin text-amber-500" />
+                                                            <p className="text-sm text-muted-foreground">AI is designing your input workflow...</p>
+                                                        </div>
+                                                    ) : (
+                                                        (() => {
+                                                            const requiredInputs = configInputs.length > 0 ? configInputs : getRequiredInputs()
+                                                            if (requiredInputs.length === 0) {
+                                                                return (
+                                                                    <div className="space-y-4">
+                                                                        <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-lg flex items-center gap-3">
+                                                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                                                            <p className="text-sm font-medium">All inputs auto-filled from your profile!</p>
+                                                                        </div>
+                                                                        <p className="text-sm text-muted-foreground">You can proceed directly to execution or go back to manual mode.</p>
+                                                                    </div>
+                                                                )
+                                                            }
+
+                                                            const activeInput = requiredInputs[inputStepIndex]
+                                                            const isImageModel = activeInput.field.includes('image_model') || activeInput.label.toLowerCase().includes('image model')
                                                             return (
-                                                                <div className="space-y-2">
-                                                                    <Label>General Input</Label>
-                                                                    <textarea
-                                                                        className="w-full min-h-[140px] p-3 border rounded-md bg-background text-sm resize-none"
-                                                                        value={userInputs.user_input || ''}
-                                                                        onChange={(e) => setUserInputs({
-                                                                            ...userInputs,
-                                                                            user_input: e.target.value
-                                                                        })}
-                                                                        placeholder="Enter your input for the workflow..."
-                                                                    />
+                                                                <div className="space-y-4">
+                                                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                                        <span className="font-medium bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded-full capitalize">
+                                                                            {executionMode} Mode
+                                                                        </span>
+                                                                        <span>Question {inputStepIndex + 1} of {requiredInputs.length}</span>
+                                                                    </div>
+                                                                    <div className="space-y-3">
+                                                                        {activeInput.group && (
+                                                                            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{activeInput.group}</span>
+                                                                        )}
+                                                                        <Label className="text-sm font-semibold">{activeInput.label}</Label>
+
+                                                                        {activeInput.type === 'image' ? (
+                                                                            <div className="space-y-3">
+                                                                                <div
+                                                                                    className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:border-amber-500/50 transition-colors cursor-pointer bg-muted/30"
+                                                                                    onClick={() => document.getElementById(`upload-${activeInput.field}`)?.click()}
+                                                                                >
+                                                                                    <input
+                                                                                        type="file"
+                                                                                        id={`upload-${activeInput.field}`}
+                                                                                        className="hidden"
+                                                                                        accept="image/*"
+                                                                                        onChange={(e) => {
+                                                                                            const file = e.target.files?.[0]
+                                                                                            if (file) handleImageUpload(activeInput.field, file)
+                                                                                        }}
+                                                                                    />
+                                                                                    {userInputs[activeInput.field] ? (
+                                                                                        <div className="relative group">
+                                                                                            <img
+                                                                                                src={userInputs[activeInput.field]}
+                                                                                                alt="Preview"
+                                                                                                className="max-h-[200px] rounded-md shadow-sm"
+                                                                                            />
+                                                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-md transition-opacity">
+                                                                                                <span className="text-white text-xs font-medium">Change Image</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <>
+                                                                                            <Upload className="h-8 w-8 text-muted-foreground" />
+                                                                                            <div className="text-center">
+                                                                                                <p className="text-sm font-medium">Click to upload or drag and drop</p>
+                                                                                                <p className="text-xs text-muted-foreground mt-1">PNG, JPG or WEBP (max 5MB)</p>
+                                                                                            </div>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : isImageModel ? (
+                                                                            <Select
+                                                                                value={userInputs[activeInput.field] || DEFAULT_IMAGE_MODEL}
+                                                                                onValueChange={(value) => setUserInputs({
+                                                                                    ...userInputs,
+                                                                                    [activeInput.field]: value
+                                                                                })}
+                                                                            >
+                                                                                <SelectTrigger>
+                                                                                    <SelectValue placeholder="Select a model" />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    {IMAGE_MODEL_OPTIONS.map(option => (
+                                                                                        <SelectItem key={option.value} value={option.value}>
+                                                                                            {option.label}
+                                                                                        </SelectItem>
+                                                                                    ))}
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        ) : (
+                                                                            <textarea
+                                                                                className="w-full min-h-[180px] p-3 border rounded-md bg-background text-sm resize-none focus:ring-2 focus:ring-amber-500 transition-all outline-none"
+                                                                                value={userInputs[activeInput.field] || ''}
+                                                                                onChange={(e) => setUserInputs({
+                                                                                    ...userInputs,
+                                                                                    [activeInput.field]: e.target.value
+                                                                                })}
+                                                                                placeholder={`Enter ${activeInput.label.toLowerCase()}...`}
+                                                                            />
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             )
-                                                        }
-
-                                                        const activeInput = requiredInputs[inputStepIndex]
-                                                        const isImageModel = activeInput.field.includes('image_model') || activeInput.label.toLowerCase().includes('image model')
-                                                        return (
-                                                            <div className="space-y-4">
-                                                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                                                    <span>Question {inputStepIndex + 1} of {requiredInputs.length}</span>
-                                                                    <span>{Math.round(((inputStepIndex + 1) / requiredInputs.length) * 100)}% complete</span>
-                                                                </div>
-                                                                <div className="space-y-3">
-                                                                    <Label className="text-sm font-semibold">{activeInput.label}</Label>
-
-                                                                    {activeInput.type === 'image' ? (
-                                                                        <div className="space-y-3">
-                                                                            <div
-                                                                                className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:border-amber-500/50 transition-colors cursor-pointer bg-muted/30"
-                                                                                onClick={() => document.getElementById(`upload-${activeInput.field}`)?.click()}
-                                                                            >
-                                                                                <input
-                                                                                    type="file"
-                                                                                    id={`upload-${activeInput.field}`}
-                                                                                    className="hidden"
-                                                                                    accept="image/*"
-                                                                                    onChange={(e) => {
-                                                                                        const file = e.target.files?.[0]
-                                                                                        if (file) handleImageUpload(activeInput.field, file)
-                                                                                    }}
-                                                                                />
-                                                                                {userInputs[activeInput.field] ? (
-                                                                                    <div className="relative group">
-                                                                                        <img
-                                                                                            src={userInputs[activeInput.field]}
-                                                                                            alt="Preview"
-                                                                                            className="max-h-[200px] rounded-md shadow-sm"
-                                                                                        />
-                                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-md transition-opacity">
-                                                                                            <span className="text-white text-xs font-medium">Change Image</span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <>
-                                                                                        <Upload className="h-8 w-8 text-muted-foreground" />
-                                                                                        <div className="text-center">
-                                                                                            <p className="text-sm font-medium">Click to upload or drag and drop</p>
-                                                                                            <p className="text-xs text-muted-foreground mt-1">PNG, JPG or WEBP (max 5MB)</p>
-                                                                                        </div>
-                                                                                    </>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : isImageModel ? (
-                                                                        <Select
-                                                                            value={userInputs[activeInput.field] || DEFAULT_IMAGE_MODEL}
-                                                                            onValueChange={(value) => setUserInputs({
-                                                                                ...userInputs,
-                                                                                [activeInput.field]: value
-                                                                            })}
-                                                                        >
-                                                                            <SelectTrigger>
-                                                                                <SelectValue placeholder="Select a model" />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                {IMAGE_MODEL_OPTIONS.map(option => (
-                                                                                    <SelectItem key={option.value} value={option.value}>
-                                                                                        {option.label}
-                                                                                    </SelectItem>
-                                                                                ))}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    ) : (
-                                                                        <textarea
-                                                                            className="w-full min-h-[180px] p-3 border rounded-md bg-background text-sm resize-none focus:ring-2 focus:ring-amber-500 transition-all outline-none"
-                                                                            value={userInputs[activeInput.field] || ''}
-                                                                            onChange={(e) => setUserInputs({
-                                                                                ...userInputs,
-                                                                                [activeInput.field]: e.target.value
-                                                                            })}
-                                                                            placeholder={`Enter ${activeInput.label.toLowerCase()}...`}
-                                                                        />
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    })()}
+                                                        })()
+                                                    )}
                                                 </div>
                                                 <DialogFooter>
-                                                    {getRequiredInputs().length > 0 && (
+                                                    {executionMode && !isConfiguring && (
                                                         <div className="flex w-full items-center justify-between">
                                                             <Button
                                                                 variant="outline"
-                                                                onClick={() => setInputStepIndex(prev => Math.max(prev - 1, 0))}
-                                                                disabled={inputStepIndex === 0}
+                                                                onClick={() => {
+                                                                    if (inputStepIndex === 0) setExecutionMode(null)
+                                                                    else setInputStepIndex(prev => Math.max(prev - 1, 0))
+                                                                }}
                                                             >
-                                                                Back
+                                                                {inputStepIndex === 0 ? 'Mode Select' : 'Back'}
                                                             </Button>
                                                             <div className="flex gap-2">
                                                                 <Button variant="outline" onClick={() => setShowExecuteDialog(false)}>
                                                                     Cancel
                                                                 </Button>
-                                                                {inputStepIndex < getRequiredInputs().length - 1 ? (
-                                                                    <Button onClick={() => setInputStepIndex(prev => Math.min(prev + 1, getRequiredInputs().length - 1))}>
+                                                                {(configInputs.length > 0 ? configInputs : getRequiredInputs()).length > 0 && inputStepIndex < (configInputs.length > 0 ? configInputs : getRequiredInputs()).length - 1 ? (
+                                                                    <Button onClick={() => setInputStepIndex(prev => prev + 1)}>
                                                                         Next
                                                                         <ArrowRight className="h-4 w-4 ml-1" />
                                                                     </Button>
@@ -1777,16 +1861,10 @@ export default function CanvasPage() {
                                                             </div>
                                                         </div>
                                                     )}
-                                                    {getRequiredInputs().length === 0 && (
-                                                        <>
-                                                            <Button variant="outline" onClick={() => setShowExecuteDialog(false)}>
-                                                                Cancel
-                                                            </Button>
-                                                            <Button onClick={executeWorkflow}>
-                                                                <Play className="h-4 w-4 mr-1" />
-                                                                Run Workflow
-                                                            </Button>
-                                                        </>
+                                                    {!executionMode && !isConfiguring && (
+                                                        <Button variant="ghost" onClick={() => setShowExecuteDialog(false)}>
+                                                            Cancel
+                                                        </Button>
                                                     )}
                                                 </DialogFooter>
                                             </DialogContent>

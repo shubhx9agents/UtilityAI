@@ -232,6 +232,7 @@ export interface StepInputMapping {
         field: string
         label: string
         type: 'text' | 'image'
+        group?: string
     }>
 }
 
