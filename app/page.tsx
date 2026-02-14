@@ -1,345 +1,479 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Sparkles,
   Search,
   Image,
-  Share2,
-  TrendingUp,
-  Check,
+  Type,
   ArrowRight,
   Zap,
-  Menu,
-  X,
+  Shield,
+  Users,
+  Workflow,
+  BarChart3,
+  Star,
+  Play,
+  Camera,
+  Code,
 } from 'lucide-react'
-import { useState } from 'react'
+
+import {
+  HeroBackground,
+  ScrollReveal,
+  StaggerContainer,
+  StaggerItem,
+  GlowingButton,
+  BentoCard,
+  AnimatedCounter,
+  TestimonialCard,
+  LogoCloud,
+  PricingSection,
+  Footer,
+  Navbar,
+} from '@/components/landing'
 
 import TextType from '@/components/ui/TextType'
-import TiltedCard from '@/components/ui/TiltedCard'
+
+// Agent data with explicit Tailwind classes (dynamic classes don't work)
+const agents = [
+  {
+    id: 'research',
+    name: 'Deep Research',
+    description: 'Market and competitor analysis with structured outputs ready for strategy docs.',
+    icon: Search,
+    iconBg: 'bg-amber-500/15',
+    iconColor: 'text-amber-500',
+    linkColor: 'text-amber-500',
+    gradient: 'from-amber-500/20 to-orange-500/5',
+  },
+  {
+    id: 'image',
+    name: 'Ad Image Generation',
+    description: 'On-brand visuals for ads and campaigns. Multiple formats, instant delivery.',
+    icon: Image,
+    iconBg: 'bg-rose-500/15',
+    iconColor: 'text-rose-500',
+    linkColor: 'text-rose-500',
+    gradient: 'from-rose-500/20 to-pink-500/5',
+  },
+  {
+    id: 'copy',
+    name: 'Ad Copy Generator',
+    description: 'Multiple variants, A/B-ready headlines. Never run out of creative ideas.',
+    icon: Type,
+    iconBg: 'bg-teal-500/15',
+    iconColor: 'text-teal-500',
+    linkColor: 'text-teal-500',
+    gradient: 'from-teal-500/20 to-cyan-500/5',
+  },
+  {
+    id: 'headshot',
+    name: 'LinkedIn Headshot',
+    description: 'Professional profile photos powered by AI. Upload a selfie, get polished results.',
+    icon: Camera,
+    iconBg: 'bg-violet-500/15',
+    iconColor: 'text-violet-500',
+    linkColor: 'text-violet-500',
+    gradient: 'from-violet-500/20 to-purple-500/5',
+  },
+]
+
+// Feature data for bento grid
+const features = [
+  {
+    title: 'Unified Canvas',
+    description: 'Chain agents together into powerful workflows. Visual orchestration that just works.',
+    icon: Workflow,
+    span: 'lg:col-span-2',
+    gradient: 'from-amber-500/15 via-amber-500/5 to-transparent',
+    iconBg: 'bg-amber-500/15',
+    iconColor: 'text-amber-500',
+    glowColor: 'rgba(245,158,11,0.3)',
+  },
+  {
+    title: 'Real-time Collaboration',
+    description: 'Work together with your team in real-time. Comments, sharing, version history.',
+    icon: Users,
+    span: '',
+    gradient: 'from-blue-500/15 via-blue-500/5 to-transparent',
+    iconBg: 'bg-blue-500/15',
+    iconColor: 'text-blue-500',
+    glowColor: 'rgba(59,130,246,0.3)',
+  },
+  {
+    title: 'Enterprise Security',
+    description: 'SOC 2 Type II certified. Your data is encrypted at rest and in transit.',
+    icon: Shield,
+    span: '',
+    gradient: 'from-emerald-500/15 via-emerald-500/5 to-transparent',
+    iconBg: 'bg-emerald-500/15',
+    iconColor: 'text-emerald-500',
+    glowColor: 'rgba(16,185,129,0.3)',
+  },
+  {
+    title: 'Lightning Fast',
+    description: 'Optimized infrastructure for sub-second response times. No waiting.',
+    icon: Zap,
+    span: '',
+    gradient: 'from-yellow-500/15 via-yellow-500/5 to-transparent',
+    iconBg: 'bg-yellow-500/15',
+    iconColor: 'text-yellow-500',
+    glowColor: 'rgba(234,179,8,0.3)',
+  },
+  {
+    title: 'API & Integrations',
+    description: 'Connect with your favorite tools. REST API, webhooks, and native integrations.',
+    icon: Code,
+    span: '',
+    gradient: 'from-cyan-500/15 via-cyan-500/5 to-transparent',
+    iconBg: 'bg-cyan-500/15',
+    iconColor: 'text-cyan-500',
+    glowColor: 'rgba(6,182,212,0.3)',
+  },
+  {
+    title: 'Analytics Dashboard',
+    description: 'Track usage, measure ROI, and optimize your workflows with detailed analytics.',
+    icon: BarChart3,
+    span: 'lg:col-span-3',
+    gradient: 'from-purple-500/15 via-purple-500/5 to-transparent',
+    iconBg: 'bg-purple-500/15',
+    iconColor: 'text-purple-500',
+    glowColor: 'rgba(168,85,247,0.3)',
+  },
+]
+
+// Testimonials
+const testimonials = [
+  {
+    quote: "UtilityAI has completely transformed our content workflow. What used to take our team days now happens in hours. The quality is consistently excellent.",
+    author: "Sarah Chen",
+    role: "Head of Marketing",
+    company: "TechCorp",
+    rating: 5,
+  },
+  {
+    quote: "The Deep Research agent alone has saved us thousands in market research costs. It's like having a team of analysts on demand.",
+    author: "Marcus Johnson",
+    role: "VP of Strategy",
+    company: "GrowthLabs",
+    rating: 5,
+  },
+  {
+    quote: "We switched from three different tools to just UtilityAI. The canvas feature is game-changing for orchestrating complex campaigns.",
+    author: "Emily Rodriguez",
+    role: "Creative Director",
+    company: "Brandify",
+    rating: 5,
+  },
+]
+
+// Stats
+const stats = [
+  { value: 50000, suffix: '+', label: 'Active Users' },
+  { value: 10, suffix: 'M+', label: 'Generations' },
+  { value: 99.9, suffix: '%', label: 'Uptime' },
+  { value: 4.9, suffix: '/5', label: 'User Rating' },
+]
 
 export default function HomePage() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Top bar - Sleek Pill Navbar */}
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-4 pointer-events-none">
-        <header className="pointer-events-auto flex items-center justify-between rounded-full border border-white/10 bg-black/40 backdrop-blur-xl px-2 py-2 sm:px-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-          <Link href="/" className="flex items-center gap-2.5 pl-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]">
-              <Sparkles className="h-4 w-4 text-zinc-900" />
-            </div>
-            <span className="hidden sm:block font-heading text-lg font-bold tracking-tight text-white">
-              UtilityAI
-            </span>
-          </Link>
+    <div className="relative min-h-screen bg-[#030303] text-foreground overflow-hidden">
+      {/* Hero Background with 3D Globe and GSAP Animations */}
+      <HeroBackground />
 
-          {/* Right Actions - Nav Items & Button grouped on the right */}
-          <div className="flex items-center gap-2 sm:gap-6 pr-1">
-            <nav className="hidden md:flex items-center gap-2">
-              <a
-                href="#agents"
-                className="rounded-full px-5 py-1.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-all"
-              >
-                Agents
-              </a>
-              <a
-                href="#compare"
-                className="rounded-full px-5 py-1.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-all"
-              >
-                Compare
-              </a>
-              <Link
-                href="/login"
-                className="rounded-full px-5 py-1.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-all"
-              >
-                Sign In
-              </Link>
-            </nav>
+      {/* Navbar */}
+      <Navbar />
 
-            <Link href="/register">
-              <Button className="rounded-full bg-amber-500 px-6 font-semibold text-zinc-900 hover:bg-amber-600 border-0 shadow-[0_0_20px_rgba(245,158,11,0.4)] transition-all h-10">
-                Get Started
-              </Button>
-            </Link>
-
-            {/* Mobile Menu Button */}
-            <button
-              className="md:hidden p-2 text-white/70 hover:text-white"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
-        </header>
-
-        {/* Mobile Nav Overlay */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden mt-4 mx-2 rounded-3xl border border-white/10 bg-black/80 backdrop-blur-2xl p-6 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
-            <nav className="flex flex-col space-y-4">
-              <a
-                href="#agents"
-                className="text-lg font-medium text-white/70 hover:text-amber-500 transition-colors px-2 py-1"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Agents
-              </a>
-              <a
-                href="#compare"
-                className="text-lg font-medium text-white/70 hover:text-amber-500 transition-colors px-2 py-1"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Compare
-              </a>
-              <Link
-                href="/login"
-                className="text-lg font-medium text-white/70 hover:text-amber-500 transition-colors px-2 py-1"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Sign In
-              </Link>
-              <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
-                <Button className="w-full rounded-full bg-amber-500 font-semibold text-zinc-900 hover:bg-amber-600 border-0 shadow-[0_0_20px_rgba(245,158,11,0.4)]">
-                  Get Started
-                </Button>
-              </Link>
-            </nav>
-          </div>
-        )}
-      </div>
-
-      {/* Hero */}
-      <section className="border-b border-border/60">
-        <div className="mx-auto max-w-6xl px-4 pt-24 pb-10 sm:px-6 sm:pt-36 sm:pb-16">
-          <div className="mx-auto max-w-3xl text-center">
-            <h1 className="font-heading text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl min-h-[2.5em] flex flex-col items-center justify-center">
-              <TextType
-                text={["One platform.\nFour specialized agents."]}
-                typingSpeed={75}
-                pauseDuration={2000}
-                showCursor
-                cursorCharacter="_"
-                textColors={['white', '#f59e0b']}
-                className="inline-block"
-              />
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-32">
+        <div className="mx-auto max-w-7xl px-6">
+          <ScrollReveal className="text-center">
+            {/* Main headline */}
+            <h1 className="font-heading text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.1]">
+              <span className="text-white">One platform.</span>
+              <br />
+              <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-amber-600 bg-clip-text text-transparent">
+                <TextType
+                  text={["Four specialized agents."]}
+                  typingSpeed={60}
+                  pauseDuration={3000}
+                  showCursor
+                  cursorCharacter="|"
+                  className="inline"
+                />
+              </span>
             </h1>
-            <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
-              Deep research, ad creatives, LinkedIn headshots, and high-converting
-              copy. Built for marketing and sales teams who ship fast.
-            </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/register" className="w-full sm:w-auto">
-                <Button size="lg" className="w-full rounded-lg bg-amber-500 font-medium text-zinc-900 hover:bg-amber-600 border-0 sm:w-auto">
-                  Start free trial
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="#agents" className="w-full sm:w-auto">
-                <Button size="lg" variant="outline" className="w-full rounded-lg sm:w-auto">
-                  See agents
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Agents Grid */}
-      <section id="agents" className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
-        <h2 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">
-          AI agents
-        </h2>
-        <p className="mt-2 max-w-2xl text-muted-foreground">
-          Each agent is tuned for one job. Use them alone or chain them in the canvas.
-        </p>
+            {/* Subheadline */}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+              className="mt-8 text-lg sm:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed"
+            >
+              Deep research, ad creatives, LinkedIn headshots, and high-converting copy. 
+              Built for marketing and sales teams who ship fast.
+            </motion.p>
 
-        <div className="mt-8 grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-4">
-          <TiltedCard containerHeight="auto" cardHeight="320px">
-            <Link href="/register" className="group flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-amber-500/40">
-              <div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
-                  <Search className="h-6 w-6" />
-                </div>
-                <h3 className="mt-4 font-heading text-lg font-semibold">Deep Research</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Market and competitor analysis. Structured outputs you can drop into strategy docs.
-                </p>
-              </div>
-              <div className="mt-4 inline-flex items-center text-sm font-medium text-amber-500 group-hover:text-amber-600">
-                Try agent <ArrowRight className="ml-1 h-4 w-4" />
-              </div>
-            </Link>
-          </TiltedCard>
-
-          <TiltedCard containerHeight="auto" cardHeight="320px">
-            <Link href="/register" className="group flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-rose-500/40">
-              <div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/15 text-rose-500">
-                  <Image className="h-6 w-6" />
-                </div>
-                <h3 className="mt-4 font-heading text-lg font-semibold">Ad Image Generation</h3>
-                <p className="mt-2 text-sm text-muted-foreground">On-brand visuals for ads and campaigns.</p>
-              </div>
-              <div className="mt-4 inline-flex items-center text-sm font-medium text-rose-500 group-hover:text-rose-600">
-                Try agent <ArrowRight className="ml-1 h-4 w-4" />
-              </div>
-            </Link>
-          </TiltedCard>
-
-          <TiltedCard containerHeight="auto" cardHeight="320px">
-            <Link href="/register" className="group flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-teal-500/40">
-              <div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500/15 text-teal-500">
-                  <Share2 className="h-6 w-6" />
-                </div>
-                <h3 className="mt-4 font-heading text-lg font-semibold">Ad Copy Generator</h3>
-                <p className="mt-2 text-sm text-muted-foreground">Multiple variants, A/B-ready headlines.</p>
-              </div>
-              <div className="mt-4 inline-flex items-center text-sm font-medium text-teal-500 group-hover:text-teal-600">
-                Try agent <ArrowRight className="ml-1 h-4 w-4" />
-              </div>
-            </Link>
-          </TiltedCard>
-
-          <TiltedCard containerHeight="auto" cardHeight="320px">
-            <Link href="/register" className="group flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-amber-500/40">
-              <div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
-                  <TrendingUp className="h-6 w-6" />
-                </div>
-                <h3 className="mt-4 font-heading text-lg font-semibold">LinkedIn Headshot</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Professional profile photos powered by AI. Upload a selfie, get polished headshots.
-                </p>
-              </div>
-              <div className="mt-4 inline-flex items-center text-sm font-medium text-amber-500 group-hover:text-amber-600">
-                Try agent <ArrowRight className="ml-1 h-4 w-4" />
-              </div>
-            </Link>
-          </TiltedCard>
-        </div>
-      </section>
-
-      {/* Comparison table */}
-      <section id="compare" className="border-t border-border">
-        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
-          <h2 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">
-            Why UtilityAI
-          </h2>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            Clear scope, modular agents, and a canvas to orchestrate workflows.
-          </p>
-
-          <div className="mt-8 overflow-x-auto rounded-xl border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-muted/50">
-                  <TableHead className="font-heading font-semibold">Capability</TableHead>
-                  <TableHead className="font-heading font-semibold">Included</TableHead>
-                  <TableHead className="font-heading font-semibold">Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">Deep Research</TableCell>
-                  <TableCell><Check className="h-5 w-5 text-amber-500" /></TableCell>
-                  <TableCell className="text-muted-foreground">Market & competitor analysis</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Ad Image Generation</TableCell>
-                  <TableCell><Check className="h-5 w-5 text-amber-500" /></TableCell>
-                  <TableCell className="text-muted-foreground">On-brand creatives</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Ad Copy Generator</TableCell>
-                  <TableCell><Check className="h-5 w-5 text-amber-500" /></TableCell>
-                  <TableCell className="text-muted-foreground">A/B-ready variations</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">LinkedIn Headshot</TableCell>
-                  <TableCell><Check className="h-5 w-5 text-amber-500" /></TableCell>
-                  <TableCell className="text-muted-foreground">Professional profile photos</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Canvas & orchestration</TableCell>
-                  <TableCell><Check className="h-5 w-5 text-amber-500" /></TableCell>
-                  <TableCell className="text-muted-foreground">Chain agents into workflows</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats strip */}
-      <section className="border-t border-border bg-amber-500/5">
-        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-            <div>
-              <div className="font-heading text-3xl font-bold text-amber-600">4</div>
-              <div className="mt-1 text-sm text-muted-foreground">Specialist agents</div>
-            </div>
-            <div>
-              <div className="font-heading text-3xl font-bold text-amber-600">1</div>
-              <div className="mt-1 text-sm text-muted-foreground">Unified canvas</div>
-            </div>
-            <div>
-              <div className="font-heading text-3xl font-bold text-amber-600">—</div>
-              <div className="mt-1 text-sm text-muted-foreground">No lock-in</div>
-            </div>
-            <div>
-              <div className="font-heading text-3xl font-bold text-amber-600">
-                <Zap className="inline h-8 w-8" />
-              </div>
-              <div className="mt-1 text-sm text-muted-foreground">Ship faster</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="border-t border-border bg-muted/30">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/5 px-6 py-12 text-center sm:px-12">
-            <h2 className="font-heading text-2xl font-bold sm:text-3xl">
-              Ready to 10x your output?
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              Start with a free trial. No credit card required.
-            </p>
-            <Link href="/register" className="mt-6 inline-block">
-              <Button size="lg" className="rounded-lg bg-amber-500 font-medium text-zinc-900 hover:bg-amber-600 border-0">
+            {/* CTA Buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.6 }}
+              className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+            >
+              <GlowingButton href="/register" size="lg" >
                 Start free trial
-              </Button>
-            </Link>
+              </GlowingButton>
+              <GlowingButton href="#demo" variant="secondary" size="lg" icon={<Play className="w-5 h-5" />}>
+                Watch demo
+              </GlowingButton>
+            </motion.div>
+
+            {/* Social proof quick stats */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7, duration: 0.6 }}
+              className="mt-16 flex flex-wrap items-center justify-center gap-8 text-sm text-white/40"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex -space-x-3">
+                  {/* Professional stacked avatars with real user images */}
+                  <img 
+                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face" 
+                    alt="User" 
+                    className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
+                  />
+                  <img 
+                    src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face" 
+                    alt="User" 
+                    className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
+                  />
+                  <img 
+                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face" 
+                    alt="User" 
+                    className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
+                  />
+                  <img 
+                    src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face" 
+                    alt="User" 
+                    className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
+                  />
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 border-2 border-[#030303] flex items-center justify-center text-xs font-bold text-white ring-2 ring-amber-500/20">
+                    +50K
+                  </div>
+                </div>
+                <span className="text-white/60 font-medium">trusted users</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Star key={i} className="w-4 h-4 fill-amber-500 text-amber-500" />
+                ))}
+                <span className="ml-1">4.9/5 rating</span>
+              </div>
+              <div>No credit card required</div>
+            </motion.div>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Product Visual / Dashboard Preview */}
+      <section className="relative -mt-10 pb-20 sm:pb-32">
+        <div className="mx-auto max-w-6xl px-6">
+          <ScrollReveal>
+            <motion.div
+              className="relative rounded-2xl overflow-hidden"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.8 }}
+            >
+              {/* Browser mockup frame */}
+              <div className="bg-gradient-to-b from-white/[0.08] to-white/[0.03] rounded-2xl p-1 shadow-2xl shadow-black/50">
+                {/* Browser header */}
+                <div className="flex items-center gap-2 px-4 py-3 bg-white/[0.03] rounded-t-xl">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                  </div>
+                  <div className="flex-1 mx-4">
+                    <div className="bg-white/[0.05] rounded-lg px-4 py-1.5 text-xs text-white/40 max-w-md mx-auto text-center">
+                      app.utilityai.com/canvas
+                    </div>
+                  </div>
+                  <div className="w-16" />
+                </div>
+                
+                {/* Dashboard Image */}
+                <div className="rounded-b-xl overflow-hidden">
+                  <img 
+                    src="/dashboard/preview.png" 
+                    alt="UtilityAI Canvas - AI Workflow Automation Dashboard"
+                    className="w-full h-auto"
+                  />
+                </div>
+              </div>
+              
+              {/* Glow effect */}
+              <div className="absolute -inset-4 bg-gradient-to-r from-amber-500/20 via-orange-500/10 to-rose-500/20 rounded-3xl blur-3xl -z-10 opacity-50" />
+            </motion.div>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Logo Cloud */}
+      <section className="relative py-20 sm:py-28">
+        <div className="mx-auto max-w-7xl px-6">
+          <ScrollReveal>
+            <p className="text-center text-2xl sm:text-3xl md:text-4xl text-white/70 mb-16 font-bold tracking-tight">
+              Trusted by fast-growing teams worldwide
+            </p>
+            <LogoCloud />
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Agents Section */}
+      <section id="agents" className="relative py-24 sm:py-32">
+        <div className="mx-auto max-w-7xl px-6">
+          <ScrollReveal className="text-center mb-20">
+            <h2 className="font-heading text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight">
+              Meet your AI agents
+            </h2>
+            <p className="mt-6 text-lg sm:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed">
+              Each agent is fine-tuned for one job. Use them standalone or chain them together in the canvas.
+            </p>
+          </ScrollReveal>
+
+          <StaggerContainer className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {agents.map((agent) => (
+              <StaggerItem key={agent.id}>
+                <Link href="/register">
+                <BentoCard
+                    className="h-full p-6 hover:shadow-lg"
+                  gradient={`bg-gradient-to-br ${agent.gradient}`}
+                  >
+                    <div 
+                      className={`w-14 h-14 rounded-2xl ${agent.iconBg} flex items-center justify-center mb-6 transition-all duration-300 group-hover:scale-110`}
+                      style={{ boxShadow: `0 0 24px 4px ${agent.iconColor === 'text-amber-500' ? 'rgba(245,158,11,0.25)' : agent.iconColor === 'text-rose-500' ? 'rgba(244,63,94,0.25)' : agent.iconColor === 'text-teal-500' ? 'rgba(20,184,166,0.25)' : 'rgba(139,92,246,0.25)'}` }}
+                    >
+                      <agent.icon className={`w-7 h-7 ${agent.iconColor}`} />
+                    </div>
+                    <h3 className="font-heading text-xl font-bold text-white mb-3">
+                      {agent.name}
+                    </h3>
+                    <p className="text-sm text-white/65 leading-relaxed mb-6">
+                      {agent.description}
+                  </p>
+                    <div className={`inline-flex items-center text-sm font-semibold ${agent.linkColor} group-hover:gap-2 transition-all`}>
+                      Try agent <ArrowRight className="ml-1 w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </div>
+                </BentoCard>
+                </Link>
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
+        </div>
+      </section>
+
+      {/* Features Bento Grid */}
+      <section id="features" className="relative py-24 sm:py-32">
+        <div className="mx-auto max-w-7xl px-6">
+          <ScrollReveal className="text-center mb-20">
+            <h2 className="font-heading text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight">
+              Everything you need to ship faster
+            </h2>
+            <p className="mt-6 text-lg sm:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed">
+              A complete platform built for speed, collaboration, and scale.
+            </p>
+          </ScrollReveal>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature, i) => (
+              <ScrollReveal key={feature.title} delay={i * 0.1} className={feature.span}>
+                <BentoCard
+                  className="h-full p-8 hover:shadow-lg"
+                  gradient={`bg-gradient-to-br ${feature.gradient}`}
+                >
+                  <div 
+                    className={`w-14 h-14 rounded-2xl ${feature.iconBg} flex items-center justify-center mb-6 transition-all duration-300 group-hover:scale-110`}
+                    style={{ boxShadow: `0 0 24px 4px ${feature.glowColor}` }}
+                  >
+                    <feature.icon className={`w-7 h-7 ${feature.iconColor}`} />
+                  </div>
+                  <h3 className="font-heading text-xl font-bold text-white mb-3">
+                    {feature.title}
+                  </h3>
+                  <p className="text-white/65 leading-relaxed">
+                    {feature.description}
+                  </p>
+                </BentoCard>
+              </ScrollReveal>
+            ))}
           </div>
         </div>
       </section>
-      <footer className="border-t border-border py-8">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-6 flex justify-center">
-            <Link href="/privacy">
-              <Button variant="outline" className="rounded-lg">
-                Privacy
-              </Button>
-            </Link>
-          </div>
 
-          <p className="text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} UtilityAI. All rights reserved.
-          </p>
+      {/* Stats Section */}
+      <section className="relative py-24 sm:py-32">
+        <div className="relative mx-auto max-w-7xl px-6">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {stats.map((stat, i) => (
+              <ScrollReveal key={stat.label} delay={i * 0.1} className="text-center">
+                <div className="font-heading text-5xl sm:text-6xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                  <AnimatedCounter end={stat.value} suffix={stat.suffix} />
+                </div>
+                <div className="mt-2 text-white/60">{stat.label}</div>
+              </ScrollReveal>
+            ))}
+          </div>
         </div>
-      </footer>
+      </section>
+
+      {/* Testimonials */}
+      <section id="testimonials" className="relative py-24 sm:py-32">
+        <div className="mx-auto max-w-7xl px-6">
+          <ScrollReveal className="text-center mb-16">
+            <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl font-bold text-white">
+              Loved by teams worldwide
+            </h2>
+            <p className="mt-4 text-lg text-white/60 max-w-2xl mx-auto">
+              See what marketing and sales professionals are saying about UtilityAI.
+            </p>
+          </ScrollReveal>
+
+          <StaggerContainer className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {testimonials.map((testimonial) => (
+              <StaggerItem key={testimonial.author}>
+                <TestimonialCard {...testimonial} />
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="relative py-24 sm:py-32">
+        <div className="mx-auto max-w-7xl px-6">
+          <ScrollReveal className="text-center mb-16">
+            <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl font-bold text-white">
+              Simple, transparent pricing
+            </h2>
+            <p className="mt-4 text-lg text-white/60 max-w-2xl mx-auto">
+              Start free, scale as you grow. No hidden fees.
+            </p>
+          </ScrollReveal>
+
+          <ScrollReveal>
+            <PricingSection />
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <Footer />
     </div>
   )
 }
