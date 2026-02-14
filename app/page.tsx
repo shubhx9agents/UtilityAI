@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import NextImage from 'next/image'
 import {
   Search,
   Image,
@@ -241,24 +242,32 @@ export default function HomePage() {
               <div className="flex items-center gap-3">
                 <div className="flex -space-x-3">
                   {/* Professional stacked avatars with real user images */}
-                  <img 
+                  <NextImage 
                     src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face" 
-                    alt="User" 
+                    alt="User"
+                    width={36}
+                    height={36}
                     className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
                   />
-                  <img 
+                  <NextImage 
                     src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face" 
-                    alt="User" 
+                    alt="User"
+                    width={36}
+                    height={36}
                     className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
                   />
-                  <img 
+                  <NextImage 
                     src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face" 
-                    alt="User" 
+                    alt="User"
+                    width={36}
+                    height={36}
                     className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
                   />
-                  <img 
+                  <NextImage 
                     src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face" 
-                    alt="User" 
+                    alt="User"
+                    width={36}
+                    height={36}
                     className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
                   />
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 border-2 border-[#030303] flex items-center justify-center text-xs font-bold text-white ring-2 ring-amber-500/20">
