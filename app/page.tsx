@@ -24,96 +24,114 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 
+import TextType from '@/components/ui/TextType'
+import TiltedCard from '@/components/ui/TiltedCard'
+
 export default function HomePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Top bar */}
-      <header className="sticky top-0 z-50 border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-zinc-900">
-              <Sparkles className="h-5 w-5" />
+      {/* Top bar - Sleek Pill Navbar */}
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-4 pointer-events-none">
+        <header className="pointer-events-auto flex items-center justify-between rounded-full border border-white/10 bg-black/40 backdrop-blur-xl px-2 py-2 sm:px-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+          <Link href="/" className="flex items-center gap-2.5 pl-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]">
+              <Sparkles className="h-4 w-4 text-zinc-900" />
             </div>
-            <span className="font-heading text-xl font-semibold tracking-tight">
+            <span className="hidden sm:block font-heading text-lg font-bold tracking-tight text-white">
               UtilityAI
             </span>
           </Link>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-6">
-            <a href="#agents" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Agents
-            </a>
-            <a href="#compare" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Compare
-            </a>
-            <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Sign In
-            </Link>
+          {/* Right Actions - Nav Items & Button grouped on the right */}
+          <div className="flex items-center gap-2 sm:gap-6 pr-1">
+            <nav className="hidden md:flex items-center gap-2">
+              <a
+                href="#agents"
+                className="rounded-full px-5 py-1.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-all"
+              >
+                Agents
+              </a>
+              <a
+                href="#compare"
+                className="rounded-full px-5 py-1.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-all"
+              >
+                Compare
+              </a>
+              <Link
+                href="/login"
+                className="rounded-full px-5 py-1.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-all"
+              >
+                Sign In
+              </Link>
+            </nav>
+
             <Link href="/register">
-              <Button className="rounded-lg bg-amber-500 font-medium text-zinc-900 hover:bg-amber-600 border-0">
+              <Button className="rounded-full bg-amber-500 px-6 font-semibold text-zinc-900 hover:bg-amber-600 border-0 shadow-[0_0_20px_rgba(245,158,11,0.4)] transition-all h-10">
                 Get Started
               </Button>
             </Link>
-          </nav>
 
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden p-2 text-muted-foreground hover:text-foreground"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
-        </div>
+            {/* Mobile Menu Button */}
+            <button
+              className="md:hidden p-2 text-white/70 hover:text-white"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
+        </header>
 
         {/* Mobile Nav Overlay */}
         {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-border bg-background px-4 py-6 shadow-lg">
+          <div className="md:hidden mt-4 mx-2 rounded-3xl border border-white/10 bg-black/80 backdrop-blur-2xl p-6 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
             <nav className="flex flex-col space-y-4">
               <a
                 href="#agents"
-                className="text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="text-lg font-medium text-white/70 hover:text-amber-500 transition-colors px-2 py-1"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Agents
               </a>
               <a
                 href="#compare"
-                className="text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="text-lg font-medium text-white/70 hover:text-amber-500 transition-colors px-2 py-1"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Compare
               </a>
               <Link
                 href="/login"
-                className="text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="text-lg font-medium text-white/70 hover:text-amber-500 transition-colors px-2 py-1"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Sign In
               </Link>
               <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
-                <Button className="w-full rounded-lg bg-amber-500 font-medium text-zinc-900 hover:bg-amber-600 border-0">
+                <Button className="w-full rounded-full bg-amber-500 font-semibold text-zinc-900 hover:bg-amber-600 border-0 shadow-[0_0_20px_rgba(245,158,11,0.4)]">
                   Get Started
                 </Button>
               </Link>
             </nav>
           </div>
         )}
-      </header>
+      </div>
 
       {/* Hero */}
       <section className="border-b border-border/60">
-        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
+        <div className="mx-auto max-w-6xl px-4 pt-24 pb-10 sm:px-6 sm:pt-36 sm:pb-16">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="mb-4 font-mono text-xs uppercase tracking-widest text-amber-500">
-              AI-powered workflow
-            </p>
-            <h1 className="font-heading text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-              One platform.
-              <br />
-              <span className="text-amber-500">Four specialist agents.</span>
+            <h1 className="font-heading text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl min-h-[2.5em] flex flex-col items-center justify-center">
+              <TextType
+                text={["One platform.\nFour specialized agents."]}
+                typingSpeed={75}
+                pauseDuration={2000}
+                showCursor
+                cursorCharacter="_"
+                textColors={['white', '#f59e0b']}
+                className="inline-block"
+              />
             </h1>
             <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
               Deep research, ad creatives, LinkedIn headshots, and high-converting
@@ -136,7 +154,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Bento - features */}
+      {/* Agents Grid */}
       <section id="agents" className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
         <h2 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">
           AI agents
@@ -145,62 +163,70 @@ export default function HomePage() {
           Each agent is tuned for one job. Use them alone or chain them in the canvas.
         </p>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <Link href="/register" className="group flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-amber-500/40 hover:shadow-md">
-            <div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
-                <Search className="h-6 w-6" />
+        <div className="mt-8 grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-4">
+          <TiltedCard containerHeight="auto" cardHeight="320px">
+            <Link href="/register" className="group flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-amber-500/40">
+              <div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
+                  <Search className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 font-heading text-lg font-semibold">Deep Research</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Market and competitor analysis. Structured outputs you can drop into strategy docs.
+                </p>
               </div>
-              <h3 className="mt-4 font-heading text-lg font-semibold">Deep Research</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Market and competitor analysis. Structured outputs you can drop into strategy docs.
-              </p>
-            </div>
-            <div className="mt-4 inline-flex items-center text-sm font-medium text-amber-500 group-hover:text-amber-600">
-              Try agent <ArrowRight className="ml-1 h-4 w-4" />
-            </div>
-          </Link>
+              <div className="mt-4 inline-flex items-center text-sm font-medium text-amber-500 group-hover:text-amber-600">
+                Try agent <ArrowRight className="ml-1 h-4 w-4" />
+              </div>
+            </Link>
+          </TiltedCard>
 
-          <Link href="/register" className="group flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-amber-500/40 hover:shadow-md">
-            <div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/15 text-rose-500">
-                <Image className="h-6 w-6" />
+          <TiltedCard containerHeight="auto" cardHeight="320px">
+            <Link href="/register" className="group flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-rose-500/40">
+              <div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/15 text-rose-500">
+                  <Image className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 font-heading text-lg font-semibold">Ad Image Generation</h3>
+                <p className="mt-2 text-sm text-muted-foreground">On-brand visuals for ads and campaigns.</p>
               </div>
-              <h3 className="mt-4 font-heading text-lg font-semibold">Ad Image Generation</h3>
-              <p className="mt-2 text-sm text-muted-foreground">On-brand visuals for ads and campaigns.</p>
-            </div>
-            <div className="mt-4 inline-flex items-center text-sm font-medium text-rose-500 group-hover:text-rose-600">
-              Try agent <ArrowRight className="ml-1 h-4 w-4" />
-            </div>
-          </Link>
+              <div className="mt-4 inline-flex items-center text-sm font-medium text-rose-500 group-hover:text-rose-600">
+                Try agent <ArrowRight className="ml-1 h-4 w-4" />
+              </div>
+            </Link>
+          </TiltedCard>
 
-          <Link href="/register" className="group flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-amber-500/40 hover:shadow-md">
-            <div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500/15 text-teal-500">
-                <Share2 className="h-6 w-6" />
+          <TiltedCard containerHeight="auto" cardHeight="320px">
+            <Link href="/register" className="group flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-teal-500/40">
+              <div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500/15 text-teal-500">
+                  <Share2 className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 font-heading text-lg font-semibold">Ad Copy Generator</h3>
+                <p className="mt-2 text-sm text-muted-foreground">Multiple variants, A/B-ready headlines.</p>
               </div>
-              <h3 className="mt-4 font-heading text-lg font-semibold">Ad Copy Generator</h3>
-              <p className="mt-2 text-sm text-muted-foreground">Multiple variants, A/B-ready headlines.</p>
-            </div>
-            <div className="mt-4 inline-flex items-center text-sm font-medium text-teal-500 group-hover:text-teal-600">
-              Try agent <ArrowRight className="ml-1 h-4 w-4" />
-            </div>
-          </Link>
+              <div className="mt-4 inline-flex items-center text-sm font-medium text-teal-500 group-hover:text-teal-600">
+                Try agent <ArrowRight className="ml-1 h-4 w-4" />
+              </div>
+            </Link>
+          </TiltedCard>
 
-          <Link href="/register" className="group flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-amber-500/40 hover:shadow-md">
-            <div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
-                <TrendingUp className="h-6 w-6" />
+          <TiltedCard containerHeight="auto" cardHeight="320px">
+            <Link href="/register" className="group flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:border-amber-500/40">
+              <div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
+                  <TrendingUp className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 font-heading text-lg font-semibold">LinkedIn Headshot</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Professional profile photos powered by AI. Upload a selfie, get polished headshots.
+                </p>
               </div>
-              <h3 className="mt-4 font-heading text-lg font-semibold">LinkedIn Headshot</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Professional profile photos powered by AI. Upload a selfie, get polished headshots.
-              </p>
-            </div>
-            <div className="mt-4 inline-flex items-center text-sm font-medium text-amber-500 group-hover:text-amber-600">
-              Try agent <ArrowRight className="ml-1 h-4 w-4" />
-            </div>
-          </Link>
+              <div className="mt-4 inline-flex items-center text-sm font-medium text-amber-500 group-hover:text-amber-600">
+                Try agent <ArrowRight className="ml-1 h-4 w-4" />
+              </div>
+            </Link>
+          </TiltedCard>
         </div>
       </section>
 
@@ -317,5 +343,3 @@ export default function HomePage() {
     </div>
   )
 }
-
-
