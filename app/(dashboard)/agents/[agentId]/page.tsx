@@ -6,7 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIGS } from '@/lib/ai/agents'
 import { AgentType, AgentSession } from '@/types'
@@ -47,6 +56,11 @@ export default function AgentPage() {
     const [imageModel, setImageModel] = useState(DEFAULT_IMAGE_MODEL)
     const [hasAutofilled, setHasAutofilled] = useState(false)
     const [showOnboardingBanner, setShowOnboardingBanner] = useState(false)
+    const [showRenameDialog, setShowRenameDialog] = useState(false)
+    const [customFilename, setCustomFilename] = useState('')
+    const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'md' | 'csv' | 'image' | null>(null)
+    const [uploadedImages, setUploadedImages] = useState<Record<string, string>>({}) // Track uploaded images for chat context
+    const [aspectRatio, setAspectRatio] = useState('Square') // Aspect ratio state
     const supabase = createClient()
 
     // Fetch and Autofill Onboarding Data
@@ -80,14 +94,13 @@ export default function AgentPage() {
                     'target audience': onboardingData.audience_desc,
                     'audience': onboardingData.audience_desc,
                     'primary problem i solve': onboardingData.pain_points,
-                    'secondary problems': onboardingData.pain_points,
+                    'secondary problems': onboardingData.secondary_problems,
                     'pain points': onboardingData.pain_points,
                     'my experience': onboardingData.description, // Fallback
                     'business description': onboardingData.description,
                     'description': onboardingData.description,
                     'my core philosophy or approach': onboardingData.mission,
                     'mission statement': onboardingData.mission,
-                    'important beliefs i hold': onboardingData.mission,
                     'primary promise': onboardingData.usp,
                     'unique value proposition': onboardingData.usp,
                     'usp': onboardingData.usp,
@@ -220,9 +233,15 @@ export default function AgentPage() {
         if (file) {
             const reader = new FileReader()
             reader.onloadend = () => {
+                const base64Data = reader.result as string
                 setFormData(prev => ({
                     ...prev,
-                    [field]: reader.result as string
+                    [field]: base64Data
+                }))
+                // Store image for chat context
+                setUploadedImages(prev => ({
+                    ...prev,
+                    [field]: base64Data
                 }))
             }
             reader.readAsDataURL(file)
@@ -244,7 +263,8 @@ export default function AgentPage() {
             context = {
                 base_image: formData['Base Image'],
                 reference_image: formData['Reference Image (Optional)'],
-                image_model: formData['Image Model'] || imageModel
+                image_model: formData['Image Model'] || imageModel,
+                aspect_ratio: aspectRatio
             }
         } else if (agentId === 'linkedin_headshot') {
             const backgroundTemplate = headshotBackground || formData['Background Template'] || ''
@@ -259,7 +279,8 @@ export default function AgentPage() {
                 user_image: formData['User Image'],
                 ...(backgroundTemplate ? { headshot_background: backgroundTemplate } : {}),
                 ...(outfitTemplate ? { headshot_outfit: outfitTemplate } : {}),
-                image_model: formData['Image Model'] || imageModel
+                image_model: formData['Image Model'] || imageModel,
+                aspect_ratio: aspectRatio
             }
         } else {
             // Construct the input from form data
@@ -294,6 +315,32 @@ export default function AgentPage() {
                     setRefinedPrompt(data.refined_prompt)
                 }
 
+                // Clear uploaded images after generation
+                setUploadedImages({})
+
+                // For image-based agents, fetch and convert the generated image to base64 for chat analysis
+                if ((agentId === 'linkedin_headshot' || agentId === 'image_generation') &&
+                    (data.response.startsWith('http') || data.response.startsWith('data:image/'))) {
+
+                    if (data.response.startsWith('data:image/')) {
+                        // Already base64, store directly
+                        setUploadedImages({ 'Generated Output': data.response })
+                    } else {
+                        // Fetch the image URL and convert to base64
+                        try {
+                            const imgRes = await fetch(data.response)
+                            const blob = await imgRes.blob()
+                            const reader = new FileReader()
+                            reader.onloadend = () => {
+                                setUploadedImages({ 'Generated Output': reader.result as string })
+                            }
+                            reader.readAsDataURL(blob)
+                        } catch (error) {
+                            console.error('Failed to fetch generated image for chat analysis:', error)
+                        }
+                    }
+                }
+
                 // Auto-save session after successful response
                 await saveSession(data.response, data.refined_prompt)
             } else if (data.error) {
@@ -312,12 +359,13 @@ export default function AgentPage() {
         toast.success('Copied to clipboard')
     }
 
-    const downloadImage = () => {
+    const downloadImage = (customFilename?: string) => {
         try {
+            const filename = customFilename ? `${customFilename}.png` : `${agentId}-image.png`
             if (response.startsWith('data:image/')) {
                 const link = document.createElement('a')
                 link.href = response
-                link.download = `${agentId}-image.png`
+                link.download = filename
                 document.body.appendChild(link)
                 link.click()
                 document.body.removeChild(link)
@@ -326,7 +374,7 @@ export default function AgentPage() {
             }
 
             // Use our proxy endpoint to bypass CORS and force download
-            const downloadUrl = `/api/download?url=${encodeURIComponent(response)}`
+            const downloadUrl = `/api/download?url=${encodeURIComponent(response)}&filename=${encodeURIComponent(filename)}`
             window.location.href = downloadUrl
             toast.success('Download started')
         } catch (error) {
@@ -335,65 +383,245 @@ export default function AgentPage() {
         }
     }
 
-    const downloadAsFile = (type: 'md' | 'csv') => {
+    const downloadAsFile = (type: 'md' | 'csv', customFilename?: string) => {
         const element = document.createElement('a')
         const blobType = type === 'md' ? 'text/markdown' : 'text/csv'
         const file = new Blob([response], { type: blobType })
         element.href = URL.createObjectURL(file)
-        element.download = `${agentId}-report.${type}`
+        element.download = customFilename ? `${customFilename}.${type}` : `${agentId}-report.${type}`
         document.body.appendChild(element)
         element.click()
         document.body.removeChild(element)
         toast.success(`Downloaded as ${type.toUpperCase()}`)
     }
 
-    const downloadAsMarkdown = () => downloadAsFile('md')
-    const downloadAsCSV = () => downloadAsFile('csv')
+    const downloadAsMarkdown = (customFilename?: string) => downloadAsFile('md', customFilename)
+    const downloadAsCSV = (customFilename?: string) => downloadAsFile('csv', customFilename)
 
-    const downloadAsPDF = async () => {
+    const downloadAsPDF = async (customFilename?: string) => {
         const reportContent = document.getElementById('report-content')
         if (!reportContent) return
 
         const { default: html2pdf } = await import('html2pdf.js')
+
+        // Create a dedicated container for the PDF export to avoid UI constraints
+        const pdfContainer = document.createElement('div')
+        pdfContainer.className = 'pdf-export-container'
+
+        // Clone the content
+        const contentClone = reportContent.cloneNode(true) as HTMLElement
+
+        // Remove UI-specific classes that restrict height or add borders
+        contentClone.classList.remove('h-[600px]', 'max-h-[80vh]', 'overflow-y-auto', 'border', 'rounded-md', 'bg-background')
+        contentClone.style.height = 'auto'
+        contentClone.style.maxHeight = 'none'
+        contentClone.style.overflow = 'visible'
+        contentClone.style.border = 'none'
+        contentClone.style.background = '#ffffff'
+        contentClone.style.padding = '40px' // Add print-like padding
+        contentClone.style.width = '100%'
+
+        // Add specific class for our CSS overrides
+        contentClone.className += ' pdf-export'
+
+        // Append to container and then body (hidden but rendered)
+        pdfContainer.appendChild(contentClone)
+        pdfContainer.style.position = 'absolute'
+        pdfContainer.style.top = '-9999px'
+        pdfContainer.style.left = '0'
+        pdfContainer.style.width = '800px' // Approximate A4 width
+        document.body.appendChild(pdfContainer)
+
+        // Inject Styles
         const exportStyles = document.createElement('style')
         exportStyles.textContent = `
-            #report-content.pdf-export {
-                height: auto !important;
-                max-height: none !important;
-                overflow: visible !important;
+            .pdf-export-container,
+            .pdf-export-container .pdf-export {
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+                color: #000000 !important;
                 background: #ffffff !important;
+                line-height: 1.6 !important;
+                font-size: 12pt !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            /* Override ALL Tailwind prose colors */
+            .pdf-export-container *,
+            .pdf-export *,
+            .pdf-export h1,
+            .pdf-export h2,
+            .pdf-export h3,
+            .pdf-export h4,
+            .pdf-export h5,
+            .pdf-export h6,
+            .pdf-export p,
+            .pdf-export li,
+            .pdf-export span,
+            .pdf-export div,
+            .pdf-export td,
+            .pdf-export th,
+            .pdf-export strong,
+            .pdf-export em,
+            .pdf-export code {
+                color: #000000 !important;
+                background-color: transparent !important;
+            }
+            
+            .pdf-export h1 {
+                font-size: 24pt !important;
+                margin-top: 0 !important;
+                margin-bottom: 24px !important;
+                font-weight: 700 !important;
+                border-bottom: 2px solid #000000 !important;
+                padding-bottom: 12px !important;
+                page-break-after: avoid !important;
                 color: #000000 !important;
             }
-            #report-content.pdf-export table {
+            
+            .pdf-export h2 {
+                font-size: 18pt !important;
+                margin-top: 32px !important;
+                margin-bottom: 16px !important;
+                font-weight: 700 !important;
+                border-bottom: 1px solid #333333 !important;
+                padding-bottom: 8px !important;
+                page-break-after: avoid !important;
+                color: #000000 !important;
+            }
+            
+            .pdf-export h3 {
+                font-size: 14pt !important;
+                margin-top: 24px !important;
+                margin-bottom: 12px !important;
+                font-weight: 600 !important;
+                page-break-after: avoid !important;
+                color: #000000 !important;
+            }
+            
+            .pdf-export p {
+                margin-bottom: 16px !important;
+                text-align: justify !important;
+                color: #000000 !important;
+            page-break-inside: avoid !important;
+                orphans: 3 !important;
+                widows: 3 !important;
+            }
+            
+            
+            /* Classic Robust List Alignment */
+            .pdf-export ul, 
+            .pdf-export ol {
+                margin: 0 0 16px 0 !important;
+                padding-left: 20px !important;
+                list-style-position: outside !important;
+            }
+            
+            .pdf-export ol {
+                list-style-type: decimal !important;
+            }
+            
+            .pdf-export ul {
+                list-style-type: disc !important;
+            }
+            
+            .pdf-export li {
+                margin: 0 0 8px 0 !important;
+                padding-left: 8px !important;
+                color: #000000 !important;
+                page-break-inside: avoid !important;
+                line-height: 1.6 !important;
+                display: list-item !important;
+                text-align: left !important;
+            }
+
+            .pdf-export li::marker {
+                 font-weight: bold !important;
+            }
+
+            /* Nested Lists */
+            .pdf-export li > ul,
+            .pdf-export li > ol {
+                margin-top: 8px !important;
+                padding-left: 20px !important;
+            }
+
+            
+           
+            
+            .pdf-export table {
                 width: 100% !important;
                 border-collapse: collapse !important;
+                margin: 24px 0 !important;
+                font-size: 10pt !important;
             }
-            #report-content.pdf-export th,
-            #report-content.pdf-export td {
-                border: 1px solid #e5e7eb !important;
-                padding: 8px !important;
+            
+            .pdf-export th {
+                background-color: #e5e7eb !important;
+                font-weight: 700 !important;
+                text-align: left !important;
+                border: 1px solid #000000 !important;
+                padding: 12px !important;
+                color: #000000 !important;
+            }
+            
+            .pdf-export td {
+                border: 1px solid #666666 !important;
+                padding: 10px !important;
                 vertical-align: top !important;
+                color: #000000 !important;
+            }
+            
+            .pdf-export strong {
+                font-weight: 700 !important;
+                color: #000000 !important;
+            }
+            
+            .pdf-export a {
+                color: #0066cc !important;
+                text-decoration: underline !important;
+            }
+            
+            /* Remove any prose dark mode colors */
+            .pdf-export.prose,
+            .pdf-export .prose {
+                --tw-prose-body: #000000 !important;
+                --tw-prose-headings: #000000 !important;
+                --tw-prose-links: #0066cc !important;
+                --tw-prose-bold: #000000 !important;
+                --tw-prose-counters: #000000 !important;
+                --tw-prose-bullets: #000000 !important;
+                --tw-prose-quotes: #000000 !important;
             }
         `
-
-        const previousClassName = reportContent.className
         document.head.appendChild(exportStyles)
-        reportContent.className = `${previousClassName} pdf-export`.trim()
 
         try {
             await html2pdf()
                 .set({
-                    margin: [12, 12, 12, 12],
-                    filename: `${agentId}-report.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                    margin: [15, 15, 15, 15], // mm - increased margins to prevent edge clipping
+                    filename: customFilename ? `${customFilename}.pdf` : `${agentId}-report.pdf`,
+                    image: { type: 'jpeg', quality: 1.0 }, // Maximum quality
+                    html2canvas: {
+                        scale: 3, // Higher scale for sharper text
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        letterRendering: true, // Better text rendering
+                        logging: false
+                    },
                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                    pagebreak: { mode: ['css', 'legacy'] }
+                    pagebreak: {
+                        mode: ['avoid-all', 'css', 'legacy'],
+                        before: '.page-break-before',
+                        after: '.page-break-after',
+                        avoid: ['p', 'li', 'h2', 'h3']
+                    }
                 })
-                .from(reportContent)
+                .from(contentClone) // Use the clone instead of original
                 .save()
         } finally {
-            reportContent.className = previousClassName
+            // Cleanup
+            document.body.removeChild(pdfContainer)
             document.head.removeChild(exportStyles)
         }
     }
@@ -417,7 +645,9 @@ export default function AgentPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages: newMessages,
-                    agent_type: agentId
+                    agent_type: agentId,
+                    initialContext: response, // Pass the agent's generated output as context
+                    uploadedImages: Object.keys(uploadedImages).length > 0 ? uploadedImages : undefined // Pass uploaded images for analysis
                 }),
             })
 
@@ -681,51 +911,72 @@ export default function AgentPage() {
                                     </div>
                                 ))}
                             </div>
-                            {agentId === 'linkedin_headshot' && (
-                                <div className="grid gap-4 sm:grid-cols-2">
+                            {(agentId === 'linkedin_headshot' || agentId === 'image_generation') && (
+                                <div className="space-y-4">
+                                    {agentId === 'linkedin_headshot' && (
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label>Background Template</Label>
+                                                <Select
+                                                    value={headshotBackground}
+                                                    onValueChange={(value) => {
+                                                        setHeadshotBackground(value)
+                                                        handleInputChange('Background Template', value)
+                                                    }}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Choose a background" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Auto (professional neutral)">Auto (professional neutral)</SelectItem>
+                                                        <SelectItem value="Office (modern corporate workspace)">Office</SelectItem>
+                                                        <SelectItem value="Office (glass wall modern)">Glass wall office</SelectItem>
+                                                        <SelectItem value="Staircase (modern architectural)">Staircase</SelectItem>
+                                                        <SelectItem value="Library (modern professional)">Library</SelectItem>
+                                                        <SelectItem value="Window (soft natural light)">Window</SelectItem>
+                                                        <SelectItem value="Meeting room (executive boardroom)">Meeting room</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Clothing Template</Label>
+                                                <Select
+                                                    value={headshotOutfit}
+                                                    onValueChange={(value) => {
+                                                        setHeadshotOutfit(value)
+                                                        handleInputChange('Clothing Template', value)
+                                                    }}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Choose attire" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Auto (professional business wear)">Auto (professional)</SelectItem>
+                                                        <SelectItem value="Blazer">Blazer</SelectItem>
+                                                        <SelectItem value="Suit">Suit</SelectItem>
+                                                        <SelectItem value="Vest">Vest</SelectItem>
+                                                        <SelectItem value="Shirt and trousers">Shirt and trousers</SelectItem>
+                                                        <SelectItem value="Blouse">Blouse</SelectItem>
+                                                        <SelectItem value="Business casual">Business casual</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-2">
-                                        <Label>Background Template</Label>
+                                        <Label>Aspect Ratio</Label>
                                         <Select
-                                            value={headshotBackground}
-                                            onValueChange={(value) => {
-                                                setHeadshotBackground(value)
-                                                handleInputChange('Background Template', value)
-                                            }}
+                                            value={aspectRatio}
+                                            onValueChange={setAspectRatio}
                                         >
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Choose a background" />
+                                                <SelectValue placeholder="Select aspect ratio" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="Auto (professional neutral)">Auto (professional neutral)</SelectItem>
-                                                <SelectItem value="Office (modern corporate workspace)">Office</SelectItem>
-                                                <SelectItem value="Office (glass wall modern)">Glass wall office</SelectItem>
-                                                <SelectItem value="Staircase (modern architectural)">Staircase</SelectItem>
-                                                <SelectItem value="Library (modern professional)">Library</SelectItem>
-                                                <SelectItem value="Window (soft natural light)">Window</SelectItem>
-                                                <SelectItem value="Meeting room (executive boardroom)">Meeting room</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Clothing Template</Label>
-                                        <Select
-                                            value={headshotOutfit}
-                                            onValueChange={(value) => {
-                                                setHeadshotOutfit(value)
-                                                handleInputChange('Clothing Template', value)
-                                            }}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Choose attire" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Auto (professional business wear)">Auto (professional)</SelectItem>
-                                                <SelectItem value="Blazer">Blazer</SelectItem>
-                                                <SelectItem value="Suit">Suit</SelectItem>
-                                                <SelectItem value="Vest">Vest</SelectItem>
-                                                <SelectItem value="Shirt and trousers">Shirt and trousers</SelectItem>
-                                                <SelectItem value="Blouse">Blouse</SelectItem>
-                                                <SelectItem value="Business casual">Business casual</SelectItem>
+                                                <SelectItem value="Square">Square (1:1)</SelectItem>
+                                                <SelectItem value="Portrait">Portrait (3:4)</SelectItem>
+                                                <SelectItem value="Landscape">Landscape (4:3)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -778,12 +1029,20 @@ export default function AgentPage() {
                             <div className="space-y-4">
                                 <div className="flex justify-end space-x-2 no-print">
                                     {agentId === 'image_generation' || agentId === 'linkedin_headshot' ? (
-                                        <Button variant="outline" size="sm" onClick={downloadImage}>
+                                        <Button variant="outline" size="sm" onClick={() => {
+                                            setCustomFilename(`${agentId}-image`)
+                                            setDownloadFormat('image')
+                                            setShowRenameDialog(true)
+                                        }}>
                                             <Download className="h-4 w-4 mr-2" />
                                             Download
                                         </Button>
                                     ) : agentId === 'ad_copy' ? (
-                                        <Button variant="outline" size="sm" onClick={downloadAsCSV} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
+                                        <Button variant="outline" size="sm" onClick={() => {
+                                            setCustomFilename(`${agentId}-report`)
+                                            setDownloadFormat('csv')
+                                            setShowRenameDialog(true)
+                                        }} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
                                             <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
                                             Download .CSV
                                         </Button>
@@ -793,23 +1052,83 @@ export default function AgentPage() {
                                                 <Copy className="h-4 w-4 mr-2" />
                                                 Copy
                                             </Button>
-                                            <Button variant="outline" size="sm" onClick={downloadAsMarkdown}>
+                                            <Button variant="outline" size="sm" onClick={() => {
+                                                setCustomFilename(`${agentId}-report`)
+                                                setDownloadFormat('md')
+                                                setShowRenameDialog(true)
+                                            }}>
                                                 <Download className="h-4 w-4 mr-2" />
                                                 .MD
                                             </Button>
                                             {agentId !== 'deep_research' && (
-                                                <Button variant="outline" size="sm" onClick={downloadAsCSV} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
+                                                <Button variant="outline" size="sm" onClick={() => {
+                                                    setCustomFilename(`${agentId}-report`)
+                                                    setDownloadFormat('csv')
+                                                    setShowRenameDialog(true)
+                                                }} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
                                                     <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
                                                     .CSV
                                                 </Button>
                                             )}
-                                            <Button variant="outline" size="sm" onClick={downloadAsPDF}>
+                                            <Button variant="outline" size="sm" onClick={() => {
+                                                setCustomFilename(`${agentId}-report`)
+                                                setDownloadFormat('pdf')
+                                                setShowRenameDialog(true)
+                                            }}>
                                                 <FileText className="h-4 w-4 mr-2" />
                                                 PDF
                                             </Button>
                                         </>
                                     )}
                                 </div>
+
+                                <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+                                    <DialogContent className="sm:max-w-md">
+                                        <DialogHeader>
+                                            <DialogTitle>Rename & Download</DialogTitle>
+                                            <DialogDescription>
+                                                Enter a filename for your {downloadFormat?.toUpperCase()} download.
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="flex items-center space-x-2 py-4">
+                                            <div className="grid flex-1 gap-2">
+                                                <Label htmlFor="filename" className="sr-only">
+                                                    Filename
+                                                </Label>
+                                                <Input
+                                                    id="filename"
+                                                    value={customFilename}
+                                                    onChange={(e) => setCustomFilename(e.target.value)}
+                                                    placeholder="Enter filename"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            if (downloadFormat === 'pdf') downloadAsPDF(customFilename)
+                                                            else if (downloadFormat === 'md') downloadAsMarkdown(customFilename)
+                                                            else if (downloadFormat === 'csv') downloadAsCSV(customFilename)
+                                                            else if (downloadFormat === 'image') downloadImage(customFilename)
+                                                            setShowRenameDialog(false)
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <DialogFooter className="sm:justify-end">
+                                            <Button type="button" variant="secondary" onClick={() => setShowRenameDialog(false)}>
+                                                Cancel
+                                            </Button>
+                                            <Button type="button" onClick={() => {
+                                                if (downloadFormat === 'pdf') downloadAsPDF(customFilename)
+                                                else if (downloadFormat === 'md') downloadAsMarkdown(customFilename)
+                                                else if (downloadFormat === 'csv') downloadAsCSV(customFilename)
+                                                else if (downloadFormat === 'image') downloadImage(customFilename)
+                                                setShowRenameDialog(false)
+                                            }}>
+                                                <Download className="h-4 w-4 mr-2" />
+                                                Download
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
                                 <div id="report-content" className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-6 bg-background h-[600px] max-h-[80vh] overflow-y-auto">
                                     {agentId === 'ad_copy' ? (
                                         <div className="overflow-x-auto">
