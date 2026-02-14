@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { agentChatSchema, validateInput, validationErrorResponse } from '@/lib/validations'
 import { sanitizeText } from '@/utils/sanitize'
+
+// Build Gemini image parts from base64 data
+function buildGeminiImageParts(images: Record<string, string>): Array<{ inlineData: { mimeType: string; data: string } }> {
+    const parts: Array<{ inlineData: { mimeType: string; data: string } }> = []
+    for (const imageData of Object.values(images)) {
+        const match = imageData.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/)
+        if (!match) continue
+        parts.push({
+            inlineData: {
+                mimeType: match[1],
+                data: match[2]
+            }
+        })
+    }
+    return parts
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -15,54 +30,93 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const body = await request.json()
+        const { messages, agent_type, initialContext, uploadedImages } = await request.json()
 
-        // Validate input with Zod (rejects extra fields)
-        const validation = validateInput(agentChatSchema, body)
-        if (!validation.success) {
-            return NextResponse.json(validationErrorResponse(validation.errors), { status: 400 })
+        if (!messages || !Array.isArray(messages)) {
+            return NextResponse.json({ error: 'Invalid messages format' }, { status: 400 })
         }
 
-        const { messages, agent_type } = validation.data
+        // System messages for different agent types
+        const systemMessages: Record<string, string> = {
+            deep_research: 'You are a strategic market research expert. Provide actionable insights and analysis.',
+            ad_copy: 'You are a direct response copywriting expert. Help refine and improve ad copy.',
+            image_generation: 'You are an AI image generation expert. Help users refine their image prompts and provide feedback.',
+            linkedin_headshot: 'You are a professional photography and personal branding expert. Analyze headshot photos and provide constructive feedback on lighting, composition, expression, attire, and overall professional appearance. Be specific and actionable.',
+            default: 'You are a helpful AI assistant specialized in marketing and business strategy.'
+        }
 
-        // Sanitize message content
-        const sanitizedMessages = messages.map(msg => ({
-            ...msg,
+        let systemMessage = systemMessages[agent_type || 'default'] || systemMessages.default
+
+        // Append initial context if provided
+        if (initialContext) {
+            systemMessage += `\n\nCONTEXT FROM AGENT OUTPUT:\nThe user has just generated the following content using the ${agent_type} agent. Use this context to answer any follow-up questions:\n\n${initialContext.substring(0, 10000)}` // Limit context size
+        }
+
+        // Sanitize user messages
+        const sanitizedMessages = messages.map((msg: any) => ({
+            role: msg.role,
             content: sanitizeText(msg.content)
         }))
 
+        const lastUserMessage = sanitizedMessages[sanitizedMessages.length - 1]?.content || ''
+
+        // If images are uploaded, use Gemini Vision API
+        if (uploadedImages && Object.keys(uploadedImages).length > 0) {
+            const geminiApiKey = process.env.GEMINI_API_KEY
+            if (!geminiApiKey) {
+                return NextResponse.json(
+                    { error: 'GEMINI_API_KEY is missing' },
+                    { status: 500 }
+                )
+            }
+
+            const imageParts = buildGeminiImageParts(uploadedImages)
+
+            // Build conversation history for Gemini
+            const geminiMessages = [
+                {
+                    role: 'user',
+                    parts: [
+                        { text: systemMessage },
+                        ...imageParts,
+                        { text: `Here are the uploaded images for analysis. ${lastUserMessage}` }
+                    ]
+                }
+            ]
+
+            const geminiRes = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: geminiMessages })
+                }
+            )
+
+            if (!geminiRes.ok) {
+                const errorText = await geminiRes.text()
+                console.error('Gemini Vision API Error:', errorText)
+                return NextResponse.json(
+                    { error: 'Failed to analyze image' },
+                    { status: 500 }
+                )
+            }
+
+            const geminiData = await geminiRes.json()
+            const response = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to analyze the image.'
+
+            return NextResponse.json({ response })
+        }
+
+        // Otherwise, use Groq for text-only chat
         const groqApiKey = process.env.GROQ_API_KEY
         if (!groqApiKey) {
             return NextResponse.json(
-                { error: 'GROQ_API_KEY is not configured' },
+                { error: 'GROQ_API_KEY is missing' },
                 { status: 500 }
             )
         }
 
-        // Define system messages for different agents
-        const systemMessages: Record<string, string> = {
-            deep_research: 'You are a strategic market and competitor research expert. Provide detailed, actionable insights based on the conversation. Use markdown formatting for clarity.',
-            image_generation: 'You are an AI image generation expert. Help users refine their image prompts and provide creative suggestions. Discuss composition, style, colors, and visual elements.',
-            business_snapshot: 'You are a business strategy expert. Help users define their business profile, value proposition, and core offerings.',
-            ad_copy: 'You are a professional copywriter specializing in advertising. Create compelling, high-converting ad copy for various platforms.',
-            graphics: 'You are a visual design director. helping users describe and plan visual assets for their brand.',
-            landing_page: 'You are a conversion rate optimization expert and copywriter. Help users structure and write high-converting landing pages.',
-            social_media: 'You are a social media manager. Help users plan content calendars, write engaging posts, and grow their audience.',
-            seo: 'You are an SEO specialist. Help users with keyword research, content strategy, and on-page optimization.',
-            pricing: 'You are a pricing strategy consultant. Help users structure pricing tiers, define packages, and maximize revenue.',
-            growth: 'You are a growth hacker and marketing strategist. Help users optimize their funnel and improve conversion rates.',
-            linkedin_headshot: 'You are a professional photography consultant. Help users plan and refine their professional headshots.'
-        }
-
-        const systemMessage = systemMessages[agent_type || 'deep_research'] || 'You are a helpful AI assistant.'
-
-        // Prepare messages for Groq (use sanitized messages)
-        const groqMessages = [
-            { role: 'system', content: systemMessage },
-            ...sanitizedMessages
-        ]
-
-        // Call Groq API
         const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -71,29 +125,30 @@ export async function POST(request: NextRequest) {
             },
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
-                messages: groqMessages,
-                temperature: 0.7,
-                max_tokens: 4096
+                messages: [
+                    { role: 'system', content: systemMessage },
+                    ...sanitizedMessages
+                ]
             })
         })
 
         if (!groqRes.ok) {
-            const errorData = await groqRes.json().catch(() => ({}))
-            throw new Error(`Groq API Error: ${errorData.error?.message || groqRes.statusText}`)
+            const errorText = await groqRes.text()
+            console.error('Groq API Error:', errorText)
+            return NextResponse.json(
+                { error: 'Failed to get chat response' },
+                { status: 500 }
+            )
         }
 
         const groqData = await groqRes.json()
-        const response = groqData.choices?.[0]?.message?.content
-
-        if (!response) {
-            throw new Error('Groq returned an empty response.')
-        }
+        const response = groqData.choices?.[0]?.message?.content || 'No response generated.'
 
         return NextResponse.json({ response })
     } catch (error: any) {
         console.error('Chat API Error:', error)
         return NextResponse.json(
-            { error: error.message || 'Failed to get chat response' },
+            { error: error.message || 'Internal server error' },
             { status: 500 }
         )
     }

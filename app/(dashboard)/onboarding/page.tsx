@@ -49,6 +49,7 @@ export default function OnboardingPage() {
         tone_voice: '',
         audience_desc: '',
         pain_points: '',
+        secondary_problems: '',
         primary_goal: '',
         marketing_channels: [] as string[] // Simplified for now
     })
@@ -159,6 +160,7 @@ export default function OnboardingPage() {
                 tone_voice: '',
                 audience_desc: '',
                 pain_points: '',
+                secondary_problems: '',
                 primary_goal: '',
                 marketing_channels: []
             })
@@ -312,6 +314,15 @@ export default function OnboardingPage() {
                                     value={formData.pain_points}
                                     onChange={e => setFormData({ ...formData, pain_points: e.target.value })}
                                     placeholder="What problems are you solving for them?"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Secondary Problems (Optional)</Label>
+                                <textarea
+                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[100px]"
+                                    value={formData.secondary_problems}
+                                    onChange={e => setFormData({ ...formData, secondary_problems: e.target.value })}
+                                    placeholder="Any other related problems? (Optional)"
                                 />
                             </div>
                         </>

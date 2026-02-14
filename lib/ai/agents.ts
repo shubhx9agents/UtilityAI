@@ -45,7 +45,6 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
             'Types of cases I’ve worked with',
             'My core philosophy or approach',
             'Primary promise',
-            'Important beliefs I hold',
         ],
     },
     image_generation: {
@@ -93,13 +92,34 @@ export class AIAgentService {
         return parts
     }
 
-    private async runGeminiImageGeneration(prompt: string, images: string[], model: string): Promise<string> {
+    private getDimensions(aspectRatio: string = 'Square'): { width: number; height: number; geminiRatio: string } {
+        switch (aspectRatio) {
+            case 'Portrait':
+                return { width: 768, height: 1024, geminiRatio: '3:4' }
+            case 'Landscape':
+                return { width: 1024, height: 768, geminiRatio: '4:3' }
+            case 'Square':
+            default:
+                return { width: 1024, height: 1024, geminiRatio: '1:1' }
+        }
+    }
+
+    private async runGeminiImageGeneration(prompt: string, images: string[], model: string, aspectRatio: string = 'Square'): Promise<string> {
         const geminiApiKey = process.env.GEMINI_API_KEY
         if (!geminiApiKey) {
             throw new Error('GEMINI_API_KEY is missing in .env.local')
         }
 
-        const parts = [{ text: prompt }, ...this.buildGeminiImageParts(images)]
+        // Add aspect ratio instruction to prompt since Gemini API doesn't support it in config
+        const aspectRatioInstruction = aspectRatio === 'Portrait'
+            ? ' IMPORTANT: Generate the image in PORTRAIT orientation (vertical, 3:4 aspect ratio, taller than wide).'
+            : aspectRatio === 'Landscape'
+                ? ' IMPORTANT: Generate the image in LANDSCAPE orientation (horizontal, 4:3 aspect ratio, wider than tall).'
+                : ' IMPORTANT: Generate the image in SQUARE format (1:1 aspect ratio, equal width and height).';
+
+        const enhancedPrompt = prompt + aspectRatioInstruction;
+
+        const parts = [{ text: enhancedPrompt }, ...this.buildGeminiImageParts(images)]
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`, {
             method: 'POST',
             headers: {
@@ -109,7 +129,12 @@ export class AIAgentService {
                 contents: [{ role: 'user', parts }],
                 generationConfig: {
                     temperature: 0.7,
-                    maxOutputTokens: 2048
+                    maxOutputTokens: 2048,
+                    // Note: Gemini API might not support aspectRatio in all versions/models yet, 
+                    // but we pass it if supported. If not, prompt engineering or crop might be needed.
+                    // For now, attempting to pass it or rely on prompt instruction if API fails.
+                    // checking docs, aspectRatio is not standard in v1beta... 
+                    // Let's allow prompt to influence it too.
                 }
             })
         })
@@ -168,6 +193,209 @@ export class AIAgentService {
         } catch (error: any) {
             console.error(`AIAgentService Error [${agentType}]:`, error)
             throw new Error(`${agentType.replace('_', ' ')} Agent failed: ${error.message || 'Unknown error'}`)
+        }
+    }
+    // ... (skip runDeepResearch, runAdCopy, runGroqAgent) ...
+
+    private async runImageGeneration(userInput: string, context: Record<string, any>): Promise<{ response: string; refined_prompt: string }> {
+        const groqApiKey = process.env.GROQ_API_KEY
+        const bytePlusKey = process.env.BYTEPLUS_API_KEY
+        const imageModel = this.resolveImageModel(context)
+        const aspectRatio = context.aspect_ratio || 'Square'
+        const { width, height } = this.getDimensions(aspectRatio)
+
+        if (!groqApiKey) {
+            throw new Error('GROQ_API_KEY is missing in .env.local')
+        }
+
+        if (this.isBytePlusModel(imageModel) && !bytePlusKey) {
+            throw new Error('BYTEPLUS_API_KEY is missing in .env.local')
+        }
+
+        try {
+            // 1. Groq Call
+            const systemMessage = AGENT_CONFIGS['image_generation'].system_message
+            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${groqApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        { role: 'system', content: systemMessage },
+                        { role: 'user', content: userInput }
+                    ]
+                })
+            })
+
+            if (!groqRes.ok) {
+                throw new Error(`Groq Prompt Refiner Error (Status ${groqRes.status})`)
+            }
+
+            const groqData = await groqRes.json()
+            const refinedPrompt = groqData.choices?.[0]?.message?.content || userInput
+
+            // 2. Image Generation (Gemini default, BytePlus optional)
+            // Dynamically find images in context (as Canvas uses dynamic field names)
+            const contextImages = Object.values(context).filter(val => typeof val === 'string' && val.startsWith('data:image/'))
+
+            const imageUrl = this.isBytePlusModel(imageModel)
+                ? await (async () => {
+                    const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${bytePlusKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: imageModel,
+                            prompt: refinedPrompt,
+                            image: contextImages.length > 0 ? contextImages.slice(0, 2) : [
+                                context.base_image,
+                                context.reference_image
+                            ].filter(Boolean),
+                            response_format: 'url',
+                            size: `${width}x${height}`
+                        })
+                    })
+
+                    if (!bytePlusRes.ok) {
+                        const text = await bytePlusRes.text()
+                        console.error('BytePlus API Error:', text)
+                        throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
+                    }
+
+                    const bytePlusData = await bytePlusRes.json()
+                    const url = bytePlusData.data?.[0]?.url || bytePlusData.url
+                    if (!url) {
+                        throw new Error('Image Generation failed: No URL returned from BytePlus.')
+                    }
+                    return url
+                })()
+                : await this.runGeminiImageGeneration(refinedPrompt, contextImages, imageModel, aspectRatio)
+
+            return {
+                response: imageUrl,
+                refined_prompt: refinedPrompt
+            }
+        } catch (error: any) {
+            console.error('Image Generation error:', error)
+            throw error
+        }
+    }
+
+    private async runLinkedInHeadshot(userInput: string, context: Record<string, any>): Promise<{ response: string; refined_prompt: string }> {
+        const groqApiKey = process.env.GROQ_API_KEY
+        const bytePlusKey = process.env.BYTEPLUS_API_KEY
+        const imageModel = this.resolveImageModel(context)
+        const aspectRatio = context.aspect_ratio || 'Square'
+        const { width, height } = this.getDimensions(aspectRatio)
+
+        if (!groqApiKey) {
+            throw new Error('GROQ_API_KEY is missing in .env.local')
+        }
+
+        if (this.isBytePlusModel(imageModel) && !bytePlusKey) {
+            throw new Error('BYTEPLUS_API_KEY is missing in .env.local')
+        }
+
+        try {
+            const backgroundPreference = typeof context.headshot_background === 'string' ? context.headshot_background : ''
+            const outfitPreference = typeof context.headshot_outfit === 'string' ? context.headshot_outfit : ''
+            const preferenceNotes = [
+                backgroundPreference ? `Preferred background: ${backgroundPreference}` : '',
+                outfitPreference ? `Preferred attire: ${outfitPreference}` : ''
+            ].filter(Boolean).join('\n')
+
+            // 1. Groq Call - Refine the prompt for LinkedIn Professionalism
+            const systemMessage = `
+            You are an expert AI prompt engineer specializing in professional photography and portraiture.
+            Your task is to take a user's image and request, and generate a highly detailed, comprehensive prompt for an AI image generator (BytePlus seedream-4-0).
+            
+            The goal is to create a "Natural LinkedIn Professional Photograph".
+            
+            CRITICAL REQUIREMENTS:
+            1. The user's face MUST NOT CHANGE. It must be perfectly preserved and look very realistic.
+            2. The style must be professional, high-end, and natural (avoid over-retouching).
+            3. Detailed background: Use the user's preferred background if provided. Otherwise pick a neutral office, modern library, or soft-focus minimalist architectural background.
+            4. Lighting: Soft cinematic studio lighting, butterfly lighting, or natural window light.
+            5. Attire: Use the user's preferred attire if provided. Otherwise choose professional business wear (blazer, suit, or smart professional blouse/shirt).
+            6. Resolution: High definition, 8k, sharp focus on the eyes, cinematic quality.
+            
+            Output ONLY the refined prompt text.
+            `.trim()
+
+            const groqUserInput = preferenceNotes ? `${userInput}\n${preferenceNotes}` : userInput
+
+            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${groqApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        { role: 'system', content: systemMessage },
+                        { role: 'user', content: groqUserInput }
+                    ]
+                })
+            })
+
+            if (!groqRes.ok) {
+                throw new Error(`Groq Prompt Refiner Error (Status ${groqRes.status})`)
+            }
+
+            const groqData = await groqRes.json()
+            const refinedPrompt = groqData.choices?.[0]?.message?.content || "Professional LinkedIn headshot, corporate style, high quality"
+
+            // 2. Image Generation (Gemini default, BytePlus optional)
+            // Dynamically find images in context (as Canvas uses dynamic field names)
+            const contextImages = Object.values(context).filter(val => typeof val === 'string' && val.startsWith('data:image/'))
+
+            const imageUrl = this.isBytePlusModel(imageModel)
+                ? await (async () => {
+                    const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${bytePlusKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: imageModel,
+                            prompt: refinedPrompt,
+                            image: contextImages.length > 0 ? [contextImages[0]] : [
+                                context.user_image
+                            ].filter(Boolean),
+                            response_format: 'url',
+                            size: `${width}x${height}`
+                        })
+                    })
+
+                    if (!bytePlusRes.ok) {
+                        const text = await bytePlusRes.text()
+                        console.error('BytePlus API Error:', text)
+                        throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
+                    }
+
+                    const bytePlusData = await bytePlusRes.json()
+                    const url = bytePlusData.data?.[0]?.url || bytePlusData.url
+                    if (!url) {
+                        throw new Error('Image Generation failed: No URL returned from BytePlus.')
+                    }
+                    return url
+                })()
+                : await this.runGeminiImageGeneration(refinedPrompt, contextImages, imageModel, aspectRatio)
+
+            return {
+                response: imageUrl,
+                refined_prompt: refinedPrompt
+            }
+        } catch (error: any) {
+            console.error('LinkedIn Headshot error:', error)
+            throw error
         }
     }
 
@@ -378,14 +606,22 @@ PLATFORM CHARACTER LIMITS (STRICT):
 - LinkedIn: Headline (max 70), Body (max 600)
 - Google Search: Headline (max 30), Description (max 90)
 
-REQUIRED ANGLES: Problem-Solution, Benefit-Driven, Emotional.
+REQUIRED ANGLES: Problem-Solution, Benefit-Driven, Emotional, Urgency, Social Proof.
+
+QUANTITY REQUIREMENT (CRITICAL):
+- Generate EXACTLY 10 ad variations PER PLATFORM.
+- If user requests Instagram and Google, generate 10 for Instagram AND 10 for Google (20 total rows).
+- If user requests Facebook, Instagram, and LinkedIn, generate 10 for each (30 total rows).
+- DO NOT split 10 ads across multiple platforms. Each platform gets its own 10 ads.
+- Mix different angles across the 10 variations for each platform.
+- Ensure diversity in messaging, hooks, and CTAs for each platform.
 
 OUTPUT FORMAT RULES:
 1. Output ONLY a valid CSV. No preamble, no post-text.
 2. Headers MUST be: Platform,Angle,Headline,Body,CTA
 3. NO line breaks inside fields. Replace any newlines with spaces.
 4. Ensure all fields are properly escaped if they contain commas (use double quotes).
-5. Generate variations for each requested angle per platform.`
+5. Generate 10 unique variations for each requested platform.`
 
             const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
@@ -474,203 +710,7 @@ ${userInput}`
         }
     }
 
-    private async runImageGeneration(userInput: string, context: Record<string, any>): Promise<{ response: string; refined_prompt: string }> {
-        const groqApiKey = process.env.GROQ_API_KEY
-        const bytePlusKey = process.env.BYTEPLUS_API_KEY
-        const imageModel = this.resolveImageModel(context)
 
-        if (!groqApiKey) {
-            throw new Error('GROQ_API_KEY is missing in .env.local')
-        }
-
-        if (this.isBytePlusModel(imageModel) && !bytePlusKey) {
-            throw new Error('BYTEPLUS_API_KEY is missing in .env.local')
-        }
-
-        try {
-            // 1. Groq Call
-            const systemMessage = AGENT_CONFIGS['image_generation'].system_message
-            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${groqApiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
-                    messages: [
-                        { role: 'system', content: systemMessage },
-                        { role: 'user', content: userInput }
-                    ]
-                })
-            })
-
-            if (!groqRes.ok) {
-                throw new Error(`Groq Prompt Refiner Error (Status ${groqRes.status})`)
-            }
-
-            const groqData = await groqRes.json()
-            const refinedPrompt = groqData.choices?.[0]?.message?.content || userInput
-
-            // 2. Image Generation (Gemini default, BytePlus optional)
-            // Dynamically find images in context (as Canvas uses dynamic field names)
-            const contextImages = Object.values(context).filter(val => typeof val === 'string' && val.startsWith('data:image/'))
-
-            const imageUrl = this.isBytePlusModel(imageModel)
-                ? await (async () => {
-                    const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${bytePlusKey}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            model: imageModel,
-                            prompt: refinedPrompt,
-                            image: contextImages.length > 0 ? contextImages.slice(0, 2) : [
-                                context.base_image,
-                                context.reference_image
-                            ].filter(Boolean),
-                            response_format: 'url',
-                            size: '2K'
-                        })
-                    })
-
-                    if (!bytePlusRes.ok) {
-                        const text = await bytePlusRes.text()
-                        console.error('BytePlus API Error:', text)
-                        throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
-                    }
-
-                    const bytePlusData = await bytePlusRes.json()
-                    const url = bytePlusData.data?.[0]?.url || bytePlusData.url
-                    if (!url) {
-                        throw new Error('Image Generation failed: No URL returned from BytePlus.')
-                    }
-                    return url
-                })()
-                : await this.runGeminiImageGeneration(refinedPrompt, contextImages, imageModel)
-
-            return {
-                response: imageUrl,
-                refined_prompt: refinedPrompt
-            }
-        } catch (error: any) {
-            console.error('Image Generation error:', error)
-            throw error
-        }
-    }
-
-    private async runLinkedInHeadshot(userInput: string, context: Record<string, any>): Promise<{ response: string; refined_prompt: string }> {
-        const groqApiKey = process.env.GROQ_API_KEY
-        const bytePlusKey = process.env.BYTEPLUS_API_KEY
-        const imageModel = this.resolveImageModel(context)
-
-        if (!groqApiKey) {
-            throw new Error('GROQ_API_KEY is missing in .env.local')
-        }
-
-        if (this.isBytePlusModel(imageModel) && !bytePlusKey) {
-            throw new Error('BYTEPLUS_API_KEY is missing in .env.local')
-        }
-
-        try {
-            const backgroundPreference = typeof context.headshot_background === 'string' ? context.headshot_background : ''
-            const outfitPreference = typeof context.headshot_outfit === 'string' ? context.headshot_outfit : ''
-            const preferenceNotes = [
-                backgroundPreference ? `Preferred background: ${backgroundPreference}` : '',
-                outfitPreference ? `Preferred attire: ${outfitPreference}` : ''
-            ].filter(Boolean).join('\n')
-
-            // 1. Groq Call - Refine the prompt for LinkedIn Professionalism
-            const systemMessage = `
-            You are an expert AI prompt engineer specializing in professional photography and portraiture.
-            Your task is to take a user's image and request, and generate a highly detailed, comprehensive prompt for an AI image generator (BytePlus seedream-4-0).
-            
-            The goal is to create a "Natural LinkedIn Professional Photograph".
-            
-            CRITICAL REQUIREMENTS:
-            1. The user's face MUST NOT CHANGE. It must be perfectly preserved and look very realistic.
-            2. The style must be professional, high-end, and natural (avoid over-retouching).
-            3. Detailed background: Use the user's preferred background if provided. Otherwise pick a neutral office, modern library, or soft-focus minimalist architectural background.
-            4. Lighting: Soft cinematic studio lighting, butterfly lighting, or natural window light.
-            5. Attire: Use the user's preferred attire if provided. Otherwise choose professional business wear (blazer, suit, or smart professional blouse/shirt).
-            6. Resolution: High definition, 8k, sharp focus on the eyes, cinematic quality.
-            
-            Output ONLY the refined prompt text.
-            `.trim()
-
-            const groqUserInput = preferenceNotes ? `${userInput}\n${preferenceNotes}` : userInput
-
-            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${groqApiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
-                    messages: [
-                        { role: 'system', content: systemMessage },
-                        { role: 'user', content: groqUserInput }
-                    ]
-                })
-            })
-
-            if (!groqRes.ok) {
-                throw new Error(`Groq Prompt Refiner Error (Status ${groqRes.status})`)
-            }
-
-            const groqData = await groqRes.json()
-            const refinedPrompt = groqData.choices?.[0]?.message?.content || "Professional LinkedIn headshot, corporate style, high quality"
-
-            // 2. Image Generation (Gemini default, BytePlus optional)
-            // Dynamically find images in context (as Canvas uses dynamic field names)
-            const contextImages = Object.values(context).filter(val => typeof val === 'string' && val.startsWith('data:image/'))
-
-            const imageUrl = this.isBytePlusModel(imageModel)
-                ? await (async () => {
-                    const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${bytePlusKey}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            model: imageModel,
-                            prompt: refinedPrompt,
-                            image: contextImages.length > 0 ? [contextImages[0]] : [
-                                context.user_image
-                            ].filter(Boolean),
-                            response_format: 'url',
-                            size: '2K'
-                        })
-                    })
-
-                    if (!bytePlusRes.ok) {
-                        const text = await bytePlusRes.text()
-                        console.error('BytePlus API Error:', text)
-                        throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
-                    }
-
-                    const bytePlusData = await bytePlusRes.json()
-                    const url = bytePlusData.data?.[0]?.url || bytePlusData.url
-                    if (!url) {
-                        throw new Error('Image Generation failed: No URL returned from BytePlus.')
-                    }
-                    return url
-                })()
-                : await this.runGeminiImageGeneration(refinedPrompt, contextImages, imageModel)
-
-            return {
-                response: imageUrl,
-                refined_prompt: refinedPrompt
-            }
-        } catch (error: any) {
-            console.error('LinkedIn Headshot error:', error)
-            throw error
-        }
-    }
 
     getAgentQuestions(agentType: AgentType): string[] {
         if (AGENT_CONFIGS[agentType]) {

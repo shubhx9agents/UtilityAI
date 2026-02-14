@@ -1221,7 +1221,6 @@ export default function CanvasPage() {
                     'description': onboardingData.description,
                     'my core philosophy or approach': onboardingData.mission,
                     'mission statement': onboardingData.mission,
-                    'important beliefs i hold': onboardingData.mission,
                     'primary promise': onboardingData.usp,
                     'unique value proposition': onboardingData.usp,
                     'usp': onboardingData.usp,

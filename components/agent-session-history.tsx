@@ -5,7 +5,15 @@ import { AgentSession, AgentType } from '@/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { History, Trash2, ChevronRight, Clock } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import {
+    History,
+    Trash2,
+    ChevronRight,
+    Clock,
+    MessageCircle,
+    Send
+} from 'lucide-react'
 import { toast } from 'sonner'
 import {
     AlertDialog,
@@ -17,6 +25,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+
+// ... (imports remain the same) 
 
 interface AgentSessionHistoryProps {
     agentType: AgentType
@@ -128,6 +138,7 @@ export function AgentSessionHistory({ agentType, onSessionRestore, currentSessio
 
             {isOpen && (
                 <Card className="mb-6 border-2 shadow-sm">
+                    {/* ... (Existing session history UI remains same) ... */}
                     <CardHeader className="pb-3 px-4 sm:px-6">
                         <CardTitle className="text-base sm:text-lg flex items-center">
                             <History className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
@@ -245,3 +256,4 @@ export function AgentSessionHistory({ agentType, onSessionRestore, currentSessio
         </>
     )
 }
+
