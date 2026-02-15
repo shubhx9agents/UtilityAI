@@ -169,6 +169,8 @@ export class AIAgentService {
             throw new Error(`Unknown agent type: ${agentType}`)
         }
 
+        console.log(`[AIAgentService] Running ${agentType} with input:\n${userInput.substring(0, 500)}...`)
+
         const config = AGENT_CONFIGS[agentType]
 
         try {

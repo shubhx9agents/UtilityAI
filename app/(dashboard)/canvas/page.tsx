@@ -507,16 +507,17 @@ export default function CanvasPage() {
     }), [])
 
     const normalizeFlowEdges = useCallback((edges: Edge[]) => {
-        const usedSources = new Set<string>()
-        const usedTargets = new Set<string>()
+        // Only prevent exact duplicate edges (same source AND target)
+        // Allow multiple outgoing edges from same source (one-to-many connections)
+        const seen = new Set<string>()
         const normalized: Edge[] = []
 
         for (const edge of edges) {
-            if (usedSources.has(edge.source) || usedTargets.has(edge.target)) {
-                continue
+            const key = `${edge.source}->${edge.target}`
+            if (seen.has(key)) {
+                continue // Skip duplicate edges
             }
-            usedSources.add(edge.source)
-            usedTargets.add(edge.target)
+            seen.add(key)
             normalized.push(edge)
         }
 
@@ -576,9 +577,9 @@ export default function CanvasPage() {
             setIsLoading(true)
 
             // Construct instruction with onboarding context if available
-            let finalInstruction = orchestratorInstruction
+            let finalInstruction = orchestratorInstruction.trim()
 
-            if (onboardingData) {
+            if (onboardingData && finalInstruction) {
                 const contextStr = `\n\nContext about my business:\nName: ${onboardingData.business_name}\nIndustry: ${onboardingData.industry}\nAudience: ${onboardingData.audience_desc}\nGoals: ${onboardingData.primary_goal}`
 
                 // Only append if not already mentioned (simple check)
@@ -617,6 +618,16 @@ export default function CanvasPage() {
                         setWorkflows([createData.workflow, ...workflows])
                         selectWorkflow(createData.workflow)
                     }
+                }
+
+                // IMPORTANT: Pre-fill the user input with the instruction used to generate the plan
+                // This ensures the agents immediately have context without re-typing
+                if (orchestratorInstruction.trim()) {
+                    setUserInputs(prev => ({
+                        ...prev,
+                        user_input: orchestratorInstruction.trim()
+                    }))
+                    toast.success('Workflow generated! Instruction saved for execution.')
                 }
 
                 setShowOrchestratorDialog(false)
@@ -688,8 +699,10 @@ export default function CanvasPage() {
 
     const handleConnect = useCallback((connection: Connection) => {
         setFlowEdges(edges => {
-            const pruned = edges.filter(edge => (
-                edge.source !== connection.source && edge.target !== connection.target
+            // Only prevent duplicate connections (same source AND target)
+            // Allow multiple outgoing edges from same source
+            const pruned = edges.filter(edge => !(
+                edge.source === connection.source && edge.target === connection.target
             ))
             const nextEdges = addEdge({
                 ...connection,
@@ -782,15 +795,17 @@ export default function CanvasPage() {
 
         const agentNodeIds = new Set(agentNodes.map(node => node.id))
         const steps: WorkflowStep[] = agentNodes.map(node => {
-            const incomingEdge = flowEdges.find(edge => (
+            // Find ALL incoming edges (support for multiple dependencies)
+            const incomingEdges = flowEdges.filter(edge => (
                 edge.target === node.id && agentNodeIds.has(edge.source)
             ))
-            const incoming = incomingEdge ? [incomingEdge.source] : []
+            const incoming = incomingEdges.map(edge => edge.source)
 
+            // Build fromSteps mapping for all incoming edges
             const fromSteps: Record<string, string[]> = {}
-            if (incomingEdge) {
-                fromSteps[incomingEdge.source] = ['output']
-            }
+            incomingEdges.forEach(edge => {
+                fromSteps[edge.source] = ['output']
+            })
 
             let inputs = (node.data.inputs && node.data.inputs.length > 0)
                 ? [...node.data.inputs]

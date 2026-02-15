@@ -184,6 +184,28 @@ const applyCombinedInputsToPlan = (plan: any, combinedInputs: Array<{ field: str
     }
 }
 
+const getWorkflowMode = (mode: unknown): 'sequential' | 'parallel' | 'mixed' => {
+    if (mode === 'parallel' || mode === 'mixed') return mode
+    return 'sequential'
+}
+
+const normalizeSelectedAgents = (selectedAgents: unknown): string[] => {
+    if (!Array.isArray(selectedAgents)) return []
+    const allowed = new Set(Object.keys(ORCHESTRATOR_AGENTS))
+    const seen = new Set<string>()
+    const normalized: string[] = []
+
+    for (const rawAgentId of selectedAgents) {
+        if (typeof rawAgentId !== 'string') continue
+        const agentId = rawAgentId.trim()
+        if (!agentId || !allowed.has(agentId) || seen.has(agentId)) continue
+        seen.add(agentId)
+        normalized.push(agentId)
+    }
+
+    return normalized
+}
+
 // POST /api/canvas/orchestrate - Generate workflow plan from natural language
 export async function POST(request: NextRequest) {
     try {
@@ -195,26 +217,35 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { instruction, selected_agents, mode } = body
+        const instruction = typeof body.instruction === 'string' ? body.instruction.trim() : ''
+        const selectedAgents = normalizeSelectedAgents(body.selected_agents)
+        const hasSelectedAgents = selectedAgents.length > 0
+        const workflowMode = getWorkflowMode(body.mode)
 
-        if (!instruction && !selected_agents) {
+        if (!instruction && !hasSelectedAgents) {
             return NextResponse.json({
                 error: 'Either instruction or selected_agents is required'
             }, { status: 400 })
         }
 
         // If just agents selected without instruction, generate default workflow
-        if (selected_agents && !instruction) {
-            const plan = generateDefaultWorkflow(
-                selected_agents as string[],
-                mode || 'sequential'
+        if (hasSelectedAgents && !instruction) {
+            let plan = generateDefaultWorkflow(
+                selectedAgents,
+                workflowMode
             )
+
+            // Enforce linear structure for sequential mode
+            if (workflowMode === 'sequential') {
+                plan = enforceLinearWorkflowPlan(plan)
+            }
+
             const groqApiKey = process.env.GROQ_API_KEY
             if (!groqApiKey) {
                 return NextResponse.json({ error: 'GROQ_API_KEY not configured' }, { status: 500 })
             }
             const combinedInputs = await buildCombinedInputs(
-                selected_agents as string[],
+                selectedAgents,
                 [],
                 groqApiKey
             )
@@ -223,10 +254,14 @@ export async function POST(request: NextRequest) {
         }
 
         // Build orchestrator request
-        const agents = Object.entries(ORCHESTRATOR_AGENTS).map(([id, config]) => ({
+        const availableAgentIds = hasSelectedAgents
+            ? selectedAgents
+            : Object.keys(ORCHESTRATOR_AGENTS)
+
+        const agents = availableAgentIds.map(id => ({
             id,
-            name: config.name,
-            capabilities: config.capabilities,
+            name: ORCHESTRATOR_AGENTS[id].name,
+            capabilities: ORCHESTRATOR_AGENTS[id].capabilities,
             current_state: 'idle' as const
         }))
 
@@ -273,7 +308,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Build prompt
-        const prompt = buildOrchestratorPrompt(orchestratorRequest)
+        let prompt = buildOrchestratorPrompt(orchestratorRequest)
+        if (hasSelectedAgents) {
+            prompt += `\n\nIMPORTANT: Use ONLY these selected agent IDs: ${selectedAgents.join(', ')}.`
+        }
 
         // Call Groq API for orchestration
         const groqApiKey = process.env.GROQ_API_KEY
@@ -309,7 +347,28 @@ export async function POST(request: NextRequest) {
 
         // Parse the response
         const result = parseOrchestratorResponse(llmResponse)
+        if (hasSelectedAgents) {
+            const selectedAgentSet = new Set(selectedAgents)
+            const planSteps = Array.isArray(result.workflow_plan?.steps)
+                ? result.workflow_plan.steps
+                : []
+            const hasDisallowedAgent = planSteps.some(step => !selectedAgentSet.has(step.agent_id))
+            const usedAgentIds = new Set(planSteps.map(step => step.agent_id))
+            const missingSelectedAgent = selectedAgents.some(agentId => !usedAgentIds.has(agentId))
+
+            if (hasDisallowedAgent || missingSelectedAgent) {
+                result.workflow_plan = generateDefaultWorkflow(selectedAgents, workflowMode)
+            }
+        }
+
+        // Enforce linear workflow structure
+        console.log('BEFORE enforceLinear:', JSON.stringify(result.workflow_plan.steps.map(s => ({ id: s.step_id, depends_on: s.depends_on })), null, 2))
+        console.log('BEFORE final_response_strategy.from_steps:', result.workflow_plan.final_response_strategy.from_steps)
+
         result.workflow_plan = enforceLinearWorkflowPlan(result.workflow_plan)
+
+        console.log('AFTER enforceLinear:', JSON.stringify(result.workflow_plan.steps.map(s => ({ id: s.step_id, depends_on: s.depends_on })), null, 2))
+        console.log('AFTER final_response_strategy.from_steps:', result.workflow_plan.final_response_strategy.from_steps)
 
         const agentIds = extractAgentIdsFromPlan(result.workflow_plan)
         const existingInputs = result.workflow_plan.steps

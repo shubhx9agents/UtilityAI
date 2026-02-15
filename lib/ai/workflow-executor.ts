@@ -288,7 +288,11 @@ export class WorkflowExecutionService {
 
         // If there's previous step output, include it
         const previousOutputs = Object.entries(input)
-            .filter(([key]) => key.includes('_output') || key.includes('_response'))
+            .filter(([key, value]) => {
+                // Filter out large image data from text prompt
+                const isImage = typeof value === 'string' && (value.startsWith('data:image/') || value.length > 5000)
+                return (key.includes('_output') || key.includes('_response')) && !isImage
+            })
             .map(([key, value]) => `Previous step (${key}): ${typeof value === 'string' ? value : JSON.stringify(value)}`)
 
         if (previousOutputs.length > 0) {
@@ -298,7 +302,7 @@ export class WorkflowExecutionService {
         // Add user inputs (Filter out base64 for the text prompt)
         const userFields = Object.entries(input)
             .filter(([key, value]) => {
-                const isImage = typeof value === 'string' && value.startsWith('data:image/')
+                const isImage = typeof value === 'string' && (value.startsWith('data:image/') || value.length > 5000)
                 return !key.includes('_output') && !key.includes('_response') && key !== 'history_context' && !isImage
             })
             .map(([key, value]) => `${key}: ${value}`)
@@ -311,7 +315,38 @@ export class WorkflowExecutionService {
         inputString += `Task: ${step.description}`
 
         // Run the agent
-        const result = await aiService.runAgent(agentType, inputString, input)
+        // Construct a more structured input string
+        let structuredInput = ''
+
+        // 1. Prioritize explicit instructions
+        const instructionFields = ['instructional_prompt', 'user_input', 'prompt', 'task']
+        const mainInstruction = userFields
+            .filter(f => instructionFields.some(i => f.toLowerCase().startsWith(i)))
+            .map(f => f.split(':').slice(1).join(':').trim())
+            .join('\n')
+
+        if (mainInstruction) {
+            structuredInput += `MAIN INSTRUCTION:\n${mainInstruction}\n\n`
+        } else if (step.description) {
+            structuredInput += `MAIN TASK: ${step.description}\n\n`
+        }
+
+        // 2. Add configuration/parameters as context
+        const configFields = userFields.filter(f => !instructionFields.some(i => f.toLowerCase().startsWith(i)))
+        if (configFields.length > 0) {
+            structuredInput += `CONFIGURATION & CONTEXT:\n${configFields.join('\n')}\n\n`
+        }
+
+        // Fallback if no specific structure
+        if (!structuredInput) {
+            structuredInput = inputString
+            console.log(`[Workflow Debug] Step ${step.step_id} - Using raw input string`)
+        } else {
+            console.log(`[Workflow Debug] Step ${step.step_id} - Using structured input:\n${structuredInput}`)
+        }
+
+        // Run the agent with stricter input
+        const result = await aiService.runAgent(agentType, structuredInput || inputString, input)
 
         return {
             response: result.response,

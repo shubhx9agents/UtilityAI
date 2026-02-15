@@ -58,14 +58,16 @@ This requires 4 steps:
 4. step_4_image_3 (image_generation) - Create third ad image
 
 **Rules:**
-- Always generate a SIMPLE LINEAR CHAIN (one-to-one connections).
-- Each step can depend on ONLY the immediately previous step (no branching).
+- Always generate a SIMPLE LINEAR CHAIN (one-to-one connections) for orchestrator-generated workflows.
+- Each step should depend on ONLY the immediately previous step (no automatic branching).
 - final_response_strategy.from_steps must contain ONLY the last step_id.
 - Use clear step_ids like "step_1_research", "step_2_ad_copy"
-- For multiple images, create multiple image_generation steps
+- For multiple images, create multiple image_generation steps in sequence
 - Match agent_id to the task type correctly
 - Avoid circular dependencies
 - Return ONLY valid JSON
+
+Note: Users can manually create branching workflows in the canvas, but orchestrator should generate linear chains.
 
 Return only the JSON plan, no explanations.`
 
@@ -470,12 +472,18 @@ export function generateDefaultWorkflow(
         })
     }
 
+    // For sequential mode, only the last step should connect to final output
+    // For parallel mode, all steps connect to final output
+    const finalSteps = mode === 'sequential' && steps.length > 0
+        ? [steps[steps.length - 1].step_id]
+        : steps.map(s => s.step_id)
+
     return {
         workflow_name: `${mode.charAt(0).toUpperCase() + mode.slice(1)} Workflow`,
         steps,
         final_response_strategy: {
             type: 'merge_and_summarize',
-            from_steps: steps.map(s => s.step_id),
+            from_steps: finalSteps,
             instructions: 'Combine all agent outputs into a comprehensive result'
         }
     }
