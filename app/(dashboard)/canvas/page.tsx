@@ -923,7 +923,9 @@ export default function CanvasPage() {
                 setConfigInputs(data.inputs || [])
             } else {
                 // Hybrid: merge injected data into userInputs and set new questions
+                console.log('[Canvas Debug] Hybrid mode response:', JSON.stringify(data, null, 2))
                 if (data.injected_data) {
+                    console.log('[Canvas Debug] Injected data:', data.injected_data)
                     setUserInputs(prev => ({ ...prev, ...data.injected_data }))
                     toast.success('Onboarding data injected!')
                 }

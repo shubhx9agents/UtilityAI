@@ -175,11 +175,12 @@ export class AIAgentService {
 
         try {
             if (agentType === 'deep_research') {
-                return await this.runDeepResearch(userInput)
+                return await this.runDeepResearch(userInput, context)
             }
 
+
             if (agentType === 'ad_copy') {
-                return await this.runAdCopy(userInput)
+                return await this.runAdCopy(userInput, context)
             }
 
             if (agentType === 'image_generation') {
@@ -401,7 +402,7 @@ export class AIAgentService {
         }
     }
 
-    private async runDeepResearch(userInput: string): Promise<{ response: string }> {
+    private async runDeepResearch(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
         const perplexityApiKey = process.env.PERPLEXITY_API_KEY
         const groqApiKey = process.env.GROQ_API_KEY
 
@@ -414,6 +415,47 @@ export class AIAgentService {
         }
 
         console.log(`Deep Research: Starting Perplexity call [Key: ${perplexityApiKey.substring(0, 5)}...]`)
+
+        // Extract user inputs from context to build a comprehensive research prompt
+        const extractedInputs: Record<string, any> = {}
+        const configQuestions = AGENT_CONFIGS['deep_research'].questions
+
+        // Try to extract values from context using various field name formats
+        for (const question of configQuestions) {
+            const fieldKey = question.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+
+            // Check multiple possible field name formats
+            const possibleKeys = [
+                fieldKey,
+                question,
+                question.toLowerCase(),
+                question.replace(/\s+/g, '_')
+            ]
+
+            for (const key of possibleKeys) {
+                if (context[key] !== undefined && context[key] !== '') {
+                    extractedInputs[question] = context[key]
+                    console.log(`[Deep Research Debug] Found match: "${question}" -> context["${key}"] = "${context[key]}"`)
+                    break
+                }
+            }
+        }
+
+        // Build a structured research prompt from user inputs
+        let researchPrompt = userInput
+
+        // If we have extracted inputs, build a detailed prompt
+        if (Object.keys(extractedInputs).length > 0) {
+            researchPrompt = 'Conduct comprehensive market and competitor research based on the following information:\n\n'
+
+            for (const [field, value] of Object.entries(extractedInputs)) {
+                researchPrompt += `${field}: ${value}\n`
+            }
+
+            researchPrompt += '\nProvide detailed insights on market trends, competitors, target audience analysis, and strategic recommendations.'
+        }
+
+        console.log(`[Deep Research] Using prompt:\n${researchPrompt.substring(0, 300)}...`)
 
         try {
             const perplexityRes = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -428,7 +470,7 @@ export class AIAgentService {
                     model: 'sonar',
                     messages: [
                         { role: 'system', content: AGENT_CONFIGS['deep_research'].system_message },
-                        { role: 'user', content: userInput }
+                        { role: 'user', content: researchPrompt }
                     ]
                 })
             })
@@ -493,7 +535,8 @@ ${rawOutput}
         }
     }
 
-    private async runAdCopy(userInput: string): Promise<{ response: string }> {
+
+    private async runAdCopy(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
         const perplexityApiKey = process.env.PERPLEXITY_API_KEY
         const groqApiKey = process.env.GROQ_API_KEY
 
@@ -501,11 +544,52 @@ ${rawOutput}
             throw new Error('Required API keys (PERPLEXITY_API_KEY, GROQ_API_KEY) are missing.')
         }
 
+        // Extract user inputs from context to build a comprehensive ad generation prompt
+        const extractedInputs: Record<string, any> = {}
+        const configQuestions = AGENT_CONFIGS['ad_copy'].questions
+
+        // Try to extract values from context using various field name formats
+        for (const question of configQuestions) {
+            const fieldKey = question.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+
+            // Check multiple possible field name formats
+            const possibleKeys = [
+                fieldKey,
+                question,
+                question.toLowerCase(),
+                question.replace(/\s+/g, '_')
+            ]
+
+            for (const key of possibleKeys) {
+                if (context[key] !== undefined && context[key] !== '') {
+                    extractedInputs[question] = context[key]
+                    console.log(`[Ad Copy Debug] Found match: "${question}" -> context["${key}"] = "${context[key]}"`)
+                    break
+                }
+            }
+        }
+
+        // Build a structured ad generation request from user inputs
+        let adRequest = userInput
+
+        // If we have extracted inputs, build a detailed prompt
+        if (Object.keys(extractedInputs).length > 0) {
+            adRequest = 'Generate ad copy for the following product/service:\n\n'
+
+            for (const [field, value] of Object.entries(extractedInputs)) {
+                adRequest += `${field}: ${value}\n`
+            }
+
+            adRequest += '\nConduct market research and generate high-converting ad variations based on this information.'
+        }
+
+        console.log(`[Ad Copy] Using request:\n${adRequest.substring(0, 300)}...`)
+
         try {
             // 1. Market Research using Perplexity
             const searchPrompt = `Role: You are an expert Direct Response Marketing Strategist and Deep-Dive Market Researcher.
 
-Task: Conduct a comprehensive market research and competitive analysis based on the user's request: "${userInput}".
+Task: Conduct a comprehensive market research and competitive analysis based on the user's request: "${adRequest}".
  You must reverse-engineer the top players in the market to provide a blueprint for entry and domination.
 
 Instructions:
@@ -641,7 +725,7 @@ OUTPUT FORMAT RULES:
 ${researchData}
 
 USER INPUT:
-${userInput}`
+${adRequest}`
                         }
                     ],
                     temperature: 0.7

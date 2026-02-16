@@ -75,12 +75,15 @@ async function handleHybridMode(schemas: any[], onboardingData: any, apiKey: str
     const prompt = `You are a workflow architect. I have onboarding metadata for this user.
     I need to generate follow-up questions for a multi-agent workflow.
     
-    RULES:
-    1. DO NOT repeat any info already in ONBOARDING DATA.
-    2. Inject onboarding data into relevant agent fields.
-    3. Generate up to 10 additional follow-up questions ONLY IF necessary for these specific agents.
-    4. Follow-ups must be detailed, contextual, or specialized.
-    5. Prompt separately for required image uploads (onboarding has no images).
+    CRITICAL RULES:
+    1. Extract ALL relevant fields from ONBOARDING DATA that match the agent requirements.
+    2. For each agent, map onboarding fields to agent fields:
+       - deep_research: niche, Geography, Target audience, Primary problem I solve, Secondary problems, My experience, Types of cases I've worked with, My core philosophy or approach, Primary promise
+       - ad_copy: Product/Service Name (from onboarding product/service), Main Features/Benefits, Target Audience, Ad Tone, Specific Platforms
+       - image_generation: extract any relevant visual/brand details
+    3. DO NOT just inject "niche" alone - extract ALL matching fields from onboarding.
+    4. Only ask new_questions for fields that are NOT available in onboarding data.
+    5. If onboarding has product details, extract them for ad_copy agent.
     6. Always include "Image Model" (type: text) if any agent is an image generator.
     
     ONBOARDING DATA:
@@ -91,7 +94,7 @@ async function handleHybridMode(schemas: any[], onboardingData: any, apiKey: str
     
     Return ONLY a JSON object: 
     {
-      "injected_data": {"field_id": "value"},
+      "injected_data": {"field_id": "value"},  // Extract ALL relevant fields, not just one!
       "new_questions": [{"field": "string", "label": "string", "type": "text" | "image", "group": "string"}]
     }`
 

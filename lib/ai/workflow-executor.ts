@@ -346,6 +346,9 @@ export class WorkflowExecutionService {
         }
 
         // Run the agent with stricter input
+        console.log(`[Workflow Debug] Step ${step.step_id} (${step.agent_id}) - Final input object keys:`, Object.keys(input))
+        console.log(`[Workflow Debug] Step ${step.step_id} - Structured input preview:`, structuredInput.substring(0, 500))
+
         const result = await aiService.runAgent(agentType, structuredInput || inputString, input)
 
         return {
