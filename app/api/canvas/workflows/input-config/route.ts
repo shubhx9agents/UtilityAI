@@ -2,6 +2,35 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { AGENT_CONFIGS } from '@/lib/ai/agents'
 
+type InputQuestion = { field: string, label: string, type: 'text' | 'image', group?: string }
+
+const PRIMARY_USER_INPUT_QUESTION: InputQuestion = {
+    field: 'user_input',
+    label: 'Current business/product context',
+    type: 'text',
+    group: 'Current Run'
+}
+
+const ensurePrimaryUserInputQuestion = (questions: InputQuestion[]): InputQuestion[] => {
+    const seen = new Set<string>()
+    const normalized: InputQuestion[] = []
+    const ordered = [PRIMARY_USER_INPUT_QUESTION, ...questions]
+
+    for (const q of ordered) {
+        const field = (q.field || '').trim().toLowerCase()
+        if (!field || seen.has(field)) continue
+        seen.add(field)
+        normalized.push({
+            field,
+            label: q.label || field,
+            type: q.type === 'image' ? 'image' : 'text',
+            group: q.group
+        })
+    }
+
+    return normalized
+}
+
 export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient()
@@ -68,7 +97,8 @@ async function handleManualMode(schemas: any[], apiKey: string) {
     Return ONLY a JSON array: [{"field": "string", "label": "string", "type": "text" | "image", "group": "string"}]`
 
     const response = await callGroq(prompt, apiKey)
-    return NextResponse.json({ inputs: response })
+    const questions = Array.isArray(response) ? response : []
+    return NextResponse.json({ inputs: ensurePrimaryUserInputQuestion(questions) })
 }
 
 async function handleHybridMode(schemas: any[], onboardingData: any, apiKey: string) {
@@ -99,7 +129,17 @@ async function handleHybridMode(schemas: any[], onboardingData: any, apiKey: str
     }`
 
     const response = await callGroq(prompt, apiKey)
-    return NextResponse.json(response)
+    const injectedData = response && typeof response === 'object' && !Array.isArray(response)
+        ? (response.injected_data || {})
+        : {}
+    const newQuestions = response && typeof response === 'object' && !Array.isArray(response) && Array.isArray(response.new_questions)
+        ? response.new_questions
+        : []
+
+    return NextResponse.json({
+        injected_data: injectedData,
+        new_questions: ensurePrimaryUserInputQuestion(newQuestions)
+    })
 }
 
 async function callGroq(prompt: string, apiKey: string) {

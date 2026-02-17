@@ -79,6 +79,8 @@ const IMAGE_MODEL_OPTIONS = [
     { value: 'nano-banana-pro-preview', label: 'Nano Banana Pro (Gemini)' },
     { value: 'seedream-4-0-250828', label: 'Seedream 4 (BytePlus)' },
 ]
+const PRIMARY_USER_INPUT_FIELD = 'user_input'
+const PRIMARY_USER_INPUT_LABEL = 'Current business/product context'
 
 interface OrchestratorAgent {
     id: string
@@ -93,6 +95,31 @@ interface OnboardingData {
     audience_desc?: string
     primary_goal?: string
     [key: string]: any
+}
+
+type ConfigInputSpec = { field: string, label: string, type: 'text' | 'image', group?: string }
+
+const ensurePrimaryConfigInput = (inputs: ConfigInputSpec[]): ConfigInputSpec[] => {
+    const seen = new Set<string>()
+    const normalized: ConfigInputSpec[] = []
+    const ordered: ConfigInputSpec[] = [
+        { field: PRIMARY_USER_INPUT_FIELD, label: PRIMARY_USER_INPUT_LABEL, type: 'text', group: 'Current Run' },
+        ...inputs,
+    ]
+
+    for (const input of ordered) {
+        const field = (input.field || '').trim().toLowerCase()
+        if (!field || seen.has(field)) continue
+        seen.add(field)
+        normalized.push({
+            field,
+            label: input.label || field,
+            type: input.type === 'image' ? 'image' : 'text',
+            group: input.group
+        })
+    }
+
+    return normalized
 }
 
 type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
@@ -233,7 +260,7 @@ export default function CanvasPage() {
     const [isExecuting, setIsExecuting] = useState(false)
     const [showResultsDialog, setShowResultsDialog] = useState(false)
     const [executionMode, setExecutionMode] = useState<'hybrid' | 'manual' | null>(null)
-    const [configInputs, setConfigInputs] = useState<Array<{ field: string, label: string, type: 'text' | 'image', group?: string }>>([])
+    const [configInputs, setConfigInputs] = useState<ConfigInputSpec[]>([])
     const [isConfiguring, setIsConfiguring] = useState(false)
     const [executionResult, setExecutionResult] = useState<any>(null)
     const [stepStatuses, setStepStatuses] = useState<Record<string, StepStatus>>({})
@@ -920,23 +947,24 @@ export default function CanvasPage() {
             const data = await res.json()
 
             if (mode === 'manual') {
-                setConfigInputs(data.inputs || [])
+                setConfigInputs(ensurePrimaryConfigInput(data.inputs || []))
             } else {
                 // Hybrid: merge injected data into userInputs and set new questions
                 console.log('[Canvas Debug] Hybrid mode response:', JSON.stringify(data, null, 2))
                 if (data.injected_data) {
                     console.log('[Canvas Debug] Injected data:', data.injected_data)
-                    setUserInputs(prev => ({ ...prev, ...data.injected_data }))
+                    // Existing run inputs always win over profile-injected defaults.
+                    setUserInputs(prev => ({ ...data.injected_data, ...prev }))
                     toast.success('Onboarding data injected!')
                 }
-                setConfigInputs(data.new_questions || [])
+                setConfigInputs(ensurePrimaryConfigInput(data.new_questions || []))
             }
             setInputStepIndex(0)
         } catch (error) {
             console.error('Failed to configure inputs:', error)
             toast.error('AI Configuration failed. Falling back to default.')
             setExecutionMode('manual')
-            setConfigInputs(getRequiredInputs())
+            setConfigInputs(ensurePrimaryConfigInput(getRequiredInputs()))
         } finally {
             setIsConfiguring(false)
         }

@@ -254,6 +254,12 @@ export class WorkflowExecutionService {
             }
         }
 
+        // Backward compatibility: older workflow plans may not include "user_input"
+        // in from_user, but execution can still provide it.
+        if (input.user_input === undefined && userInputs.user_input !== undefined) {
+            input.user_input = userInputs.user_input
+        }
+
         // Add inputs from previous steps
         if (step.input_mapping.from_steps) {
             for (const [stepId, fields] of Object.entries(step.input_mapping.from_steps)) {
@@ -329,6 +335,12 @@ export class WorkflowExecutionService {
             structuredInput += `MAIN INSTRUCTION:\n${mainInstruction}\n\n`
         } else if (step.description) {
             structuredInput += `MAIN TASK: ${step.description}\n\n`
+        }
+
+        // Keep upstream step outputs in structured prompts so downstream agents
+        // still receive dependency context even when structured mode is used.
+        if (previousOutputs.length > 0) {
+            structuredInput += `PREVIOUS STEP OUTPUTS:\n${previousOutputs.join('\n\n')}\n\n`
         }
 
         // 2. Add configuration/parameters as context

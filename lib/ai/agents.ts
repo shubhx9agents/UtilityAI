@@ -419,6 +419,15 @@ export class AIAgentService {
         // Extract user inputs from context to build a comprehensive research prompt
         const extractedInputs: Record<string, any> = {}
         const configQuestions = AGENT_CONFIGS['deep_research'].questions
+        const explicitUserContext = [
+            context.user_input,
+            context.instructional_prompt,
+            context.prompt,
+            context.task,
+        ]
+            .filter(value => typeof value === 'string' && value.trim().length > 0)
+            .map(value => value.trim())
+            .join('\n\n')
 
         // Try to extract values from context using various field name formats
         for (const question of configQuestions) {
@@ -441,18 +450,39 @@ export class AIAgentService {
             }
         }
 
+        const previousStepOutputs = Object.entries(context)
+            .filter(([key, value]) => {
+                const isStepOutput = key.includes('_output') || key.includes('_response')
+                const isImage = typeof value === 'string' && value.startsWith('data:image/')
+                return isStepOutput && !isImage && value !== undefined && value !== null && `${value}`.trim() !== ''
+            })
+            .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
+
         // Build a structured research prompt from user inputs
-        let researchPrompt = userInput
+        let researchPrompt = explicitUserContext || userInput
 
         // If we have extracted inputs, build a detailed prompt
         if (Object.keys(extractedInputs).length > 0) {
-            researchPrompt = 'Conduct comprehensive market and competitor research based on the following information:\n\n'
+            researchPrompt = explicitUserContext
+                ? `PRIMARY REQUEST (HIGHEST PRIORITY):\n${explicitUserContext}\n\nSupporting profile context (use only if it does not conflict):\n`
+                : 'Conduct comprehensive market and competitor research based on the following information:\n\n'
 
             for (const [field, value] of Object.entries(extractedInputs)) {
                 researchPrompt += `${field}: ${value}\n`
             }
 
+            researchPrompt += '\nIf any supporting profile detail conflicts with the PRIMARY REQUEST, follow the PRIMARY REQUEST.'
             researchPrompt += '\nProvide detailed insights on market trends, competitors, target audience analysis, and strategic recommendations.'
+
+            if (previousStepOutputs.length > 0) {
+                researchPrompt += `\n\nPrevious workflow step outputs:\n${previousStepOutputs.join('\n\n')}`
+            }
+
+            if (!explicitUserContext && userInput?.trim()) {
+                researchPrompt += `\n\nExecution context:\n${userInput}`
+            }
+        } else if (previousStepOutputs.length > 0 && !/previous step outputs/i.test(userInput)) {
+            researchPrompt += `\n\nPrevious workflow step outputs:\n${previousStepOutputs.join('\n\n')}`
         }
 
         console.log(`[Deep Research] Using prompt:\n${researchPrompt.substring(0, 300)}...`)
@@ -547,6 +577,15 @@ ${rawOutput}
         // Extract user inputs from context to build a comprehensive ad generation prompt
         const extractedInputs: Record<string, any> = {}
         const configQuestions = AGENT_CONFIGS['ad_copy'].questions
+        const explicitUserContext = [
+            context.user_input,
+            context.instructional_prompt,
+            context.prompt,
+            context.task,
+        ]
+            .filter(value => typeof value === 'string' && value.trim().length > 0)
+            .map(value => value.trim())
+            .join('\n\n')
 
         // Try to extract values from context using various field name formats
         for (const question of configQuestions) {
@@ -569,18 +608,39 @@ ${rawOutput}
             }
         }
 
+        const previousStepOutputs = Object.entries(context)
+            .filter(([key, value]) => {
+                const isStepOutput = key.includes('_output') || key.includes('_response')
+                const isImage = typeof value === 'string' && value.startsWith('data:image/')
+                return isStepOutput && !isImage && value !== undefined && value !== null && `${value}`.trim() !== ''
+            })
+            .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
+
         // Build a structured ad generation request from user inputs
-        let adRequest = userInput
+        let adRequest = explicitUserContext || userInput
 
         // If we have extracted inputs, build a detailed prompt
         if (Object.keys(extractedInputs).length > 0) {
-            adRequest = 'Generate ad copy for the following product/service:\n\n'
+            adRequest = explicitUserContext
+                ? `PRIMARY REQUEST (HIGHEST PRIORITY):\n${explicitUserContext}\n\nSupporting profile context (use only if it does not conflict):\n`
+                : 'Generate ad copy for the following product/service:\n\n'
 
             for (const [field, value] of Object.entries(extractedInputs)) {
                 adRequest += `${field}: ${value}\n`
             }
 
+            adRequest += '\nIf any supporting profile detail conflicts with the PRIMARY REQUEST, follow the PRIMARY REQUEST.'
             adRequest += '\nConduct market research and generate high-converting ad variations based on this information.'
+
+            if (previousStepOutputs.length > 0) {
+                adRequest += `\n\nPrevious workflow step outputs:\n${previousStepOutputs.join('\n\n')}`
+            }
+
+            if (!explicitUserContext && userInput?.trim()) {
+                adRequest += `\n\nExecution context:\n${userInput}`
+            }
+        } else if (previousStepOutputs.length > 0 && !/previous step outputs/i.test(userInput)) {
+            adRequest += `\n\nPrevious workflow step outputs:\n${previousStepOutputs.join('\n\n')}`
         }
 
         console.log(`[Ad Copy] Using request:\n${adRequest.substring(0, 300)}...`)

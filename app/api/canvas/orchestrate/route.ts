@@ -18,6 +18,11 @@ type AgentInputSpec = {
 }
 
 const IMAGE_MODEL_LABEL = 'Image Model'
+const PRIMARY_USER_INPUT = {
+    field: 'user_input',
+    label: 'Current business/product context',
+    type: 'text' as const
+}
 
 const normalizeInputLabel = (label: string): string => {
     return label.replace(/\s+/g, ' ').trim()
@@ -78,6 +83,27 @@ const parseJsonOutput = (raw: string): any[] => {
     }
 }
 
+const ensurePrimaryUserInput = (
+    inputs: Array<{ field: string, label: string, type: 'text' | 'image' }>
+): Array<{ field: string, label: string, type: 'text' | 'image' }> => {
+    const seen = new Set<string>()
+    const normalized: Array<{ field: string, label: string, type: 'text' | 'image' }> = []
+
+    const ordered = [PRIMARY_USER_INPUT, ...inputs]
+    for (const input of ordered) {
+        const field = (input.field || '').trim().toLowerCase()
+        if (!field || seen.has(field)) continue
+        seen.add(field)
+        normalized.push({
+            field,
+            label: input.label || field,
+            type: input.type === 'image' ? 'image' : 'text'
+        })
+    }
+
+    return normalized
+}
+
 const buildCombinedInputs = async (
     agentIds: string[],
     existingInputs: string[],
@@ -102,7 +128,7 @@ const buildCombinedInputs = async (
         }
     })
 
-    if (specs.length === 0) return fallbackInputs
+    if (specs.length === 0) return ensurePrimaryUserInput(fallbackInputs)
 
     const prompt = `You are designing a unified input form for a multi-agent AI workflow.
 Your goal is to merge questions from multiple agents into a single, cohesive list of USER INPUTS.
@@ -140,13 +166,13 @@ ${JSON.stringify(existingInputs, null, 2)}
             })
         })
 
-        if (!response.ok) return fallbackInputs
+        if (!response.ok) return ensurePrimaryUserInput(fallbackInputs)
 
         const data = await response.json()
         const llmResponse = data.choices?.[0]?.message?.content || ''
         const parsed = parseJsonOutput(llmResponse)
 
-        if (parsed.length === 0) return fallbackInputs
+        if (parsed.length === 0) return ensurePrimaryUserInput(fallbackInputs)
 
         const hasImageModel = parsed.some((item: any) => (item.label || '').toLowerCase() === 'image model' || item.field === 'image_model')
         if (needsImageModel && !hasImageModel) {
@@ -161,26 +187,28 @@ ${JSON.stringify(existingInputs, null, 2)}
         }
 
         // Ensure valid structure and limit to 10
-        return parsed.slice(0, 10).map((item: any) => ({
+        const normalized = parsed.slice(0, 10).map((item: any) => ({
             field: item.field || 'input',
             label: item.label || 'Input',
             type: item.type === 'image' ? 'image' : 'text'
         }))
+        return ensurePrimaryUserInput(normalized)
     } catch (error) {
         console.warn('Combined input generation failed:', error)
-        return fallbackInputs
+        return ensurePrimaryUserInput(fallbackInputs)
     }
 }
 
 const applyCombinedInputsToPlan = (plan: any, combinedInputs: Array<{ field: string, label: string, type: 'text' | 'image' }>) => {
     if (!plan?.steps || !Array.isArray(plan.steps) || combinedInputs.length === 0) return
-    const fields = combinedInputs.map(i => i.field)
+    const normalizedInputs = ensurePrimaryUserInput(combinedInputs)
+    const fields = normalizedInputs.map(i => i.field)
     for (const step of plan.steps) {
         if (!step.input_mapping) {
             step.input_mapping = {}
         }
         step.input_mapping.from_user = fields
-        step.input_mapping.user_input_specs = combinedInputs
+        step.input_mapping.user_input_specs = normalizedInputs
     }
 }
 
