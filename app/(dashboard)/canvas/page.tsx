@@ -49,6 +49,9 @@ import {
     Maximize2,
     Minimize2,
     X,
+    Search,
+    Pencil,
+    Square,
     Edit2
 } from 'lucide-react'
 import { Workflow, WorkflowPlan, WorkflowStep, AgentType, CanvasNode, CanvasEdge } from '@/types'
@@ -124,6 +127,11 @@ const ensurePrimaryConfigInput = (inputs: ConfigInputSpec[]): ConfigInputSpec[] 
 }
 
 type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+type StepDisplayMeta = {
+    index: number
+    label: string
+    agentLabel: string
+}
 
 type FlowNodeKind = 'agent' | 'input' | 'output'
 
@@ -236,6 +244,7 @@ export default function CanvasPage() {
 
     // Dialog states
     const [showNewWorkflowDialog, setShowNewWorkflowDialog] = useState(false)
+    const [showRenameWorkflowDialog, setShowRenameWorkflowDialog] = useState(false)
     const [showOrchestratorDialog, setShowOrchestratorDialog] = useState(false)
     const [showExecuteDialog, setShowExecuteDialog] = useState(false)
     const [showAddNodeDialog, setShowAddNodeDialog] = useState(false)
@@ -246,6 +255,10 @@ export default function CanvasPage() {
 
     // Form states
     const [newWorkflowName, setNewWorkflowName] = useState('')
+    const [renameWorkflowName, setRenameWorkflowName] = useState('')
+    const [renameWorkflowTarget, setRenameWorkflowTarget] = useState<Workflow | null>(null)
+    const [isRenamingWorkflow, setIsRenamingWorkflow] = useState(false)
+    const [workflowSearchQuery, setWorkflowSearchQuery] = useState('')
     const [orchestratorInstruction, setOrchestratorInstruction] = useState('')
     const [selectedAgents, setSelectedAgents] = useState<string[]>([])
     const [workflowMode, setWorkflowMode] = useState<'sequential' | 'parallel'>('sequential')
@@ -262,6 +275,8 @@ export default function CanvasPage() {
 
     // Execution state
     const [isExecuting, setIsExecuting] = useState(false)
+    const [isStoppingExecution, setIsStoppingExecution] = useState(false)
+    const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null)
     const [showResultsDialog, setShowResultsDialog] = useState(false)
     const [executionMode, setExecutionMode] = useState<'hybrid' | 'manual' | null>(null)
     const [configInputs, setConfigInputs] = useState<ConfigInputSpec[]>([])
@@ -282,6 +297,49 @@ export default function CanvasPage() {
     const [executionHistory, setExecutionHistory] = useState<any[]>([])
     const [showHistoryDialog, setShowHistoryDialog] = useState(false)
     const [selectedExecution, setSelectedExecution] = useState<any>(null)
+    const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    const executionDiscoveryIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    const executionAbortControllerRef = useRef<AbortController | null>(null)
+    const cancelRequestedRef = useRef(false)
+
+    const formatAgentLabel = useCallback((value?: string) => {
+        if (!value) return 'Agent'
+        return value
+            .split('_')
+            .filter(Boolean)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ')
+    }, [])
+
+    const stepDisplayMetaById = useMemo<Record<string, StepDisplayMeta>>(() => {
+        const map: Record<string, StepDisplayMeta> = {}
+        const steps = selectedWorkflow?.workflow_plan?.steps || []
+        steps.forEach((step, idx) => {
+            const agentLabel = formatAgentLabel(step.agent_id)
+            map[step.step_id] = {
+                index: idx + 1,
+                label: `Node ${idx + 1} - ${agentLabel}`,
+                agentLabel
+            }
+        })
+        return map
+    }, [selectedWorkflow?.workflow_plan?.steps, formatAgentLabel])
+
+    const getReadableStepLabel = useCallback((stepId: string, fallbackAgentType?: string, fallbackIndex?: number) => {
+        const known = stepDisplayMetaById[stepId]
+        if (known) return known.label
+        const indexLabel = typeof fallbackIndex === 'number' ? `Node ${fallbackIndex + 1} - ` : ''
+        return `${indexLabel}${formatAgentLabel(fallbackAgentType || stepId)}`
+    }, [formatAgentLabel, stepDisplayMetaById])
+
+    const filteredWorkflows = useMemo(() => {
+        const query = workflowSearchQuery.trim().toLowerCase()
+        if (!query) return workflows
+        return workflows.filter(workflow =>
+            workflow.name.toLowerCase().includes(query) ||
+            (workflow.description || '').toLowerCase().includes(query)
+        )
+    }, [workflowSearchQuery, workflows])
 
     // Fetch workflows and agents on mount
     useEffect(() => {
@@ -712,35 +770,6 @@ export default function CanvasPage() {
         }
     }
 
-    const renameWorkflow = async () => {
-        if (!renamingWorkflowId || !renamingWorkflowName.trim()) return
-
-        try {
-            const res = await fetch(`/api/canvas/workflows/${renamingWorkflowId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: renamingWorkflowName.trim() })
-            })
-            const data = await res.json()
-            if (data.workflow) {
-                const updatedWorkflow = data.workflow
-                setWorkflows(workflows.map(w =>
-                    w.id === updatedWorkflow.id ? updatedWorkflow : w
-                ))
-                if (selectedWorkflow?.id === updatedWorkflow.id) {
-                    setSelectedWorkflow(updatedWorkflow)
-                }
-                setShowRenameDialog(false)
-                setRenamingWorkflowId(null)
-                setRenamingWorkflowName('')
-                toast.success('Workflow renamed')
-            }
-        } catch (error) {
-            console.error('Failed to rename workflow:', error)
-            toast.error('Failed to rename workflow')
-        }
-    }
-
     const handleNodesChange = useCallback((changes: any[]) => {
         onFlowNodesChange(changes)
         const hasMeaningfulChange = changes.some(change => change.type !== 'select')
@@ -1007,10 +1036,12 @@ export default function CanvasPage() {
         if (!selectedWorkflow) return
 
         try {
+            cancelRequestedRef.current = false
             setIsExecuting(true)
+            setIsStoppingExecution(false)
+            setCurrentExecutionId(null)
             setShowExecuteDialog(false)
             setExecutionProgress(0)
-            setCurrentStepIndex(0)
             setExecutionStartTime(new Date())
             setElapsedTime('00:00')
 
@@ -1020,52 +1051,112 @@ export default function CanvasPage() {
 
             // Initialize step statuses
             const initialStatuses: Record<string, StepStatus> = {}
-            planForExecution.steps.forEach(step => {
-                initialStatuses[step.step_id] = 'pending'
+            planForExecution.steps.forEach((step, index) => {
+                initialStatuses[step.step_id] = index === 0 ? 'running' : 'pending'
             })
             setStepStatuses(initialStatuses)
+            setCurrentStepIndex(0)
 
             // Estimate time remaining
             setEstimatedTimeRemaining(`~${Math.ceil(totalSteps * avgTimePerStep / 60)} min`)
 
             // Simulate progress updates (since we can't stream from current API)
-            const progressInterval = setInterval(() => {
-                setExecutionProgress(prev => {
-                    const newProgress = Math.min(prev + (100 / totalSteps / avgTimePerStep), 95)
-                    return newProgress
-                })
+            const estimatedTotalSeconds = Math.max(totalSteps * avgTimePerStep, 1)
+            let elapsedSeconds = 0
+            clearExecutionIntervals()
+            progressIntervalRef.current = setInterval(() => {
+                elapsedSeconds += 1
+                const newProgress = Math.min((elapsedSeconds / estimatedTotalSeconds) * 100, 95)
+                setExecutionProgress(newProgress)
+
+                if (totalSteps > 0) {
+                    const activeIndex = Math.min(Math.floor(elapsedSeconds / avgTimePerStep), totalSteps - 1)
+                    setCurrentStepIndex(activeIndex)
+                    setStepStatuses(() => {
+                        const next: Record<string, StepStatus> = {}
+                        planForExecution.steps.forEach((step, index) => {
+                            if (index < activeIndex) {
+                                next[step.step_id] = 'completed'
+                            } else if (index === activeIndex) {
+                                next[step.step_id] = 'running'
+                            } else {
+                                next[step.step_id] = 'pending'
+                            }
+                        })
+                        return next
+                    })
+                }
             }, 1000)
+
+            executionDiscoveryIntervalRef.current = setInterval(async () => {
+                const discoveredId = await findActiveExecutionId(selectedWorkflow.id)
+                if (discoveredId) {
+                    setCurrentExecutionId(prev => prev || discoveredId)
+                }
+            }, 2000)
+
+            const abortController = new AbortController()
+            executionAbortControllerRef.current = abortController
 
             const res = await fetch(`/api/canvas/workflows/${selectedWorkflow.id}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_inputs: userInputs })
+                body: JSON.stringify({ user_inputs: userInputs }),
+                signal: abortController.signal
             })
             const data = await res.json()
 
-            clearInterval(progressInterval)
+            clearExecutionIntervals()
+            executionAbortControllerRef.current = null
+            if (data?.execution_id) {
+                setCurrentExecutionId(data.execution_id)
+            }
+            if (cancelRequestedRef.current) {
+                return
+            }
             setExecutionProgress(100)
             setExecutionResult(data)
 
             // Update step statuses from result
             if (data.step_results) {
                 const finalStatuses: Record<string, StepStatus> = {}
+                planForExecution.steps.forEach(step => {
+                    finalStatuses[step.step_id] = 'skipped'
+                })
                 for (const [stepId, result] of Object.entries(data.step_results)) {
                     finalStatuses[stepId] = (result as any).error ? 'failed' : 'completed'
                 }
                 setStepStatuses(finalStatuses)
             }
+            setCurrentStepIndex(Math.max(totalSteps - 1, 0))
 
             // Fetch updated execution history
             await fetchExecutionHistory()
 
             setShowResultsDialog(true)
-        } catch (error) {
+        } catch (error: any) {
+            clearExecutionIntervals()
+            executionAbortControllerRef.current = null
+            if (cancelRequestedRef.current || error?.name === 'AbortError') {
+                toast.success('Execution stopped')
+                return
+            }
+
             console.error('Failed to execute workflow:', error)
+            setStepStatuses(prev => {
+                const next = { ...prev }
+                const runningStepId = Object.keys(next).find(stepId => next[stepId] === 'running')
+                if (runningStepId) {
+                    next[runningStepId] = 'failed'
+                }
+                return next
+            })
         } finally {
             setIsExecuting(false)
+            setIsStoppingExecution(false)
             setExecutionProgress(0)
             setEstimatedTimeRemaining('')
+            setCurrentExecutionId(null)
         }
     }
 
@@ -1150,7 +1241,7 @@ export default function CanvasPage() {
     useEffect(() => {
         setFlowNodes(nodes => nodes.map(node => {
             if (node.data.nodeType !== 'agent') return node
-            const status = stepStatuses[node.id] || (isExecuting ? 'running' : 'pending')
+            const status = stepStatuses[node.id] || 'pending'
             return {
                 ...node,
                 data: {
@@ -1159,11 +1250,11 @@ export default function CanvasPage() {
                 },
             }
         }))
-    }, [isExecuting, stepStatuses, setFlowNodes])
+    }, [stepStatuses, setFlowNodes])
 
     useEffect(() => {
         setFlowEdges(edges => edges.map(edge => {
-            const sourceStatus = stepStatuses[edge.source] || (isExecuting ? 'running' : 'pending')
+            const sourceStatus = stepStatuses[edge.source] || 'pending'
             let stroke = '#e5e7eb'
             if (sourceStatus === 'completed') stroke = '#22c55e'
             if (sourceStatus === 'failed') stroke = '#ef4444'
@@ -1175,7 +1266,7 @@ export default function CanvasPage() {
                 style: { stroke, strokeWidth: 2 },
             }
         }))
-    }, [isExecuting, stepStatuses, setFlowEdges])
+    }, [stepStatuses, setFlowEdges])
 
     useEffect(() => {
         if (isExecuting) {
@@ -1523,6 +1614,62 @@ export default function CanvasPage() {
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
+
+                    <Dialog
+                        open={showRenameWorkflowDialog}
+                        onOpenChange={(open) => {
+                            setShowRenameWorkflowDialog(open)
+                            if (!open) {
+                                setRenameWorkflowTarget(null)
+                                setRenameWorkflowName('')
+                            }
+                        }}
+                    >
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Rename Workflow</DialogTitle>
+                                <DialogDescription>
+                                    Update the workflow name.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                                <Label>Workflow Name</Label>
+                                <Input
+                                    className="mt-2"
+                                    placeholder="Workflow name"
+                                    value={renameWorkflowName}
+                                    onChange={(e) => setRenameWorkflowName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault()
+                                            renameWorkflow()
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setShowRenameWorkflowDialog(false)
+                                        setRenameWorkflowTarget(null)
+                                        setRenameWorkflowName('')
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={renameWorkflow}
+                                    disabled={!renameWorkflowName.trim() || isRenamingWorkflow}
+                                >
+                                    {isRenamingWorkflow ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : null}
+                                    Save
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </div>
 
@@ -1634,14 +1781,27 @@ export default function CanvasPage() {
                             <CardTitle className="text-lg text-foreground">Workflows</CardTitle>
                         </CardHeader>
                         <CardContent>
+                            <div className="relative mb-3">
+                                <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                                <Input
+                                    value={workflowSearchQuery}
+                                    onChange={(e) => setWorkflowSearchQuery(e.target.value)}
+                                    placeholder="Search workflows..."
+                                    className="pl-9"
+                                />
+                            </div>
                             <ScrollArea className="h-[500px]">
                                 <div className="space-y-2">
                                     {workflows.length === 0 ? (
                                         <p className="text-sm text-muted-foreground text-center py-8">
                                             No workflows yet. Create one to get started!
                                         </p>
+                                    ) : filteredWorkflows.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground text-center py-8">
+                                            No workflows match your search.
+                                        </p>
                                     ) : (
-                                        workflows.map(workflow => (
+                                        filteredWorkflows.map(workflow => (
                                             <div
                                                 key={workflow.id}
                                                 className={`p-3 border rounded-lg cursor-pointer transition-all group ${selectedWorkflow?.id === workflow.id
@@ -1655,32 +1815,17 @@ export default function CanvasPage() {
                                                         <GitBranch className="h-4 w-4 text-amber-500 flex-shrink-0" />
                                                         <span className="font-medium text-sm truncate">{workflow.name}</span>
                                                     </div>
-                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-7 w-7 p-0 flex-shrink-0 hover:bg-amber-500/20"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation()
-                                                                setRenamingWorkflowId(workflow.id)
-                                                                setRenamingWorkflowName(workflow.name)
-                                                                setShowRenameDialog(true)
-                                                            }}
-                                                        >
-                                                            <Edit2 className="h-3.5 w-3.5 text-amber-500" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-7 w-7 p-0 flex-shrink-0 hover:bg-red-500/20"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation()
-                                                                deleteWorkflow(workflow.id)
-                                                            }}
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                                                        </Button>
-                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 w-6 p-0 flex-shrink-0"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            deleteWorkflow(workflow.id)
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-3 w-3 text-red-500" />
+                                                    </Button>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground mt-1">
                                                     {workflow.workflow_plan?.steps?.length || 0} steps
@@ -1961,6 +2106,21 @@ export default function CanvasPage() {
                                                 </DialogFooter>
                                             </DialogContent>
                                         </Dialog>
+                                        {isExecuting && (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={stopCurrentExecution}
+                                                disabled={isStoppingExecution}
+                                            >
+                                                {isStoppingExecution ? (
+                                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                ) : (
+                                                    <Square className="h-4 w-4 mr-1" />
+                                                )}
+                                                Stop
+                                            </Button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -2064,6 +2224,21 @@ export default function CanvasPage() {
                                             )}
                                             Execute
                                         </Button>
+                                        {isExecuting && (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={stopCurrentExecution}
+                                                disabled={isStoppingExecution}
+                                            >
+                                                {isStoppingExecution ? (
+                                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                ) : (
+                                                    <Square className="h-4 w-4 mr-1" />
+                                                )}
+                                                Stop
+                                            </Button>
+                                        )}
                                     </>
                                 )}
                                 <Button
@@ -2148,7 +2323,7 @@ export default function CanvasPage() {
                                                 <span className="text-[10px] text-muted-foreground truncate block">Workflow Summary</span>
                                             </button>
                                         )}
-                                        {executionResult?.step_results && Object.entries(executionResult.step_results).map(([stepId, result]: [string, any]) => (
+                                        {executionResult?.step_results && Object.entries(executionResult.step_results).map(([stepId, result]: [string, any], index) => (
                                             <button
                                                 key={stepId}
                                                 type="button"
@@ -2164,11 +2339,9 @@ export default function CanvasPage() {
                                                     ) : (
                                                         <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
                                                     )}
-                                                    <span className="text-xs font-medium truncate">{stepId}</span>
+                                                    <span className="text-xs font-medium truncate">{getReadableStepLabel(stepId, result.agent_type, index)}</span>
                                                 </div>
-                                                {result.agent_type && (
-                                                    <span className="text-[10px] text-muted-foreground truncate block">{result.agent_type}</span>
-                                                )}
+                                                <span className="text-[10px] text-muted-foreground truncate block">ID: {stepId}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -2182,6 +2355,11 @@ export default function CanvasPage() {
                                     const content = isInputs ? (typeof result === 'object' ? JSON.stringify(result, null, 2) : result) : (result?.error || result?.response || result?.summary || (result ? (typeof result === 'string' ? result : JSON.stringify(result, null, 2)) : 'Select a step to view its output.'))
                                     const agentType = result?.agent_type
                                     const isSummary = selectedResultStepId === '__summary__'
+                                    const outputLabel = isInputs
+                                        ? 'Run Inputs'
+                                        : isSummary
+                                            ? 'Workflow Summary'
+                                            : (selectedResultStepId ? getReadableStepLabel(selectedResultStepId, agentType) : 'Step Output')
                                     const isImage = (agentType === 'image_generation' || agentType === 'linkedin_headshot' || isSummary) &&
                                         (typeof content === 'string' && (content.startsWith('http') || content.startsWith('data:image/')))
                                     const isAdCopy = agentType === 'ad_copy'
@@ -2190,7 +2368,12 @@ export default function CanvasPage() {
                                     return (
                                         <>
                                             <div className="flex items-center justify-between mb-3">
-                                                <Label className="text-base font-semibold">{selectedResultStepId || 'Step Output'}</Label>
+                                                <div>
+                                                    <Label className="text-base font-semibold">{outputLabel}</Label>
+                                                    {!isInputs && !isSummary && selectedResultStepId && (
+                                                        <p className="text-xs text-muted-foreground mt-1">ID: {selectedResultStepId}</p>
+                                                    )}
+                                                </div>
                                                 {result && !result.error && (
                                                     <div className="flex gap-2">
                                                         {isImage ? (
@@ -2416,6 +2599,15 @@ export default function CanvasPage() {
                                     <span>Progress</span>
                                     <span>{Math.round(executionProgress)}%</span>
                                 </div>
+                                {(() => {
+                                    const activeStepId = Object.keys(stepStatuses).find(stepId => stepStatuses[stepId] === 'running')
+                                    if (!activeStepId) return null
+                                    return (
+                                        <div className="text-xs text-muted-foreground">
+                                            Now running: {getReadableStepLabel(activeStepId, stepDisplayMetaById[activeStepId]?.agentLabel, currentStepIndex)}
+                                        </div>
+                                    )
+                                })()}
                                 <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-amber-500 transition-all duration-300"
@@ -2431,19 +2623,41 @@ export default function CanvasPage() {
                                         <div>Est. remaining: {estimatedTimeRemaining}</div>
                                     )}
                                 </div>
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="w-full mt-2"
+                                    onClick={stopCurrentExecution}
+                                    disabled={isStoppingExecution}
+                                >
+                                    {isStoppingExecution ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : (
+                                        <Square className="h-4 w-4 mr-2" />
+                                    )}
+                                    Stop Execution
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
             )}
             {isExecuting && isExecutionOverlayHidden && (
-                <div className="fixed bottom-6 right-6 z-50">
+                <div className="fixed bottom-6 right-6 z-50 flex gap-2">
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setIsExecutionOverlayHidden(false)}
                     >
                         Show progress
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={stopCurrentExecution}
+                        disabled={isStoppingExecution}
+                    >
+                        Stop
                     </Button>
                 </div>
             )}
@@ -2479,3 +2693,4 @@ export default function CanvasPage() {
         </div>
     )
 }
+
