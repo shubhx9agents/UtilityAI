@@ -82,7 +82,13 @@ export class WorkflowExecutionService {
             // Execute steps in order
             const stepResults: Record<string, any> = {}
 
-            for (const stepId of executionOrder) {
+            for (let stepIndex = 0; stepIndex < executionOrder.length; stepIndex++) {
+                const stepId = executionOrder[stepIndex]
+                const isCancelled = await this.isExecutionCancelled(executionId)
+                if (isCancelled) {
+                    return await this.handleCancelledExecution(executionId, executionOrder.slice(stepIndex), stepResults)
+                }
+
                 const step = plan.steps.find(s => s.step_id === stepId)!
 
                 // Check if all dependencies are completed
@@ -112,6 +118,11 @@ export class WorkflowExecutionService {
                     await this.updateStepStatus(executionId, stepId, 'failed', null, stepError.message)
                     stepResults[stepId] = { error: stepError.message }
                 }
+            }
+
+            const cancelledBeforeFinalization = await this.isExecutionCancelled(executionId)
+            if (cancelledBeforeFinalization) {
+                return await this.handleCancelledExecution(executionId, [], stepResults)
             }
 
             // Generate final result
@@ -182,6 +193,59 @@ export class WorkflowExecutionService {
             .from('workflow_executions')
             .update({ status })
             .eq('id', executionId)
+    }
+
+    private async isExecutionCancelled(executionId: string): Promise<boolean> {
+        const { data, error } = await this.supabase
+            .from('workflow_executions')
+            .select('status')
+            .eq('id', executionId)
+            .single()
+
+        if (error || !data) {
+            return false
+        }
+
+        return data.status === 'cancelled'
+    }
+
+    private async handleCancelledExecution(
+        executionId: string,
+        remainingStepIds: string[],
+        stepResults: Record<string, any>
+    ): Promise<ExecutionResult> {
+        const cancelledAt = new Date().toISOString()
+
+        for (const stepId of remainingStepIds) {
+            await this.updateStepStatus(
+                executionId,
+                stepId,
+                'skipped',
+                undefined,
+                'Execution cancelled by user'
+            )
+        }
+
+        const finalResult = {
+            message: 'Execution cancelled by user',
+            partial_results: stepResults
+        }
+
+        await this.supabase
+            .from('workflow_executions')
+            .update({
+                status: 'cancelled',
+                final_result: finalResult,
+                completed_at: cancelledAt
+            })
+            .eq('id', executionId)
+
+        return {
+            execution_id: executionId,
+            status: 'cancelled',
+            step_results: stepResults,
+            final_result: finalResult
+        }
     }
 
     // Update step status
