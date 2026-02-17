@@ -770,6 +770,133 @@ export default function CanvasPage() {
         }
     }
 
+    const openRenameWorkflowDialog = (workflow: Workflow) => {
+        setRenameWorkflowTarget(workflow)
+        setRenameWorkflowName(workflow.name || '')
+        setShowRenameWorkflowDialog(true)
+    }
+
+    const renameWorkflow = async () => {
+        if (!renameWorkflowTarget) return
+        const nextName = renameWorkflowName.trim()
+        const currentName = renameWorkflowTarget.name || ''
+        if (!nextName || nextName === currentName) {
+            setShowRenameWorkflowDialog(false)
+            return
+        }
+
+        try {
+            setIsRenamingWorkflow(true)
+            const res = await fetch(`/api/canvas/workflows/${renameWorkflowTarget.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: nextName })
+            })
+            const data = await res.json()
+            if (!data.workflow) {
+                toast.error(data.error || 'Failed to rename workflow')
+                return
+            }
+
+            setWorkflows(prev => prev.map(item => (
+                item.id === renameWorkflowTarget.id ? data.workflow : item
+            )))
+            if (selectedWorkflow?.id === renameWorkflowTarget.id) {
+                setSelectedWorkflow(data.workflow)
+            }
+            setShowRenameWorkflowDialog(false)
+            setRenameWorkflowTarget(null)
+            setRenameWorkflowName('')
+            toast.success('Workflow renamed')
+        } catch (error) {
+            console.error('Failed to rename workflow:', error)
+            toast.error('Failed to rename workflow')
+        } finally {
+            setIsRenamingWorkflow(false)
+        }
+    }
+
+    const clearExecutionIntervals = useCallback(() => {
+        if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current)
+            progressIntervalRef.current = null
+        }
+        if (executionDiscoveryIntervalRef.current) {
+            clearInterval(executionDiscoveryIntervalRef.current)
+            executionDiscoveryIntervalRef.current = null
+        }
+    }, [])
+
+    const findActiveExecutionId = useCallback(async (workflowId: string): Promise<string | null> => {
+        try {
+            const res = await fetch(`/api/canvas/workflows/${workflowId}/execute`)
+            const data = await res.json()
+            const activeExecution = (data.executions || []).find((execution: any) =>
+                execution.status === 'running' || execution.status === 'pending'
+            )
+            return activeExecution?.id || null
+        } catch (error) {
+            console.error('Failed to discover active execution:', error)
+            return null
+        }
+    }, [])
+
+    const stopCurrentExecution = useCallback(async () => {
+        if (!isExecuting || !selectedWorkflow) return
+
+        setIsStoppingExecution(true)
+        cancelRequestedRef.current = true
+
+        try {
+            let executionId = currentExecutionId
+            if (!executionId) {
+                executionId = await findActiveExecutionId(selectedWorkflow.id)
+                if (executionId) {
+                    setCurrentExecutionId(executionId)
+                }
+            }
+
+            if (executionId) {
+                const cancelRes = await fetch(`/api/canvas/executions/${executionId}`, { method: 'DELETE' })
+                const cancelData = await cancelRes.json()
+                if (!cancelRes.ok && cancelData?.error) {
+                    toast.error(cancelData.error)
+                } else {
+                    toast.success('Execution stop requested')
+                }
+            } else {
+                toast('Stopping current request...')
+            }
+        } catch (error) {
+            console.error('Failed to stop execution:', error)
+            toast.error('Failed to stop execution')
+        } finally {
+            executionAbortControllerRef.current?.abort()
+            executionAbortControllerRef.current = null
+            clearExecutionIntervals()
+            setIsExecuting(false)
+            setIsStoppingExecution(false)
+            setExecutionProgress(0)
+            setEstimatedTimeRemaining('')
+            setCurrentExecutionId(null)
+            setStepStatuses(prev => {
+                const next = { ...prev }
+                const runningStepId = Object.keys(next).find(stepId => next[stepId] === 'running')
+                if (runningStepId) {
+                    next[runningStepId] = 'skipped'
+                }
+                return next
+            })
+        }
+    }, [clearExecutionIntervals, currentExecutionId, findActiveExecutionId, isExecuting, selectedWorkflow])
+
+    useEffect(() => {
+        return () => {
+            clearExecutionIntervals()
+            executionAbortControllerRef.current?.abort()
+        }
+    }, [clearExecutionIntervals])
+
     const handleNodesChange = useCallback((changes: any[]) => {
         onFlowNodesChange(changes)
         const hasMeaningfulChange = changes.some(change => change.type !== 'select')
@@ -1815,17 +1942,32 @@ export default function CanvasPage() {
                                                         <GitBranch className="h-4 w-4 text-amber-500 flex-shrink-0" />
                                                         <span className="font-medium text-sm truncate">{workflow.name}</span>
                                                     </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-6 w-6 p-0 flex-shrink-0"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            deleteWorkflow(workflow.id)
-                                                        }}
-                                                    >
-                                                        <Trash2 className="h-3 w-3 text-red-500" />
-                                                    </Button>
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 w-6 p-0 flex-shrink-0"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                openRenameWorkflowDialog(workflow)
+                                                            }}
+                                                            title="Rename workflow"
+                                                        >
+                                                            <Pencil className="h-3 w-3 text-blue-500" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 w-6 p-0 flex-shrink-0"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                deleteWorkflow(workflow.id)
+                                                            }}
+                                                            title="Delete workflow"
+                                                        >
+                                                            <Trash2 className="h-3 w-3 text-red-500" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground mt-1">
                                                     {workflow.workflow_plan?.steps?.length || 0} steps
