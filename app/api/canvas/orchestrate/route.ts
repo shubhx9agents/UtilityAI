@@ -187,10 +187,10 @@ ${JSON.stringify(existingInputs, null, 2)}
         }
 
         // Ensure valid structure and limit to 10
-        const normalized = parsed.slice(0, 10).map((item: any) => ({
+        const normalized: Array<{ field: string, label: string, type: 'text' | 'image' }> = parsed.slice(0, 10).map((item: any) => ({
             field: item.field || 'input',
             label: item.label || 'Input',
-            type: item.type === 'image' ? 'image' : 'text'
+            type: (item.type === 'image' ? 'image' : 'text') as 'text' | 'image'
         }))
         return ensurePrimaryUserInput(normalized)
     } catch (error) {
