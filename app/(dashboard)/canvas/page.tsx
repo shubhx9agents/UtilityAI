@@ -2045,7 +2045,7 @@ export default function CanvasPage() {
 
             {/* Results Dialog */}
             <Dialog open={showResultsDialog} onOpenChange={setShowResultsDialog}>
-                <DialogContent className="max-w-7xl w-[98vw] max-h-[95vh] overflow-hidden flex flex-col">
+                <DialogContent className="max-w-7xl w-[98vw] h-[95vh] max-h-[95vh] overflow-hidden flex flex-col">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             {executionResult?.status === 'completed' ? (
@@ -2056,17 +2056,17 @@ export default function CanvasPage() {
                             Workflow Results
                         </DialogTitle>
                     </DialogHeader>
-                    <div className="py-2">
+                    <div className="py-2 flex-1 min-h-0 overflow-hidden">
                         {executionResult?.error && (
                             <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-500 rounded-lg mb-3">
                                 <p className="text-sm text-red-600 dark:text-red-400">{executionResult.error}</p>
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-[75vh]">
-                            <div className="border rounded-lg p-3 flex flex-col lg:col-span-1">
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-full min-h-0">
+                            <div className="border rounded-lg p-3 flex flex-col lg:col-span-1 min-h-0">
                                 <Label className="text-sm font-semibold mb-2">Steps</Label>
-                                <ScrollArea className="flex-1">
+                                <ScrollArea className="flex-1 min-h-0">
                                     <div className="space-y-1.5 pr-2">
                                         {executionResult?.user_inputs && (
                                             <button
@@ -2127,7 +2127,7 @@ export default function CanvasPage() {
                                 </ScrollArea>
                             </div>
 
-                            <div className="border rounded-lg p-4 flex flex-col lg:col-span-4 overflow-hidden">
+                            <div className="border rounded-lg p-4 flex flex-col lg:col-span-4 overflow-hidden min-h-0">
                                 {(() => {
                                     const isInputs = selectedResultStepId === '__inputs__'
                                     const result = isInputs ? executionResult?.user_inputs : (selectedResultStepId === '__summary__' ? executionResult?.final_result : executionResult?.step_results?.[selectedResultStepId as string])
