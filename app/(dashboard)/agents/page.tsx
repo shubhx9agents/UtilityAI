@@ -1,15 +1,11 @@
 'use client'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import {
   Sparkles,
   Image,
   Share2,
   Search,
-  TrendingUp,
-  ArrowRight,
 } from 'lucide-react'
 
 const agents = [
@@ -43,58 +39,51 @@ const agents = [
   },
 ]
 
-const accentMap: Record<string, string> = {
-  amber: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  rose: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
-  teal: 'bg-teal-500/15 text-teal-600 dark:text-teal-400',
-  orange: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-}
+import { ParticleCard, BentoCardGrid } from '@/components/ui/MagicBento'
+import { ArrowRight, Target } from 'lucide-react'
 
 export default function AgentsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
+        <h1 className="font-heading text-3xl font-bold tracking-tight text-white mb-2">
           AI Agents
         </h1>
-        <p className="mt-2 text-muted-foreground">
-          Choose from 4 specialized AI agents to accelerate your business
+        <p className="text-white/50">
+          Choose from 4 specialized AI agents to accelerate your business.
         </p>
       </div>
 
-      <div className="bento-grid bento-grid-4 gap-4">
+      <BentoCardGrid className="!grid-cols-1 !max-w-none md:!grid-cols-2 lg:!grid-cols-4 gap-4 !p-0">
         {agents.map((agent) => (
-          <Link key={agent.id} href={`/agents/${agent.id}`}>
-            <Card className="h-full border-warm-border bg-warm-surface transition hover:border-amber-500/40 hover:shadow-md">
-              <CardHeader>
-                <div className="flex items-start gap-4">
-                  <div
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${accentMap[agent.accent]}`}
-                  >
-                    <agent.icon className="h-6 w-6" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <CardTitle className="text-lg text-foreground group-hover:text-amber-600">
-                      {agent.name}
-                    </CardTitle>
-                    <CardDescription className="mt-1.5">
-                      {agent.description}
-                    </CardDescription>
-                  </div>
+          <Link key={agent.id} href={`/agents/${agent.id}`} className="flex">
+            <ParticleCard
+              className="magic-bento-card w-full !aspect-square group border-[#262626] bg-[#030303] flex flex-col pt-8 magic-bento-card--static-glow"
+              glowColor="245, 158, 11"
+              enableTilt={false}
+              particleCount={0}
+            >
+              <div className="magic-bento-card__header">
+                <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 mb-4 transition-transform group-hover:scale-110`}>
+                  <agent.icon className="h-6 w-6" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  variant="outline"
-                  className="w-full rounded-lg border-warm-border hover:bg-warm-muted"
-                >
-                  Start Agent
-                </Button>
-              </CardContent>
-            </Card>
+                <Target className="h-4 w-4 text-amber-500/20 group-hover:text-amber-500 transition-colors" />
+              </div>
+              <div className="magic-bento-card__content mt-auto">
+                <h3 className="magic-bento-card__title text-lg font-bold text-white group-hover:text-amber-400 transition-colors">
+                  {agent.name}
+                </h3>
+                <p className="magic-bento-card__description text-sm opacity-50 text-white/70 line-clamp-2">
+                  {agent.description}
+                </p>
+                <div className="mt-4 flex items-center text-sm font-bold text-amber-500 opacity-0 transition-all group-hover:opacity-100">
+                  Select Agent <ArrowRight className="ml-1 h-4 w-4" />
+                </div>
+              </div>
+            </ParticleCard>
           </Link>
         ))}
-      </div>
+      </BentoCardGrid>
     </div>
   )
 }

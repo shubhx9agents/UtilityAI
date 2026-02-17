@@ -11,10 +11,10 @@ export default function UpgradePage() {
         <div className="space-y-8 animate-fade-in max-w-5xl mx-auto pb-10">
             {/* Header */}
             <div className="text-center space-y-4">
-                <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-4xl font-bold tracking-tight text-white">
                     Unlock Premium Power
                 </h1>
-                <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                <p className="text-xl text-white/50 max-w-2xl mx-auto">
                     Supercharge your workflow with advanced AI capabilities, unlimited history, and priority support.
                 </p>
             </div>
@@ -22,37 +22,37 @@ export default function UpgradePage() {
             {/* Plans Grid */}
             <div className="grid md:grid-cols-2 gap-8 pt-6">
                 {/* Free Plan */}
-                <Card className="relative border-border bg-card/50">
+                <Card className="relative border-[#262626] bg-[#030303]">
                     <CardHeader>
-                        <CardTitle className="flex justify-between items-center">
-                            <span className="text-2xl">Starter</span>
-                            <Badge variant="secondary">Current</Badge>
+                        <CardTitle className="flex justify-between items-center text-white">
+                            <span className="text-2xl font-bold">Starter</span>
+                            <Badge variant="secondary" className="bg-white/10 text-white border-white/20">Current</Badge>
                         </CardTitle>
-                        <CardDescription>Perfect for exploring AI capabilities</CardDescription>
+                        <CardDescription className="text-white/40 font-medium">Perfect for exploring AI capabilities</CardDescription>
                         <div className="pt-4">
-                            <span className="text-4xl font-bold">$0</span>
-                            <span className="text-muted-foreground">/month</span>
+                            <span className="text-5xl font-bold text-white">$0</span>
+                            <span className="text-white/40 ml-2">/month</span>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <ul className="space-y-3 text-sm">
-                            <li className="flex items-center">
-                                <Check className="h-4 w-4 text-green-500 mr-3" />
+                        <ul className="space-y-4 text-sm">
+                            <li className="flex items-center text-white/60">
+                                <Check className="h-4 w-4 text-amber-500 mr-3" />
                                 <span>Access 4 Basic AI Agents</span>
                             </li>
-                            <li className="flex items-center">
-                                <Check className="h-4 w-4 text-green-500 mr-3" />
+                            <li className="flex items-center text-white/60">
+                                <Check className="h-4 w-4 text-amber-500 mr-3" />
                                 <span>1,000 AI Token Credits/mo</span>
                             </li>
-                            <li className="flex items-center">
-                                <Check className="h-4 w-4 text-green-500 mr-3" />
+                            <li className="flex items-center text-white/60">
+                                <Check className="h-4 w-4 text-amber-500 mr-3" />
                                 <span>Standard Processing Speed</span>
                             </li>
-                            <li className="flex items-center text-muted-foreground">
+                            <li className="flex items-center text-white/30">
                                 <X className="h-4 w-4 mr-3" />
                                 <span>Deep Research & Analysis</span>
                             </li>
-                            <li className="flex items-center text-muted-foreground">
+                            <li className="flex items-center text-white/30">
                                 <X className="h-4 w-4 mr-3" />
                                 <span>Export to PDF & CSV</span>
                             </li>
@@ -61,47 +61,47 @@ export default function UpgradePage() {
                 </Card>
 
                 {/* Pro Plan */}
-                <Card className="relative border-purple-500/50 bg-gradient-to-b from-purple-500/5 to-transparent shadow-xl border-2">
+                <Card className="relative border-amber-500/30 bg-[#0d0d0d] shadow-[0_0_30px_rgba(245,158,11,0.05)] border-2">
                     <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                        <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 border-none px-4 py-1">
+                        <Badge className="bg-amber-500 text-black border-none px-6 py-1.5 font-bold shadow-lg shadow-amber-500/20">
                             Recommended
                         </Badge>
                     </div>
                     <CardHeader>
-                        <CardTitle className="flex justify-between items-center">
-                            <span className="text-2xl">Pro</span>
-                            <Sparkles className="h-5 w-5 text-purple-500" />
+                        <CardTitle className="flex justify-between items-center text-white mt-2">
+                            <span className="text-2xl font-bold">Pro</span>
+                            <Sparkles className="h-6 w-6 text-amber-500" />
                         </CardTitle>
-                        <CardDescription>For power users and professionals</CardDescription>
+                        <CardDescription className="text-amber-500/60 font-medium">For power users and professionals</CardDescription>
                         <div className="pt-4">
-                            <span className="text-4xl font-bold">$29</span>
-                            <span className="text-muted-foreground">/month</span>
+                            <span className="text-5xl font-bold text-white">$29</span>
+                            <span className="text-white/40 ml-2">/month</span>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                        <ul className="space-y-3 text-sm">
-                            <li className="flex items-center">
-                                <Check className="h-4 w-4 text-blue-500 mr-3" />
-                                <span className="font-medium">Access All 12+ Specialist Agents</span>
+                    <CardContent className="space-y-8">
+                        <ul className="space-y-4 text-sm">
+                            <li className="flex items-center text-white/80">
+                                <Check className="h-4 w-4 text-amber-500 mr-3" />
+                                <span className="font-bold">Access All 12+ Specialist Agents</span>
                             </li>
-                            <li className="flex items-center">
-                                <Check className="h-4 w-4 text-blue-500 mr-3" />
-                                <span className="font-medium">Unlimited AI Tokens</span>
+                            <li className="flex items-center text-white/80">
+                                <Check className="h-4 w-4 text-amber-500 mr-3" />
+                                <span className="font-bold">Unlimited AI Tokens</span>
                             </li>
-                            <li className="flex items-center">
-                                <Check className="h-4 w-4 text-blue-500 mr-3" />
-                                <span className="font-medium">Fastest 'Turbo' Processing</span>
+                            <li className="flex items-center text-white/80">
+                                <Check className="h-4 w-4 text-amber-500 mr-3" />
+                                <span className="font-bold">Fastest 'Turbo' Processing</span>
                             </li>
-                            <li className="flex items-center">
-                                <Check className="h-4 w-4 text-blue-500 mr-3" />
+                            <li className="flex items-center text-white/80">
+                                <Check className="h-4 w-4 text-amber-500 mr-3" />
                                 <span>Persistent Storage (Never Expire)</span>
                             </li>
-                            <li className="flex items-center">
-                                <Check className="h-4 w-4 text-blue-500 mr-3" />
+                            <li className="flex items-center text-white/80">
+                                <Check className="h-4 w-4 text-amber-500 mr-3" />
                                 <span>Priority 24/7 Support</span>
                             </li>
                         </ul>
-                        <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg" disabled>
+                        <Button className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold h-12 text-lg shadow-lg shadow-amber-500/20" disabled>
                             Upgrade Now
                         </Button>
                     </CardContent>

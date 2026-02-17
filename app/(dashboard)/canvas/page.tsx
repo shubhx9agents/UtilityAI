@@ -158,15 +158,15 @@ const AGENT_NODE_LIBRARY: Record<string, { inputs: string[]; outputs: string[] }
 const getStatusClassName = (status: StepStatus) => {
     switch (status) {
         case 'completed':
-            return 'border-green-500 bg-green-50 dark:bg-green-950/30'
+            return 'border-green-500/50 bg-green-500/10'
         case 'running':
-            return 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-[0_0_0_2px_rgba(59,130,246,0.15)]'
+            return 'border-amber-500 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
         case 'failed':
-            return 'border-red-500 bg-red-50 dark:bg-red-950/30'
+            return 'border-red-500/50 bg-red-500/10'
         case 'skipped':
-            return 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30'
+            return 'border-zinc-500/50 bg-zinc-500/10'
         default:
-            return 'border-gray-300 dark:border-gray-700 bg-background'
+            return 'border-[#262626] bg-[#0d0d0d]'
     }
 }
 
@@ -177,21 +177,21 @@ const AgentNode = ({ data }: NodeProps<FlowNodeData>) => {
             <Handle type="target" position={Position.Left} className="!bg-amber-500" />
             <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
                         <Bot className="h-4 w-4" />
                     </div>
                     <div>
-                        <div className="text-sm font-semibold text-foreground">{data.label}</div>
+                        <div className="text-sm font-semibold text-white">{data.label}</div>
                         {data.agentType && (
-                            <div className="text-[11px] text-muted-foreground">{data.agentType}</div>
+                            <div className="text-[11px] text-white/40">{data.agentType}</div>
                         )}
                     </div>
                 </div>
-                <span className="rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-white/40">
                     {status}
                 </span>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground line-clamp-1">
+            <p className="mt-2 text-xs text-white/50 line-clamp-1">
                 {data.description || 'Single-step action in the workflow.'}
             </p>
             <Handle type="source" position={Position.Right} className="!bg-amber-500" />

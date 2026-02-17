@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Save, Loader2, Trash2 } from 'lucide-react'
+import { Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Save, Loader2, Trash2, Rocket } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
+import { ParticleCard, BentoCardGrid, GlobalSpotlight } from '@/components/ui/MagicBento'
 import {
     AlertDialog,
     AlertDialogAction,
@@ -37,6 +37,11 @@ export default function OnboardingPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [userId, setUserId] = useState<string | null>(null)
+    const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({})
+
+    const toggleExpand = (field: string) => {
+        setExpandedFields(prev => ({ ...prev, [field]: !prev[field] }))
+    }
 
     // Form State
     const [formData, setFormData] = useState({
@@ -183,269 +188,374 @@ export default function OnboardingPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto py-8 px-4">
-            {/* Header */}
-            <div className="text-center mb-10">
-                <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Onboarding</h1>
-                <p className="text-muted-foreground mt-2">
-                    Step {currentStep} of {steps.length}: {steps[currentStep - 1].title}
-                </p>
-                {/* Progress Bar */}
-                <div className="w-full max-w-md mx-auto h-2 bg-warm-muted mt-4 rounded-full overflow-hidden">
-                    <div
-                        className="h-full bg-amber-500 transition-all duration-300 ease-in-out"
-                        style={{ width: `${(currentStep / steps.length) * 100}%` }}
-                    />
-                </div>
-            </div>
+        <div className="max-w-5xl mx-auto py-8 px-4 min-h-screen flex flex-col items-center justify-center">
+            {/* Main Container with Particle Effect */}
+            <ParticleCard
+                className="w-full border-[#262626] bg-[#030303] overflow-hidden shadow-2xl !aspect-auto !min-h-0 magic-bento-card--static-glow"
+                particleCount={0}
+                glowColor="245, 158, 11"
+                enableTilt={false}
+            >
+                <div className="flex flex-col md:flex-row h-full">
+                    {/* Left Sidebar: Progress & Context */}
+                    <div className="w-full md:w-1/3 bg-white/5 p-8 border-b md:border-b-0 md:border-r border-[#262626] flex flex-col justify-between">
+                        <div>
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 mb-6">
+                                <Sparkles className="h-6 w-6" />
+                            </div>
+                            <h1 className="font-heading text-2xl font-bold text-white mb-2">Build Your Identity</h1>
+                            <p className="text-white/40 text-sm mb-8">
+                                Help us understand your business to generate highly personalized AI results.
+                            </p>
 
-            <Card className="max-w-2xl mx-auto border-warm-border bg-warm-surface shadow-sm">
-                <CardHeader>
-                    <CardTitle>{steps[currentStep - 1].title}</CardTitle>
-                    <CardDescription>{steps[currentStep - 1].description}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6 min-h-[300px]">
-                    {currentStep === 1 && (
-                        <>
-                            <div className="space-y-2">
-                                <Label>Business Name</Label>
-                                <Input
-                                    value={formData.business_name}
-                                    onChange={e => setFormData({ ...formData, business_name: e.target.value })}
-                                    placeholder="e.g. Acme Corp"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Website (Optional)</Label>
-                                <Input
-                                    value={formData.website}
-                                    onChange={e => setFormData({ ...formData, website: e.target.value })}
-                                    placeholder="https://example.com"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Industry</Label>
-                                <Select
-                                    value={formData.industry}
-                                    onValueChange={v => setFormData({ ...formData, industry: v })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select industry" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="technology">Technology / SaaS</SelectItem>
-                                        <SelectItem value="ecommerce">E-commerce</SelectItem>
-                                        <SelectItem value="agency">Agency / Services</SelectItem>
-                                        <SelectItem value="healthcare">Healthcare</SelectItem>
-                                        <SelectItem value="finance">Finance</SelectItem>
-                                        <SelectItem value="education">Education</SelectItem>
-                                        <SelectItem value="other">Other</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Short Description</Label>
-                                <textarea
-                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[100px]"
-                                    value={formData.description}
-                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    placeholder="What does your business do?"
-                                />
-                            </div>
-                        </>
-                    )}
+                            <nav className="space-y-4">
+                                {steps.map((step) => (
+                                    <button
+                                        key={step.id}
+                                        onClick={() => setCurrentStep(step.id)}
+                                        className={`flex items-center gap-3 transition-all duration-300 w-full text-left group ${currentStep === step.id ? 'opacity-100' : 'opacity-40 hover:opacity-70'
+                                            }`}
+                                    >
+                                        <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${currentStep === step.id
+                                            ? 'bg-amber-500 text-black border-amber-500'
+                                            : 'border-white/20 text-white group-hover:border-amber-500/50'
+                                            }`}>
+                                            {step.id < currentStep ? <CheckCircle2 className="h-4 w-4" /> : step.id}
+                                        </div>
+                                        <div className="hidden sm:block">
+                                            <p className={`text-xs font-bold uppercase tracking-widest transition-colors ${currentStep === step.id ? 'text-white' : 'text-white/60 group-hover:text-amber-500'
+                                                }`}>{step.title}</p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </nav>
+                        </div>
 
-                    {currentStep === 2 && (
-                        <>
-                            <div className="space-y-2">
-                                <Label>Mission Statement</Label>
-                                <textarea
-                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[80px]"
-                                    value={formData.mission}
-                                    onChange={e => setFormData({ ...formData, mission: e.target.value })}
-                                    placeholder="Why does your company exist?"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Unique Selling Proposition (USP)</Label>
-                                <textarea
-                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[80px]"
-                                    value={formData.usp}
-                                    onChange={e => setFormData({ ...formData, usp: e.target.value })}
-                                    placeholder="What makes you different from competitors?"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Tone of Voice</Label>
-                                <Select
-                                    value={formData.tone_voice}
-                                    onValueChange={v => setFormData({ ...formData, tone_voice: v })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select tone" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="professional">Professional & Corporate</SelectItem>
-                                        <SelectItem value="friendly">Friendly & Casual</SelectItem>
-                                        <SelectItem value="enthusiastic">Enthusiastic & High Energy</SelectItem>
-                                        <SelectItem value="luxury">Luxury & Sophisticated</SelectItem>
-                                        <SelectItem value="educational">Educational & Informative</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </>
-                    )}
-
-                    {currentStep === 3 && (
-                        <>
-                            <div className="space-y-2">
-                                <Label>Ideal Customer Profile</Label>
-                                <textarea
-                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[100px]"
-                                    value={formData.audience_desc}
-                                    onChange={e => setFormData({ ...formData, audience_desc: e.target.value })}
-                                    placeholder="Who is your ideal customer? (Demographics, job titles, interests)"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Customer Pain Points</Label>
-                                <textarea
-                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[100px]"
-                                    value={formData.pain_points}
-                                    onChange={e => setFormData({ ...formData, pain_points: e.target.value })}
-                                    placeholder="What problems are you solving for them?"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Secondary Problems (Optional)</Label>
-                                <textarea
-                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[100px]"
-                                    value={formData.secondary_problems}
-                                    onChange={e => setFormData({ ...formData, secondary_problems: e.target.value })}
-                                    placeholder="Any other related problems? (Optional)"
-                                />
-                            </div>
-                        </>
-                    )}
-
-                    {currentStep === 4 && (
-                        <>
-                            <div className="space-y-2">
-                                <Label>Primary Business Goal</Label>
-                                <Select
-                                    value={formData.primary_goal}
-                                    onValueChange={v => setFormData({ ...formData, primary_goal: v })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select primary goal" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="sales">Increase Sales / Revenue</SelectItem>
-                                        <SelectItem value="leads">Generate Leads</SelectItem>
-                                        <SelectItem value="awareness">Brand Awareness</SelectItem>
-                                        <SelectItem value="retention">Customer Retention</SelectItem>
-                                        <SelectItem value="efficiency">Operational Efficiency</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </>
-                    )}
-
-                    {currentStep === 5 && (
-                        <div className="space-y-4">
-                            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                                <h3 className="font-semibold text-lg border-b pb-2">Business Snapshot</h3>
-                                <p><span className="font-medium">Name:</span> {formData.business_name}</p>
-                                <p><span className="font-medium">Industry:</span> {formData.industry}</p>
-                            </div>
-                            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                                <h3 className="font-semibold text-lg border-b pb-2">Values</h3>
-                                <p><span className="font-medium">Mission:</span> {formData.mission}</p>
-                                <p><span className="font-medium">USP:</span> {formData.usp}</p>
-                            </div>
-                            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                                <h3 className="font-semibold text-lg border-b pb-2">Audience</h3>
-                                <p>{formData.audience_desc}</p>
+                        <div className="mt-8 pt-8 border-t border-white/10 hidden md:block">
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-white/30 font-bold mb-2">Status</p>
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                <span className="text-xs text-amber-500/80 font-medium">Drafting Profile</span>
                             </div>
                         </div>
-                    )}
-                </CardContent>
-                <CardFooter className="flex justify-between items-center gap-4">
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            type="button"
-                            onClick={() => setCurrentStep(prev => prev - 1)}
-                            disabled={currentStep === 1 || isSaving}
-                        >
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back
-                        </Button>
-                        {currentStep === 5 && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="destructive"
-                                        type="button"
-                                        disabled={isSaving}
-                                    >
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Delete
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This action cannot be undone. This will permanently delete your onboarding profile
-                                            and remove all saved business context from our servers.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleDeleteProfile} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                            Delete Profile
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
                     </div>
 
-                    {currentStep < 5 ? (
-                        <Button
-                            type="button"
-                            onClick={(e) => handleSave(false, e)}
-                            disabled={isSaving}
-                        >
-                            {isSaving ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                                <>
-                                    Next
-                                    <ArrowRight className="h-4 w-4 ml-2" />
-                                </>
+                    {/* Right Side: Form Content */}
+                    <div className="flex-1 p-8 sm:p-12 relative flex flex-col">
+                        <div className="mb-8">
+                            <h2 className="text-xl font-bold text-white">{steps[currentStep - 1].title}</h2>
+                            <p className="text-white/50 text-sm">{steps[currentStep - 1].description}</p>
+                        </div>
+
+                        <div className="flex-1 min-h-[350px]">
+                            {currentStep === 1 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Business Name</Label>
+                                        <Input
+                                            className="bg-white/5 border-[#262626] text-white focus:border-amber-500/50 h-11"
+                                            value={formData.business_name}
+                                            onChange={e => setFormData({ ...formData, business_name: e.target.value })}
+                                            placeholder="e.g. Acme Corp"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Industry</Label>
+                                        <Select
+                                            value={formData.industry}
+                                            onValueChange={v => setFormData({ ...formData, industry: v })}
+                                        >
+                                            <SelectTrigger className="bg-white/5 border-[#262626] text-white h-11">
+                                                <SelectValue placeholder="Select industry" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-[#0d0d0d] border-[#262626] text-white">
+                                                <SelectItem value="technology">Technology / SaaS</SelectItem>
+                                                <SelectItem value="ecommerce">E-commerce</SelectItem>
+                                                <SelectItem value="agency">Agency / Services</SelectItem>
+                                                <SelectItem value="healthcare">Healthcare</SelectItem>
+                                                <SelectItem value="finance">Finance</SelectItem>
+                                                <SelectItem value="education">Education</SelectItem>
+                                                <SelectItem value="other">Other</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2 sm:col-span-2">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Website (Optional)</Label>
+                                        <Input
+                                            className="bg-white/5 border-[#262626] text-white focus:border-amber-500/50 h-11"
+                                            value={formData.website}
+                                            onChange={e => setFormData({ ...formData, website: e.target.value })}
+                                            placeholder="https://example.com"
+                                        />
+                                    </div>
+                                    <div className="space-y-4 sm:col-span-2">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Short Description</Label>
+                                        <textarea
+                                            className="flex w-full rounded-lg border border-[#262626] bg-white/5 px-4 py-3 text-sm text-white focus:border-amber-500/50 outline-none min-h-[300px] transition-all"
+                                            value={formData.description}
+                                            onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                            placeholder="Briefly explain what your business does..."
+                                        />
+                                    </div>
+                                </div>
                             )}
-                        </Button>
-                    ) : (
-                        <Button
-                            type="button"
-                            onClick={(e) => handleSave(true, e)}
-                            disabled={isSaving}
-                            className="bg-amber-500 text-zinc-900 hover:bg-amber-600"
-                        >
-                            {isSaving ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                                <>
-                                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                                    Finish & Save
-                                </>
+
+                            {currentStep === 2 && (
+                                <div className="space-y-8">
+                                    <div className="space-y-4">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Mission Statement</Label>
+                                        <textarea
+                                            className="flex w-full rounded-lg border border-[#262626] bg-white/5 px-4 py-3 text-sm text-white focus:border-amber-500/50 outline-none min-h-[180px] transition-all"
+                                            value={formData.mission}
+                                            onChange={e => setFormData({ ...formData, mission: e.target.value })}
+                                            placeholder="Why does your company exist? What's your core purpose?"
+                                        />
+                                    </div>
+                                    <div className="space-y-4">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Unique Selling Proposition (USP)</Label>
+                                        <textarea
+                                            className="flex w-full rounded-lg border border-[#262626] bg-white/5 px-4 py-3 text-sm text-white focus:border-amber-500/50 outline-none min-h-[180px] transition-all"
+                                            value={formData.usp}
+                                            onChange={e => setFormData({ ...formData, usp: e.target.value })}
+                                            placeholder="What makes you stand out from the competition?"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Brand Voice</Label>
+                                        <Select
+                                            value={formData.tone_voice}
+                                            onValueChange={v => setFormData({ ...formData, tone_voice: v })}
+                                        >
+                                            <SelectTrigger className="bg-white/5 border-[#262626] text-white h-11">
+                                                <SelectValue placeholder="Select tone" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-[#0d0d0d] border-[#262626] text-white">
+                                                <SelectItem value="professional">Professional & Corporate</SelectItem>
+                                                <SelectItem value="friendly">Friendly & Casual</SelectItem>
+                                                <SelectItem value="enthusiastic">Enthusiastic & High Energy</SelectItem>
+                                                <SelectItem value="luxury">Luxury & Sophisticated</SelectItem>
+                                                <SelectItem value="educational">Educational & Informative</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
                             )}
-                        </Button>
-                    )}
-                </CardFooter>
-            </Card>
+
+                            {currentStep === 3 && (
+                                <div className="space-y-8">
+                                    <div className="space-y-4">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Ideal Customer Profile</Label>
+                                        <textarea
+                                            className="flex w-full rounded-lg border border-[#262626] bg-white/5 px-4 py-3 text-sm text-white focus:border-amber-500/50 outline-none min-h-[180px] transition-all"
+                                            value={formData.audience_desc}
+                                            onChange={e => setFormData({ ...formData, audience_desc: e.target.value })}
+                                            placeholder="Describe your target audience (Demographics, job titles, interests)..."
+                                        />
+                                    </div>
+                                    <div className="space-y-4">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Main Pain Points</Label>
+                                        <textarea
+                                            className="flex w-full rounded-lg border border-[#262626] bg-white/5 px-4 py-3 text-sm text-white focus:border-amber-500/50 outline-none min-h-[150px] transition-all"
+                                            value={formData.pain_points}
+                                            onChange={e => setFormData({ ...formData, pain_points: e.target.value })}
+                                            placeholder="What specific problems are you solving for them?"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Secondary Challenges (Optional)</Label>
+                                        <textarea
+                                            className="flex w-full rounded-lg border border-[#262626] bg-white/5 px-4 py-3 text-sm text-white focus:border-amber-500/50 outline-none min-h-[80px] transition-all"
+                                            value={formData.secondary_problems}
+                                            onChange={e => setFormData({ ...formData, secondary_problems: e.target.value })}
+                                            placeholder="Any other related issues your customers face?"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {currentStep === 4 && (
+                                <div className="space-y-8">
+                                    <div className="space-y-4">
+                                        <Label className="text-white/70 text-xs font-bold uppercase tracking-wider">Primary Business Goal</Label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {[
+                                                { id: 'sales', label: 'Increase Sales', icon: Save },
+                                                { id: 'leads', label: 'Generate Leads', icon: Sparkles },
+                                                { id: 'awareness', label: 'Brand Awareness', icon: Sparkles },
+                                                { id: 'retention', label: 'Customer Retention', icon: Sparkles },
+                                                { id: 'efficiency', label: 'Operational Efficiency', icon: Sparkles }
+                                            ].map((goal) => (
+                                                <button
+                                                    key={goal.id}
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, primary_goal: goal.id })}
+                                                    className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${formData.primary_goal === goal.id
+                                                        ? 'bg-amber-500/10 border-amber-500 text-amber-500'
+                                                        : 'bg-white/5 border-[#262626] text-white/60 hover:border-white/20'
+                                                        }`}
+                                                >
+                                                    <goal.icon className="h-5 w-5" />
+                                                    <span className="text-sm font-medium">{goal.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {currentStep === 5 && (
+                                <div className="space-y-10">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                                        <div className="space-y-3">
+                                            <p className="text-[10px] uppercase tracking-[0.3em] text-amber-500 font-bold">Business Name</p>
+                                            <p className="text-2xl text-white font-bold tracking-tight">{formData.business_name || 'Not provided'}</p>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <p className="text-[10px] uppercase tracking-[0.3em] text-amber-500 font-bold">Industry</p>
+                                            <div className="text-lg text-white font-medium capitalize flex items-center gap-2">
+                                                <div className="h-2 w-2 rounded-full bg-amber-500" />
+                                                {formData.industry || 'Not provided'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-8">
+                                        <div className="space-y-6 border-l-2 border-amber-500/20 pl-6">
+                                            <div
+                                                className="cursor-pointer group space-y-2"
+                                                onClick={() => toggleExpand('mission')}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Mission Statement</p>
+                                                    <span className="text-[9px] text-amber-500/40 uppercase font-bold group-hover:text-amber-500/80 transition-colors">
+                                                        {expandedFields['mission'] ? 'Collapse' : 'Expand View'}
+                                                    </span>
+                                                </div>
+                                                <p className={`text-sm leading-relaxed text-white/80 transition-all duration-500 ${expandedFields['mission'] ? 'bg-white/5 p-4 rounded-lg' : 'line-clamp-2'}`}>
+                                                    {formData.mission || 'No mission statement added.'}
+                                                </p>
+                                            </div>
+
+                                            <div
+                                                className="cursor-pointer group space-y-2"
+                                                onClick={() => toggleExpand('usp')}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Unique Value Proposition</p>
+                                                    <span className="text-[9px] text-amber-500/40 uppercase font-bold group-hover:text-amber-500/80 transition-colors">
+                                                        {expandedFields['usp'] ? 'Collapse' : 'Expand View'}
+                                                    </span>
+                                                </div>
+                                                <p className={`text-sm leading-relaxed text-white/80 transition-all duration-500 ${expandedFields['usp'] ? 'bg-white/5 p-4 rounded-lg' : 'line-clamp-2'}`}>
+                                                    {formData.usp || 'No USP defined.'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            className="bg-amber-500/5 p-8 rounded-2xl border border-amber-500/10 cursor-pointer group active:scale-[0.99] transition-all"
+                                            onClick={() => toggleExpand('audience')}
+                                        >
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-2">
+                                                    <Rocket className="h-4 w-4 text-amber-500" />
+                                                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500 font-bold">Target Audience Strategy</p>
+                                                </div>
+                                                <span className="text-[9px] text-amber-500/40 uppercase font-bold group-hover:text-amber-500/80 transition-colors">
+                                                    {expandedFields['audience'] ? 'Show Less' : 'Full Analysis'}
+                                                </span>
+                                            </div>
+                                            <p className={`text-sm leading-relaxed text-white/90 transition-all duration-500 ${expandedFields['audience'] ? '' : 'line-clamp-3'}`}>
+                                                {formData.audience_desc || 'No audience details provided.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer Controls */}
+                        <div className="mt-12 flex justify-between items-center pt-8 border-t border-white/10">
+                            <div className="flex gap-4">
+                                <Button
+                                    variant="ghost"
+                                    type="button"
+                                    onClick={() => setCurrentStep(prev => prev - 1)}
+                                    disabled={currentStep === 1 || isSaving}
+                                    className="text-white/40 hover:text-white hover:bg-white/5 px-0"
+                                >
+                                    <ArrowLeft className="h-4 w-4 mr-2" />
+                                    Back
+                                </Button>
+
+                                {currentStep === 5 && (
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                type="button"
+                                                disabled={isSaving}
+                                                className="text-red-500/60 hover:text-red-500 hover:bg-red-500/10"
+                                            >
+                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                Reset
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="bg-[#0d0d0d] border-[#262626] text-white">
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Reset Onboarding?</AlertDialogTitle>
+                                                <AlertDialogDescription className="text-white/50">
+                                                    This will permanently delete your onboarding profile. You will need to start over from step 1.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel className="bg-white/5 border-[#262626] text-white hover:bg-white/10">Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleDeleteProfile} className="bg-red-500 text-white hover:bg-red-600">
+                                                    Reset Profile
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                )}
+                            </div>
+
+                            {currentStep < 5 ? (
+                                <Button
+                                    type="button"
+                                    onClick={(e) => handleSave(false, e)}
+                                    disabled={isSaving}
+                                    className="bg-amber-500 text-black hover:bg-amber-400 font-bold px-8 h-12 rounded-xl shadow-lg shadow-amber-500/20"
+                                >
+                                    {isSaving ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : (
+                                        <>
+                                            Next Step
+                                            <ArrowRight className="h-4 w-4 ml-2" />
+                                        </>
+                                    )}
+                                </Button>
+                            ) : (
+                                <Button
+                                    type="button"
+                                    onClick={(e) => handleSave(true, e)}
+                                    disabled={isSaving}
+                                    className="bg-amber-500 text-black hover:bg-amber-400 font-bold px-12 h-12 rounded-xl shadow-lg shadow-amber-500/20"
+                                >
+                                    {isSaving ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                                            Complete Profile
+                                        </>
+                                    )}
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </ParticleCard>
         </div>
     )
 }

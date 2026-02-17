@@ -13,83 +13,83 @@ export default function SettingsPage() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Settings</h1>
-                <p className="mt-2 text-muted-foreground">
+                <h1 className="font-heading text-3xl font-bold tracking-tight text-white">Settings</h1>
+                <p className="mt-2 text-white/50">
                     Manage your account and preferences
                 </p>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-                <Card className="border-warm-border bg-warm-surface shadow-sm">
+                <Card className="border-[#262626] bg-[#030303] shadow-sm">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-foreground">
+                        <CardTitle className="flex items-center gap-2 text-white">
                             <User className="h-5 w-5 text-amber-500" />
                             <span>Profile</span>
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-white/50">
                             Update your personal information
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input id="email" type="email" value={user?.email || ''} disabled />
+                            <Label htmlFor="email" className="text-white/70">Email</Label>
+                            <Input id="email" type="email" value={user?.email || ''} disabled className="bg-[#0d0d0d] border-[#262626] text-white/50" />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="name">Name</Label>
-                            <Input id="name" type="text" placeholder="Your name" />
+                            <Label htmlFor="name" className="text-white/70">Name</Label>
+                            <Input id="name" type="text" placeholder="Your name" className="bg-[#0d0d0d] border-[#262626] text-white focus:border-amber-500/50" />
                         </div>
-                        <Button className="rounded-lg bg-amber-500 text-zinc-900 hover:bg-amber-600 border-0">Save Changes</Button>
+                        <Button className="rounded-lg bg-amber-500 text-black hover:bg-amber-400 font-bold px-8">Save Changes</Button>
                     </CardContent>
                 </Card>
 
-                <Card className="border-warm-border bg-warm-surface shadow-sm">
+                <Card className="border-[#262626] bg-[#030303] shadow-sm">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-foreground">
+                        <CardTitle className="flex items-center gap-2 text-white">
                             <Shield className="h-5 w-5 text-amber-500" />
                             <span>Security</span>
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-white/50">
                             Manage your password and security settings
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="current-password">Current Password</Label>
-                            <Input id="current-password" type="password" placeholder="••••••••" />
+                            <Label htmlFor="current-password" className="text-white/70">Current Password</Label>
+                            <Input id="current-password" type="password" placeholder="••••••••" className="bg-[#0d0d0d] border-[#262626] text-white focus:border-amber-500/50" />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="new-password">New Password</Label>
-                            <Input id="new-password" type="password" placeholder="••••••••" />
+                            <Label htmlFor="new-password" className="text-white/70">New Password</Label>
+                            <Input id="new-password" type="password" placeholder="••••••••" className="bg-[#0d0d0d] border-[#262626] text-white focus:border-amber-500/50" />
                         </div>
-                        <Button className="rounded-lg border-warm-border">Update Password</Button>
+                        <Button variant="outline" className="rounded-lg border-[#262626] text-white hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all font-bold">Update Password</Button>
                     </CardContent>
                 </Card>
 
-                <Card className="border-warm-border bg-warm-surface shadow-sm lg:col-span-2">
+                <Card className="border-[#262626] bg-[#030303] shadow-sm lg:col-span-2">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-foreground">
+                        <CardTitle className="flex items-center gap-2 text-white">
                             <Bell className="h-5 w-5 text-amber-500" />
                             <span>Notifications</span>
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-white/50">
                             Configure your notification preferences
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between rounded-lg border border-warm-border p-4">
+                        <div className="flex items-center justify-between rounded-lg border border-[#262626] p-4 bg-white/5">
                             <div>
-                                <p className="font-medium text-foreground">Email Notifications</p>
-                                <p className="text-sm text-muted-foreground">Receive updates via email</p>
+                                <p className="font-medium text-white">Email Notifications</p>
+                                <p className="text-sm text-white/50">Receive updates via email</p>
                             </div>
-                            <Button variant="outline" size="sm" className="rounded-lg border-warm-border">Enable</Button>
+                            <Button variant="outline" size="sm" className="rounded-lg border-[#262626] text-white hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all font-bold">Enable</Button>
                         </div>
-                        <div className="flex items-center justify-between rounded-lg border border-warm-border p-4">
+                        <div className="flex items-center justify-between rounded-lg border border-[#262626] p-4 bg-white/5">
                             <div>
-                                <p className="font-medium text-foreground">AI Agent Updates</p>
-                                <p className="text-sm text-muted-foreground">Get notified about new AI features</p>
+                                <p className="font-medium text-white">AI Agent Updates</p>
+                                <p className="text-sm text-white/50">Get notified about new AI features</p>
                             </div>
-                            <Button variant="outline" size="sm" className="rounded-lg border-warm-border">Enable</Button>
+                            <Button variant="outline" size="sm" className="rounded-lg border-[#262626] text-white hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all font-bold">Enable</Button>
                         </div>
                     </CardContent>
                 </Card>
