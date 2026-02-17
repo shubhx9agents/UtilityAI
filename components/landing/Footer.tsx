@@ -47,7 +47,7 @@ export function Footer() {
     <footer className="relative py-12 px-6">
       {/* BentoGrid Style Wrapper */}
       <div className="mx-auto max-w-7xl">
-        <motion.div 
+        <motion.div
           className="relative rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(245,158,11,0.08)]"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -57,29 +57,29 @@ export function Footer() {
           <div className="absolute inset-0 bg-white/[0.03] backdrop-blur-2xl" />
           <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-white/[0.03]" />
           <div className="absolute inset-0 border border-white/[0.12] rounded-3xl" />
-          
+
           {/* Subtle grid pattern */}
-          <div 
+          <div
             className="absolute inset-0 opacity-[0.02] rounded-3xl"
             style={{
               backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
               backgroundSize: '40px 40px'
             }}
           />
-          
+
           {/* Animated gradient orbs */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-3xl">
-            <motion.div 
+            <motion.div
               className="absolute -bottom-32 -left-32 w-80 h-80 bg-amber-500/10 rounded-full blur-[100px]"
-              animate={{ 
+              animate={{
                 scale: [1, 1.2, 1],
                 opacity: [0.1, 0.15, 0.1]
               }}
               transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
             />
-            <motion.div 
+            <motion.div
               className="absolute -top-20 -right-20 w-64 h-64 bg-purple-500/8 rounded-full blur-[80px]"
-              animate={{ 
+              animate={{
                 scale: [1, 1.15, 1],
                 opacity: [0.06, 0.1, 0.06]
               }}
@@ -92,55 +92,6 @@ export function Footer() {
 
           {/* Content */}
           <div className="relative z-10 p-8 sm:p-12 lg:p-16">
-            {/* Newsletter section */}
-            <motion.div 
-              className="mb-12 p-6 sm:p-8 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(245,158,11,0.1)]"
-              onMouseEnter={() => setIsHovered(true)}
-              onMouseLeave={() => setIsHovered(false)}
-            >
-              {/* Newsletter card glass background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/15 via-orange-500/8 to-transparent rounded-2xl" />
-              <div className="absolute inset-0 backdrop-blur-xl rounded-2xl" />
-              <div className="absolute inset-0 border border-amber-500/30 rounded-2xl" />
-              
-              {/* Animated border glow on hover */}
-              <motion.div 
-                className="absolute inset-0 rounded-2xl"
-                animate={{ opacity: isHovered ? 1 : 0.5 }}
-                style={{ boxShadow: '0 0 50px rgba(245,158,11,0.15), inset 0 0 30px rgba(245,158,11,0.05)' }}
-              />
-
-              <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/25 to-orange-500/15 border border-amber-500/30 flex items-center justify-center shadow-[0_0_25px_rgba(245,158,11,0.3)]">
-                    <Mail className="w-6 h-6 text-amber-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Stay in the loop</h3>
-                    <p className="text-white/60 text-sm">Get product updates and AI tips.</p>
-                  </div>
-                </div>
-                <form className="flex w-full lg:w-auto gap-3" onSubmit={(e) => e.preventDefault()}>
-                  <div className="relative flex-1 lg:w-64">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      className="w-full px-4 py-3 rounded-xl bg-white/[0.05] backdrop-blur-xl border border-white/10 text-white placeholder:text-white/40 focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 transition-all text-sm"
-                    />
-                  </div>
-                  <motion.button
-                    type="submit"
-                    className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold flex items-center gap-2 shadow-[0_4px_20px_rgba(245,158,11,0.3)] hover:shadow-[0_4px_30px_rgba(245,158,11,0.5)] transition-shadow text-sm"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Subscribe <ArrowRight className="w-4 h-4" />
-                  </motion.button>
-                </form>
-              </div>
-            </motion.div>
 
             {/* Divider */}
             <div className="h-px bg-gradient-to-r from-transparent via-white/15 to-transparent mb-12" />

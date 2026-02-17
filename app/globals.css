@@ -11,8 +11,8 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 38 92% 50%;
+    --primary-foreground: 0 0% 0%;
     --secondary: 220 14% 96%;
     --secondary-foreground: 222 47% 11%;
     --muted: 220 14% 96%;
@@ -23,7 +23,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 262 83% 58%;
+    --ring: 38 92% 50%;
     --radius: 0.75rem;
 
     /* Dashboard dark panel (aligned with landing page) */
@@ -41,7 +41,7 @@
 
     /* Custom colors for icons */
     --icon-blue: 217 91% 60%;
-    --icon-purple: 271 81% 56%;
+    --icon-purple: 38 92% 50%;
     --icon-cyan: 189 94% 43%;
     --icon-pink: 330 81% 60%;
     --icon-orange: 25 95% 53%;
@@ -57,8 +57,8 @@
     --card-foreground: 213 31% 91%;
     --popover: 224 47% 10%;
     --popover-foreground: 213 31% 91%;
-    --primary: 263 70% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 38 92% 50%;
+    --primary-foreground: 0 0% 0%;
     --secondary: 222 47% 11%;
     --secondary-foreground: 213 31% 91%;
     --muted: 223 47% 11%;
@@ -86,7 +86,7 @@
 
     /* Custom colors for icons - vibrant in dark mode */
     --icon-blue: 217 91% 60%;
-    --icon-purple: 271 81% 66%;
+    --icon-purple: 38 92% 50%;
     --icon-cyan: 189 94% 43%;
     --icon-pink: 330 81% 60%;
     --icon-orange: 25 95% 53%;
@@ -246,6 +246,20 @@
   }
 }
 
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
 @keyframes gradient {
 
   0%,
@@ -271,6 +285,9 @@
   --dash-muted: 0 0% 10%;
   --dash-accent: 38 92% 50%;
   --dash-accent-muted: 38 60% 10%;
+  --primary: 38 92% 50%;
+  --primary-foreground: 0 0% 0%;
+  --ring: 38 92% 50%;
 }
 
 /* Modern dark mode for dashboard main area (sync with landing page) */
@@ -281,6 +298,9 @@
   --dash-muted: 0 0% 10%;
   --dash-accent: 38 92% 55%;
   --dash-accent-muted: 38 40% 10%;
+  --primary: 38 92% 55%;
+  --primary-foreground: 0 0% 0%;
+  --ring: 38 92% 55%;
 }
 
 /* Dashboard content uses theme foreground so text is readable in light/dark */
@@ -338,4 +358,30 @@
     grid-column: span 1;
     grid-row: span 1;
   }
+}
+
+/* Subtle Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* For Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.05) transparent;
 }

@@ -48,7 +48,8 @@ import {
     Upload,
     Maximize2,
     Minimize2,
-    X
+    X,
+    Edit2
 } from 'lucide-react'
 import { Workflow, WorkflowPlan, WorkflowStep, AgentType, CanvasNode, CanvasEdge } from '@/types'
 import ReactMarkdown from 'react-markdown'
@@ -239,6 +240,9 @@ export default function CanvasPage() {
     const [showExecuteDialog, setShowExecuteDialog] = useState(false)
     const [showAddNodeDialog, setShowAddNodeDialog] = useState(false)
     const [showNodeEditorDialog, setShowNodeEditorDialog] = useState(false)
+    const [showRenameDialog, setShowRenameDialog] = useState(false)
+    const [renamingWorkflowId, setRenamingWorkflowId] = useState<string | null>(null)
+    const [renamingWorkflowName, setRenamingWorkflowName] = useState('')
 
     // Form states
     const [newWorkflowName, setNewWorkflowName] = useState('')
@@ -705,6 +709,35 @@ export default function CanvasPage() {
             }
         } catch (error) {
             console.error('Failed to delete workflow:', error)
+        }
+    }
+
+    const renameWorkflow = async () => {
+        if (!renamingWorkflowId || !renamingWorkflowName.trim()) return
+
+        try {
+            const res = await fetch(`/api/canvas/workflows/${renamingWorkflowId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: renamingWorkflowName.trim() })
+            })
+            const data = await res.json()
+            if (data.workflow) {
+                const updatedWorkflow = data.workflow
+                setWorkflows(workflows.map(w =>
+                    w.id === updatedWorkflow.id ? updatedWorkflow : w
+                ))
+                if (selectedWorkflow?.id === updatedWorkflow.id) {
+                    setSelectedWorkflow(updatedWorkflow)
+                }
+                setShowRenameDialog(false)
+                setRenamingWorkflowId(null)
+                setRenamingWorkflowName('')
+                toast.success('Workflow renamed')
+            }
+        } catch (error) {
+            console.error('Failed to rename workflow:', error)
+            toast.error('Failed to rename workflow')
         }
     }
 
@@ -1611,7 +1644,7 @@ export default function CanvasPage() {
                                         workflows.map(workflow => (
                                             <div
                                                 key={workflow.id}
-                                                className={`p-3 border rounded-lg cursor-pointer transition-all ${selectedWorkflow?.id === workflow.id
+                                                className={`p-3 border rounded-lg cursor-pointer transition-all group ${selectedWorkflow?.id === workflow.id
                                                     ? 'border-amber-500 bg-amber-500/10'
                                                     : 'hover:border-warm-border'
                                                     }`}
@@ -1622,17 +1655,32 @@ export default function CanvasPage() {
                                                         <GitBranch className="h-4 w-4 text-amber-500 flex-shrink-0" />
                                                         <span className="font-medium text-sm truncate">{workflow.name}</span>
                                                     </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-6 w-6 p-0 flex-shrink-0"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            deleteWorkflow(workflow.id)
-                                                        }}
-                                                    >
-                                                        <Trash2 className="h-3 w-3 text-red-500" />
-                                                    </Button>
+                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 w-7 p-0 flex-shrink-0 hover:bg-amber-500/20"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setRenamingWorkflowId(workflow.id)
+                                                                setRenamingWorkflowName(workflow.name)
+                                                                setShowRenameDialog(true)
+                                                            }}
+                                                        >
+                                                            <Edit2 className="h-3.5 w-3.5 text-amber-500" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 w-7 p-0 flex-shrink-0 hover:bg-red-500/20"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                deleteWorkflow(workflow.id)
+                                                            }}
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground mt-1">
                                                     {workflow.workflow_plan?.steps?.length || 0} steps
@@ -2399,6 +2447,35 @@ export default function CanvasPage() {
                     </Button>
                 </div>
             )}
+            {/* Rename Workflow Dialog */}
+            <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Rename Workflow</DialogTitle>
+                        <DialogDescription>
+                            Enter a new name for your workflow
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label>Workflow Name</Label>
+                        <Input
+                            className="mt-2"
+                            placeholder="My Updated Workflow"
+                            value={renamingWorkflowName}
+                            onChange={(e) => setRenamingWorkflowName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && renameWorkflow()}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowRenameDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={renameWorkflow} disabled={!renamingWorkflowName.trim()}>
+                            Rename
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

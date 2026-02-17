@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Footer } from '@/components/landing/Footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIGS } from '@/lib/ai/agents'
 import { AgentType, AgentSession } from '@/types'
-import { Sparkles, ArrowLeft, Copy, Download, FileJson, FileText, Image as ImageIcon, Upload, MessageCircle, Send, RotateCcw, XCircle } from 'lucide-react'
+import { Sparkles, ArrowLeft, Copy, Download, FileJson, FileText, Image as ImageIcon, Upload, MessageCircle, Send, RotateCcw, XCircle, History, Loader2, Clock, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
@@ -33,6 +34,8 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import { ParticleCard, GlobalSpotlight } from '@/components/ui/MagicBento'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
 const IMAGE_MODEL_OPTIONS = [
@@ -61,7 +64,11 @@ export default function AgentPage() {
     const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'md' | 'csv' | 'image' | null>(null)
     const [uploadedImages, setUploadedImages] = useState<Record<string, string>>({}) // Track uploaded images for chat context
     const [aspectRatio, setAspectRatio] = useState('Square') // Aspect ratio state
+    const [showHistory, setShowHistory] = useState(false)
+    const [formStep, setFormStep] = useState(0)
+    const [showFullscreenOutput, setShowFullscreenOutput] = useState(false)
     const supabase = createClient()
+    const containerRef = useRef<HTMLDivElement>(null)
 
     // Fetch and Autofill Onboarding Data
     useEffect(() => {
@@ -193,9 +200,6 @@ export default function AgentPage() {
         }
     }
 
-    // Check if this agent supports chat
-    // const chatEnabledAgents = ['deep_research', 'image_generation', 'linkedin_headshot', 'ad_copy']
-    // const isChatEnabled = chatEnabledAgents.includes(agentId)
     const isChatEnabled = true
 
     if (!agent) {
@@ -404,35 +408,29 @@ export default function AgentPage() {
 
         const { default: html2pdf } = await import('html2pdf.js')
 
-        // Create a dedicated container for the PDF export to avoid UI constraints
         const pdfContainer = document.createElement('div')
         pdfContainer.className = 'pdf-export-container'
 
-        // Clone the content
         const contentClone = reportContent.cloneNode(true) as HTMLElement
 
-        // Remove UI-specific classes that restrict height or add borders
         contentClone.classList.remove('h-[600px]', 'max-h-[80vh]', 'overflow-y-auto', 'border', 'rounded-md', 'bg-background')
         contentClone.style.height = 'auto'
         contentClone.style.maxHeight = 'none'
         contentClone.style.overflow = 'visible'
         contentClone.style.border = 'none'
         contentClone.style.background = '#ffffff'
-        contentClone.style.padding = '40px' // Add print-like padding
+        contentClone.style.padding = '40px'
         contentClone.style.width = '100%'
 
-        // Add specific class for our CSS overrides
         contentClone.className += ' pdf-export'
 
-        // Append to container and then body (hidden but rendered)
         pdfContainer.appendChild(contentClone)
         pdfContainer.style.position = 'absolute'
         pdfContainer.style.top = '-9999px'
         pdfContainer.style.left = '0'
-        pdfContainer.style.width = '800px' // Approximate A4 width
+        pdfContainer.style.width = '800px'
         document.body.appendChild(pdfContainer)
 
-        // Inject Styles
         const exportStyles = document.createElement('style')
         exportStyles.textContent = `
             .pdf-export-container,
@@ -445,182 +443,27 @@ export default function AgentPage() {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
-            
-            /* Override ALL Tailwind prose colors */
-            .pdf-export-container *,
-            .pdf-export *,
-            .pdf-export h1,
-            .pdf-export h2,
-            .pdf-export h3,
-            .pdf-export h4,
-            .pdf-export h5,
-            .pdf-export h6,
-            .pdf-export p,
-            .pdf-export li,
-            .pdf-export span,
-            .pdf-export div,
-            .pdf-export td,
-            .pdf-export th,
-            .pdf-export strong,
-            .pdf-export em,
-            .pdf-export code {
-                color: #000000 !important;
-                background-color: transparent !important;
-            }
-            
-            .pdf-export h1 {
-                font-size: 24pt !important;
-                margin-top: 0 !important;
-                margin-bottom: 24px !important;
-                font-weight: 700 !important;
-                border-bottom: 2px solid #000000 !important;
-                padding-bottom: 12px !important;
-                page-break-after: avoid !important;
-                color: #000000 !important;
-            }
-            
-            .pdf-export h2 {
-                font-size: 18pt !important;
-                margin-top: 32px !important;
-                margin-bottom: 16px !important;
-                font-weight: 700 !important;
-                border-bottom: 1px solid #333333 !important;
-                padding-bottom: 8px !important;
-                page-break-after: avoid !important;
-                color: #000000 !important;
-            }
-            
-            .pdf-export h3 {
-                font-size: 14pt !important;
-                margin-top: 24px !important;
-                margin-bottom: 12px !important;
-                font-weight: 600 !important;
-                page-break-after: avoid !important;
-                color: #000000 !important;
-            }
-            
-            .pdf-export p {
-                margin-bottom: 16px !important;
-                text-align: justify !important;
-                color: #000000 !important;
-            page-break-inside: avoid !important;
-                orphans: 3 !important;
-                widows: 3 !important;
-            }
-            
-            
-            /* Classic Robust List Alignment */
-            .pdf-export ul, 
-            .pdf-export ol {
-                margin: 0 0 16px 0 !important;
-                padding-left: 20px !important;
-                list-style-position: outside !important;
-            }
-            
-            .pdf-export ol {
-                list-style-type: decimal !important;
-            }
-            
-            .pdf-export ul {
-                list-style-type: disc !important;
-            }
-            
-            .pdf-export li {
-                margin: 0 0 8px 0 !important;
-                padding-left: 8px !important;
-                color: #000000 !important;
-                page-break-inside: avoid !important;
-                line-height: 1.6 !important;
-                display: list-item !important;
-                text-align: left !important;
-            }
-
-            .pdf-export li::marker {
-                 font-weight: bold !important;
-            }
-
-            /* Nested Lists */
-            .pdf-export li > ul,
-            .pdf-export li > ol {
-                margin-top: 8px !important;
-                padding-left: 20px !important;
-            }
-
-            
-           
-            
-            .pdf-export table {
-                width: 100% !important;
-                border-collapse: collapse !important;
-                margin: 24px 0 !important;
-                font-size: 10pt !important;
-            }
-            
-            .pdf-export th {
-                background-color: #e5e7eb !important;
-                font-weight: 700 !important;
-                text-align: left !important;
-                border: 1px solid #000000 !important;
-                padding: 12px !important;
-                color: #000000 !important;
-            }
-            
-            .pdf-export td {
-                border: 1px solid #666666 !important;
-                padding: 10px !important;
-                vertical-align: top !important;
-                color: #000000 !important;
-            }
-            
-            .pdf-export strong {
-                font-weight: 700 !important;
-                color: #000000 !important;
-            }
-            
-            .pdf-export a {
-                color: #0066cc !important;
-                text-decoration: underline !important;
-            }
-            
-            /* Remove any prose dark mode colors */
-            .pdf-export.prose,
-            .pdf-export .prose {
-                --tw-prose-body: #000000 !important;
-                --tw-prose-headings: #000000 !important;
-                --tw-prose-links: #0066cc !important;
-                --tw-prose-bold: #000000 !important;
-                --tw-prose-counters: #000000 !important;
-                --tw-prose-bullets: #000000 !important;
-                --tw-prose-quotes: #000000 !important;
-            }
+            .pdf-export h1 { font-size: 24pt !important; margin-bottom: 24px !important; font-weight: 700 !important; border-bottom: 2px solid #000000 !important; padding-bottom: 12px !important; color: #000000 !important; }
+            .pdf-export h2 { font-size: 18pt !important; margin-top: 32px !important; margin-bottom: 16px !important; font-weight: 700 !important; border-bottom: 1px solid #333333 !important; padding-bottom: 8px !important; color: #000000 !important; }
+            .pdf-export p { margin-bottom: 16px !important; text-align: justify !important; color: #000000 !important; }
+            .pdf-export table { width: 100% !important; border-collapse: collapse !important; margin: 24px 0 !important; }
+            .pdf-export th { background-color: #e5e7eb !important; padding: 12px !important; border: 1px solid #000000 !important; }
+            .pdf-export td { border: 1px solid #666666 !important; padding: 10px !important; }
         `
         document.head.appendChild(exportStyles)
 
         try {
             await html2pdf()
                 .set({
-                    margin: [15, 15, 15, 15], // mm - increased margins to prevent edge clipping
+                    margin: [15, 15, 15, 15],
                     filename: customFilename ? `${customFilename}.pdf` : `${agentId}-report.pdf`,
-                    image: { type: 'jpeg', quality: 1.0 }, // Maximum quality
-                    html2canvas: {
-                        scale: 3, // Higher scale for sharper text
-                        useCORS: true,
-                        backgroundColor: '#ffffff',
-                        letterRendering: true, // Better text rendering
-                        logging: false
-                    },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                    pagebreak: {
-                        mode: ['avoid-all', 'css', 'legacy'],
-                        before: '.page-break-before',
-                        after: '.page-break-after',
-                        avoid: ['p', 'li', 'h2', 'h3']
-                    }
+                    image: { type: 'jpeg', quality: 1.0 },
+                    html2canvas: { scale: 3, useCORS: true, backgroundColor: '#ffffff' },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
                 })
-                .from(contentClone) // Use the clone instead of original
+                .from(contentClone)
                 .save()
         } finally {
-            // Cleanup
             document.body.removeChild(pdfContainer)
             document.head.removeChild(exportStyles)
         }
@@ -628,13 +471,11 @@ export default function AgentPage() {
 
     const handleChatSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault()
-
         if (!chatInput.trim()) return
 
         const userMessage = chatInput.trim()
         setChatInput('')
 
-        // Add user message to chat
         const newMessages = [...chatMessages, { role: 'user' as const, content: userMessage }]
         setChatMessages(newMessages)
         setChatLoading(true)
@@ -646,34 +487,21 @@ export default function AgentPage() {
                 body: JSON.stringify({
                     messages: newMessages,
                     agent_type: agentId,
-                    initialContext: response, // Pass the agent's generated output as context
-                    uploadedImages: Object.keys(uploadedImages).length > 0 ? uploadedImages : undefined // Pass uploaded images for analysis
+                    initialContext: response,
+                    uploadedImages: Object.keys(uploadedImages).length > 0 ? uploadedImages : undefined
                 }),
             })
 
             const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to get response')
 
-            if (!res.ok) {
-                throw new Error(data.error || 'Failed to get response')
-            }
-
-            // Add AI response to chat
             const updatedMessages = [...newMessages, { role: 'assistant' as const, content: data.response }]
             setChatMessages(updatedMessages)
 
-            console.log('Chat messages to save:', updatedMessages)
-            console.log('Current session ID:', currentSessionId)
-            console.log('Current response:', response)
-
-            // Always try to update or create session with chat messages
             if (currentSessionId) {
-                console.log('Updating existing session with chat')
                 await updateSessionChat(updatedMessages)
             } else if (response) {
-                console.log('Creating new session with chat')
                 await saveSession(response, refinedPrompt, updatedMessages)
-            } else {
-                console.warn('No session ID and no response - chat messages may not be saved')
             }
         } catch (error: any) {
             console.error('Chat error:', error)
@@ -700,12 +528,8 @@ export default function AgentPage() {
             const data = await res.json()
             if (res.ok && data.data) {
                 setCurrentSessionId(data.data.id)
-                setSessionKey(prev => prev + 1) // Refresh session history
-                console.log('Session saved with ID:', data.data.id)
-                console.log('Saved chat messages:', messages || chatMessages)
+                setSessionKey(prev => prev + 1)
                 toast.success('Session saved')
-            } else {
-                console.error('Failed to save session:', data)
             }
         } catch (error) {
             console.error('Failed to save session:', error)
@@ -713,38 +537,19 @@ export default function AgentPage() {
     }
 
     const updateSessionChat = async (messages: Array<{ role: 'user' | 'assistant', content: string }>) => {
-        if (!currentSessionId) {
-            console.warn('No session ID to update')
-            return
-        }
-
-        console.log('Updating session', currentSessionId, 'with messages:', messages)
-
+        if (!currentSessionId) return
         try {
-            const res = await fetch(`/api/agents/sessions/${currentSessionId}`, {
+            await fetch(`/api/agents/sessions/${currentSessionId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_messages: messages
-                }),
+                body: JSON.stringify({ chat_messages: messages }),
             })
-
-            if (res.ok) {
-                console.log('Session updated successfully')
-            } else {
-                const data = await res.json()
-                console.error('Failed to update session:', data)
-            }
         } catch (error) {
             console.error('Failed to update session:', error)
         }
     }
 
     const handleSessionRestore = (session: AgentSession) => {
-        console.log('Restoring session:', session.id)
-        console.log('Session chat_messages:', session.chat_messages)
-        console.log('Chat messages length:', session.chat_messages?.length)
-
         setFormData(session.form_data || {})
         setHeadshotBackground(session.form_data?.['Background Template'] || '')
         setHeadshotOutfit(session.form_data?.['Clothing Template'] || '')
@@ -753,11 +558,7 @@ export default function AgentPage() {
         setRefinedPrompt(session.refined_prompt || '')
         setChatMessages(session.chat_messages || [])
         setCurrentSessionId(session.id)
-
-        const shouldShowChat = session.chat_messages && session.chat_messages.length > 0
-        console.log('Should show chat:', shouldShowChat)
-        setShowChat(shouldShowChat)
-
+        setShowChat(session.chat_messages && session.chat_messages.length > 0)
         toast.success('Session restored')
     }
 
@@ -776,53 +577,76 @@ export default function AgentPage() {
         toast.success('New session started')
     }
 
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-                <Link href="/agents">
-                    <Button variant="ghost" size="sm">
-                        <ArrowLeft className="h-4 w-4 mr-2" />
-                        Back to Agents
-                    </Button>
-                </Link>
+    const CSVTable = ({ csvData }: { csvData: string }) => {
+        const rows = csvData.trim().split('\n').map(row => {
+            const matches = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
+            if (matches) return matches.map(m => m.trim().replace(/^"|"$/g, ''));
+            return row.split(',').map(c => c.trim());
+        });
+
+        if (rows.length < 2) return <div className="p-10 text-center text-white/40 italic">Formatting output structure...</div>;
+
+        const headers = rows[0];
+        const data = rows.slice(1);
+
+        return (
+            <div className="overflow-x-auto rounded-3xl border border-white/5 bg-white/[0.02] backdrop-blur-sm shadow-2xl">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="border-b border-white/10 bg-white/5">
+                            {headers.map((h, i) => (
+                                <th key={i} className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/90 whitespace-nowrap">{h}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                        {data.map((row, i) => (
+                            <tr key={i} className="hover:bg-amber-500/[0.02] transition-colors group">
+                                {row.map((cell, j) => (
+                                    <td key={j} className="px-6 py-5 text-[13px] text-white/60 leading-relaxed font-medium group-hover:text-white/90 transition-colors">{cell}</td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
+        );
+    };
 
-            {showOnboardingBanner && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-                    <Sparkles className="h-5 w-5 text-amber-500" />
-                    <div>
-                        <p className="text-sm font-medium text-foreground">Complete your profile for better AI results</p>
-                        <p className="text-xs text-muted-foreground">Agents work better with business context.</p>
-                    </div>
-                    <Button size="sm" variant="outline" className="ml-auto" asChild>
-                        <a href="/onboarding">Complete Profile</a>
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setShowOnboardingBanner(false)}
-                    >
-                        <XCircle className="h-4 w-4" />
-                    </Button>
-                </div>
-            )}
+    return (
+        <div ref={containerRef} className="max-w-[1600px] mx-auto space-y-8 px-4 sm:px-6 lg:px-8 py-8 relative">
+            <GlobalSpotlight gridRef={containerRef} glowColor="245, 158, 11" />
 
-            <div>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex-1">
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight capitalize">
-                            {agentId.replace(/_/g, ' ')} Agent
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex-1 space-y-3">
+                    <div className="flex flex-col items-start gap-3">
+                        <Link href="/agents">
+                            <Button variant="ghost" size="sm" className="text-white/40 hover:text-white hover:bg-white/5 -ml-3 rounded-lg px-3 mb-2">
+                                <ArrowLeft className="h-4 w-4 mr-2" />
+                                Back to Dashboard
+                            </Button>
+                        </Link>
+                        <h1 className="text-4xl sm:text-6xl font-bold tracking-tight capitalize text-white opacity-95">
+                            {agentId.replace(/_/g, ' ')}
                         </h1>
-                        <p className="text-sm sm:text-base text-muted-foreground mt-2">
-                            {agent.system_message}
-                        </p>
                     </div>
+                    <p className="text-sm sm:text-base text-white/40 max-w-2xl leading-relaxed font-light">
+                        {agent.system_message}
+                    </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                    <Button
+                        onClick={() => setShowHistory(!showHistory)}
+                        className="h-12 bg-white/5 border border-white/10 text-white hover:bg-white/10 rounded-xl px-6 font-medium transition-all"
+                    >
+                        <History className="h-4 w-4 mr-2" />
+                        {showHistory ? 'Close History' : 'Session History'}
+                    </Button>
                     {(response || currentSessionId) && (
                         <Button
-                            variant="outline"
                             onClick={handleNewSession}
-                            className="w-full sm:w-auto shrink-0"
+                            className="h-12 bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 rounded-xl px-6 font-medium transition-all"
                         >
                             <RotateCcw className="h-4 w-4 mr-2" />
                             New Session
@@ -831,454 +655,611 @@ export default function AgentPage() {
                 </div>
             </div>
 
-            {/* Session History */}
-            <AgentSessionHistory
-                key={sessionKey}
-                agentType={agentId}
-                onSessionRestore={handleSessionRestore}
-                currentSessionId={currentSessionId}
-                refreshKey={sessionKey}
-            />
+            {showOnboardingBanner && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-4">
+                    <div className="h-10 w-10 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30 shrink-0">
+                        <Sparkles className="h-5 w-5 text-amber-500" />
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-sm font-bold text-white">Complete your professional profile</p>
+                        <p className="text-xs text-white/50">Your agents will generate 3x more accurate results with your business context.</p>
+                    </div>
+                    <Button size="sm" className="bg-amber-500 text-black hover:bg-amber-400 font-bold rounded-lg px-4" asChild>
+                        <a href="/onboarding">Boost AI Accuracy</a>
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-white/40 hover:text-white hover:bg-white/10 rounded-full"
+                        onClick={() => setShowOnboardingBanner(false)}
+                    >
+                        <XCircle className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
 
-            <div className="grid gap-6 lg:grid-cols-2">
-                {/* Input Section */}
-                <Card className="border-warm-border bg-warm-surface">
-                    <CardHeader>
-                        <CardTitle className="text-foreground">Your Input</CardTitle>
-                        <CardDescription>
-                            Answer the following questions to get started
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-3">
-                                {agent.questions.map((question, index) => (
-                                    <div key={index} className="space-y-2">
-                                        <Label htmlFor={`question-${index}`}>{question}</Label>
-                                        {agent.image_fields?.includes(question) ? (
-                                            <div className="flex items-center space-x-2">
-                                                <Input
-                                                    id={`question-${index}`}
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={(e) => handleFileChange(e, question)}
-                                                    disabled={loading}
-                                                    className="cursor-pointer"
-                                                />
-                                                {formData[question] && (
-                                                    <div className="h-10 w-10 border rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                                                        <img src={formData[question]} alt="Preview" className="h-full w-full object-cover" />
-                                                    </div>
-                                                )}
+            {showHistory && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                    <AgentSessionHistory
+                        key={sessionKey}
+                        agentType={agentId}
+                        onSessionRestore={(session) => {
+                            handleSessionRestore(session);
+                            setShowHistory(false);
+                        }}
+                        currentSessionId={currentSessionId}
+                        refreshKey={sessionKey}
+                    />
+                </div>
+            )}
+
+            <div className="grid gap-8 lg:grid-cols-12 items-start">
+                <div className="lg:col-span-12 xl:col-span-5 h-full">
+                    <ParticleCard
+                        className="w-full border-white/10 bg-[#030303] overflow-hidden shadow-2xl !aspect-auto h-[850px] magic-bento-card--static-glow"
+                        particleCount={0}
+                        glowColor="245, 158, 11"
+                        enableTilt={false}
+                    >
+                        <div className="p-6 sm:p-10 h-full flex flex-col">
+                            <div className="flex items-center gap-4 mb-10 shrink-0">
+                                <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 shadow-inner">
+                                    <Sparkles className="h-6 w-6 text-amber-500" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white">Project Specs</h2>
+                                    <p className="text-white/40 text-xs font-medium uppercase tracking-widest mt-1">Configure parameters</p>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 -mx-2 px-2 overflow-y-auto custom-scrollbar">
+                                <form onSubmit={(e) => e.preventDefault()} className="space-y-8 pb-4">
+                                    <div className="space-y-6">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex gap-1">
+                                                {Array.from({ length: agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3) }).map((_, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className={`h-1 w-8 rounded-full transition-all duration-300 ${formStep >= i ? 'bg-amber-500' : 'bg-white/10'}`}
+                                                    />
+                                                ))}
                                             </div>
-                                        ) : question.toLowerCase() === 'image model' ? (
-                                            <Select
-                                                value={imageModel}
-                                                onValueChange={(value) => {
-                                                    setImageModel(value)
-                                                    handleInputChange(question, value)
-                                                }}
+                                            <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
+                                                Step {formStep + 1} of {agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3)}
+                                            </span>
+                                        </div>
+
+                                        {agent.questions.slice(formStep * (agentId === 'linkedin_headshot' ? 1 : 3), (formStep + 1) * (agentId === 'linkedin_headshot' ? 1 : 3)).map((question, index) => {
+                                            const globalIndex = formStep * 3 + index;
+                                            const isTextArea =
+                                                question.toLowerCase().includes('prompt') ||
+                                                question.toLowerCase().includes('beliefs') ||
+                                                question.toLowerCase().includes('philosophy') ||
+                                                question.toLowerCase().includes('experience') ||
+                                                question.toLowerCase().includes('audience') ||
+                                                question.toLowerCase().includes('problem') ||
+                                                question.toLowerCase().includes('description') ||
+                                                question.toLowerCase().includes('mission') ||
+                                                question.toLowerCase().includes('vision') ||
+                                                question.toLowerCase().includes('promise') ||
+                                                question.toLowerCase().includes('niche');
+
+                                            return (
+                                                <div key={globalIndex} className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-500">
+                                                    <Label className="text-white/80 text-xs font-bold uppercase tracking-widest ml-1 opacity-70" htmlFor={`question-${globalIndex}`}>
+                                                        {question}
+                                                    </Label>
+                                                    {agent.image_fields?.includes(question) ? (
+                                                        <div className="flex items-center gap-4 p-4 bg-white/5 border border-white/10 rounded-2xl group hover:border-amber-500/30 transition-all">
+                                                            <Input
+                                                                id={`question-${globalIndex}`}
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={(e) => handleFileChange(e, question)}
+                                                                disabled={loading}
+                                                                className="cursor-pointer bg-transparent border-none text-white file:text-white file:bg-white/10 file:font-bold file:px-4 file:py-2 file:rounded-xl h-auto p-0"
+                                                            />
+                                                            {formData[question] && (
+                                                                <div className="h-14 w-14 border border-white/20 rounded-xl overflow-hidden shrink-0 shadow-lg">
+                                                                    <img src={formData[question]} alt="Preview" className="h-full w-full object-cover" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : question.toLowerCase() === 'image model' ? (
+                                                        <Select
+                                                            value={formData[question] || imageModel}
+                                                            onValueChange={(value) => {
+                                                                setImageModel(value)
+                                                                handleInputChange(question, value)
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="bg-white/5 border-white/10 text-white h-14 rounded-2xl focus:ring-amber-500/50 hover:border-white/20 transition-all">
+                                                                <SelectValue placeholder="Select high-performance model" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-[#0a0a0a] border-white/10 text-white rounded-2xl">
+                                                                {IMAGE_MODEL_OPTIONS.map(option => (
+                                                                    <SelectItem key={option.value} value={option.value} className="focus:bg-white/10 rounded-xl my-1">
+                                                                        {option.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    ) : isTextArea ? (
+                                                        <textarea
+                                                            id={`question-${globalIndex}`}
+                                                            className="flex min-h-[160px] w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm text-white focus:border-amber-500/50 outline-none transition-all placeholder:text-white/10 resize-none hover:border-white/20"
+                                                            placeholder={`Detail your ${question.toLowerCase()}...`}
+                                                            value={formData[question] || ''}
+                                                            onChange={(e) => handleInputChange(question, e.target.value)}
+                                                            disabled={loading}
+                                                        />
+                                                    ) : (
+                                                        <Input
+                                                            id={`question-${globalIndex}`}
+                                                            className="h-14 bg-white/5 border-white/10 text-white rounded-2xl focus:border-amber-500/50 placeholder:text-white/10 hover:border-white/20 transition-all"
+                                                            placeholder={`Enter ${question.toLowerCase()}`}
+                                                            value={formData[question] || ''}
+                                                            onChange={(e) => handleInputChange(question, e.target.value)}
+                                                            disabled={loading}
+                                                        />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {formStep === Math.ceil(agent.questions.length / 3) - 1 && (
+                                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            {(agentId === 'linkedin_headshot' || agentId === 'image_generation') && (
+                                                <div className="space-y-6 pt-6 border-t border-white/5">
+                                                    {agentId === 'linkedin_headshot' && (
+                                                        <div className="grid gap-6 sm:grid-cols-2">
+                                                            <div className="space-y-3">
+                                                                <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1">Environment</Label>
+                                                                <Select
+                                                                    value={headshotBackground}
+                                                                    onValueChange={(value) => {
+                                                                        setHeadshotBackground(value)
+                                                                        handleInputChange('Background Template', value)
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-12 rounded-2xl">
+                                                                        <SelectValue placeholder="Background" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent className="bg-[#0a0a0a] border-white/10 text-white rounded-xl">
+                                                                        <SelectItem value="Auto (professional neutral)">System Default</SelectItem>
+                                                                        <SelectItem value="Office (modern corporate workspace)">Corporate Office</SelectItem>
+                                                                        <SelectItem value="Office (glass wall modern)">Modern Glass Office</SelectItem>
+                                                                        <SelectItem value="Staircase (modern architectural)">Architectural Stairs</SelectItem>
+                                                                        <SelectItem value="Library (modern professional)">Study/Library</SelectItem>
+                                                                        <SelectItem value="Window (soft natural light)">Natural Window</SelectItem>
+                                                                        <SelectItem value="Meeting room (executive boardroom)">Executive Boardroom</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                            <div className="space-y-3">
+                                                                <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1">Attire</Label>
+                                                                <Select
+                                                                    value={headshotOutfit}
+                                                                    onValueChange={(value) => {
+                                                                        setHeadshotOutfit(value)
+                                                                        handleInputChange('Clothing Template', value)
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-12 rounded-2xl">
+                                                                        <SelectValue placeholder="Outfit" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent className="bg-[#0a0a0a] border-white/10 text-white rounded-xl">
+                                                                        <SelectItem value="Auto (professional business wear)">Business Professional</SelectItem>
+                                                                        <SelectItem value="Blazer">Modern Blazer</SelectItem>
+                                                                        <SelectItem value="Suit">Executive Suit</SelectItem>
+                                                                        <SelectItem value="Vest">Formal Vest</SelectItem>
+                                                                        <SelectItem value="Shirt and trousers">Smart Casual Shirt</SelectItem>
+                                                                        <SelectItem value="Blouse">Professional Blouse</SelectItem>
+                                                                        <SelectItem value="Business casual">Relaxed Business</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="space-y-3">
+                                                        <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1">Canvas Dimensions</Label>
+                                                        <Select
+                                                            value={aspectRatio}
+                                                            onValueChange={setAspectRatio}
+                                                        >
+                                                            <SelectTrigger className="bg-white/5 border-white/10 text-white h-12 rounded-2xl">
+                                                                <SelectValue placeholder="Aspect Ratio" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-[#0a0a0a] border-white/10 text-white rounded-xl">
+                                                                <SelectItem value="Square">Square (1:1)</SelectItem>
+                                                                <SelectItem value="Portrait">Portrait (3:4)</SelectItem>
+                                                                <SelectItem value="Landscape">Landscape (4:3)</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-3 pt-4">
+                                                <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1" htmlFor="additional">Refinement Context (Optional)</Label>
+                                                <textarea
+                                                    id="additional"
+                                                    className="flex min-h-[100px] w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm text-white focus:border-amber-500/50 outline-none transition-all placeholder:text-white/10 resize-none"
+                                                    placeholder="Add any specific constraints..."
+                                                    value={additionalDetails}
+                                                    onChange={(e) => setAdditionalDetails(e.target.value)}
+                                                    disabled={loading}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-4 pt-4 border-t border-white/5">
+                                        {formStep > 0 && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                onClick={() => setFormStep(prev => prev - 1)}
+                                                className="h-12 border border-white/10 text-white hover:bg-white/5 rounded-xl px-4"
+                                                disabled={loading}
                                             >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a model" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {IMAGE_MODEL_OPTIONS.map(option => (
-                                                        <SelectItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        ) : question.toLowerCase().includes('prompt') || question.toLowerCase().includes('beliefs') ? (
-                                            <textarea
-                                                id={`question-${index}`}
-                                                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                placeholder={`Enter ${question.toLowerCase()}`}
-                                                value={formData[question] || ''}
-                                                onChange={(e) => handleInputChange(question, e.target.value)}
+                                                <ChevronLeft className="h-5 w-5 mr-2" />
+                                                Back
+                                            </Button>
+                                        )}
+
+                                        {formStep < (agentId === 'linkedin_headshot' ? 1 : Math.ceil(agent.questions.length / 3) - 1) ? (
+                                            <Button
+                                                type="button"
+                                                onClick={() => setFormStep(prev => prev + 1)}
+                                                className="flex-1 h-12 bg-white/10 text-white hover:bg-white/20 font-bold rounded-xl"
                                                 disabled={loading}
-                                            />
+                                            >
+                                                Continue
+                                                <ChevronRight className="h-5 w-5 ml-2" />
+                                            </Button>
                                         ) : (
-                                            <Input
-                                                id={`question-${index}`}
-                                                placeholder={`Enter ${question.toLowerCase()}`}
-                                                value={formData[question] || ''}
-                                                onChange={(e) => handleInputChange(question, e.target.value)}
+                                            <Button
+                                                type="button"
+                                                onClick={handleSubmit}
+                                                className="flex-1 h-12 bg-amber-500 text-black hover:bg-amber-400 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] active:scale-[0.98] flex items-center justify-center gap-2 border border-amber-400/20 group relative overflow-hidden"
                                                 disabled={loading}
-                                            />
+                                            >
+                                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                                                {loading ? (
+                                                    <>
+                                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                                        <span className="text-sm">Synthesizing...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="h-5 w-5 group-hover:rotate-12 transition-transform" />
+                                                        <span className="text-[10px] whitespace-nowrap uppercase tracking-widest">
+                                                            {agentId === 'deep_research' ? 'Run Deep Research' : 'Ignite Intelligence'}
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </Button>
                                         )}
                                     </div>
-                                ))}
-                            </div>
-                            {(agentId === 'linkedin_headshot' || agentId === 'image_generation') && (
-                                <div className="space-y-4">
-                                    {agentId === 'linkedin_headshot' && (
-                                        <div className="grid gap-4 sm:grid-cols-2">
-                                            <div className="space-y-2">
-                                                <Label>Background Template</Label>
-                                                <Select
-                                                    value={headshotBackground}
-                                                    onValueChange={(value) => {
-                                                        setHeadshotBackground(value)
-                                                        handleInputChange('Background Template', value)
-                                                    }}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Choose a background" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="Auto (professional neutral)">Auto (professional neutral)</SelectItem>
-                                                        <SelectItem value="Office (modern corporate workspace)">Office</SelectItem>
-                                                        <SelectItem value="Office (glass wall modern)">Glass wall office</SelectItem>
-                                                        <SelectItem value="Staircase (modern architectural)">Staircase</SelectItem>
-                                                        <SelectItem value="Library (modern professional)">Library</SelectItem>
-                                                        <SelectItem value="Window (soft natural light)">Window</SelectItem>
-                                                        <SelectItem value="Meeting room (executive boardroom)">Meeting room</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Clothing Template</Label>
-                                                <Select
-                                                    value={headshotOutfit}
-                                                    onValueChange={(value) => {
-                                                        setHeadshotOutfit(value)
-                                                        handleInputChange('Clothing Template', value)
-                                                    }}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Choose attire" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="Auto (professional business wear)">Auto (professional)</SelectItem>
-                                                        <SelectItem value="Blazer">Blazer</SelectItem>
-                                                        <SelectItem value="Suit">Suit</SelectItem>
-                                                        <SelectItem value="Vest">Vest</SelectItem>
-                                                        <SelectItem value="Shirt and trousers">Shirt and trousers</SelectItem>
-                                                        <SelectItem value="Blouse">Blouse</SelectItem>
-                                                        <SelectItem value="Business casual">Business casual</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="space-y-2">
-                                        <Label>Aspect Ratio</Label>
-                                        <Select
-                                            value={aspectRatio}
-                                            onValueChange={setAspectRatio}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select aspect ratio" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Square">Square (1:1)</SelectItem>
-                                                <SelectItem value="Portrait">Portrait (3:4)</SelectItem>
-                                                <SelectItem value="Landscape">Landscape (4:3)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                            )}
-                            <div className="space-y-2">
-                                <Label htmlFor="additional">Additional Details (Optional)</Label>
-                                <textarea
-                                    id="additional"
-                                    className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    placeholder="Provide any additional context or requirements..."
-                                    value={additionalDetails}
-                                    onChange={(e) => setAdditionalDetails(e.target.value)}
-                                    disabled={loading}
-                                />
-                            </div>
-                            <Button type="submit" className="w-full" disabled={loading}>
-                                {loading ? (
-                                    <>
-                                        <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                                        Generating...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Sparkles className="h-4 w-4 mr-2" />
-                                        Generate with AI
-                                    </>
-                                )}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                {/* Response Section */}
-                <Card className="border-warm-border bg-warm-surface">
-                    <CardHeader>
-                        <CardTitle className="text-foreground">AI Response</CardTitle>
-                        <CardDescription>
-                            Your personalized results will appear here
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {error ? (
-                            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                                <p className="text-sm text-red-600 dark:text-red-400">
-                                    <strong>Error:</strong> {error}
-                                </p>
-                            </div>
-                        ) : response ? (
-                            <div className="space-y-4">
-                                <div className="flex justify-end space-x-2 no-print">
-                                    {agentId === 'image_generation' || agentId === 'linkedin_headshot' ? (
-                                        <Button variant="outline" size="sm" onClick={() => {
-                                            setCustomFilename(`${agentId}-image`)
-                                            setDownloadFormat('image')
-                                            setShowRenameDialog(true)
-                                        }}>
-                                            <Download className="h-4 w-4 mr-2" />
-                                            Download
-                                        </Button>
-                                    ) : agentId === 'ad_copy' ? (
-                                        <Button variant="outline" size="sm" onClick={() => {
-                                            setCustomFilename(`${agentId}-report`)
-                                            setDownloadFormat('csv')
-                                            setShowRenameDialog(true)
-                                        }} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
-                                            <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
-                                            Download .CSV
-                                        </Button>
-                                    ) : (
-                                        <>
-                                            <Button variant="outline" size="sm" onClick={copyToClipboard}>
-                                                <Copy className="h-4 w-4 mr-2" />
-                                                Copy
-                                            </Button>
-                                            <Button variant="outline" size="sm" onClick={() => {
-                                                setCustomFilename(`${agentId}-report`)
-                                                setDownloadFormat('md')
-                                                setShowRenameDialog(true)
-                                            }}>
-                                                <Download className="h-4 w-4 mr-2" />
-                                                .MD
-                                            </Button>
-                                            {agentId !== 'deep_research' && (
-                                                <Button variant="outline" size="sm" onClick={() => {
-                                                    setCustomFilename(`${agentId}-report`)
-                                                    setDownloadFormat('csv')
-                                                    setShowRenameDialog(true)
-                                                }} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
-                                                    <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
-                                                    .CSV
-                                                </Button>
-                                            )}
-                                            <Button variant="outline" size="sm" onClick={() => {
-                                                setCustomFilename(`${agentId}-report`)
-                                                setDownloadFormat('pdf')
-                                                setShowRenameDialog(true)
-                                            }}>
-                                                <FileText className="h-4 w-4 mr-2" />
-                                                PDF
-                                            </Button>
-                                        </>
-                                    )}
-                                </div>
-
-                                <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
-                                    <DialogContent className="sm:max-w-md">
-                                        <DialogHeader>
-                                            <DialogTitle>Rename & Download</DialogTitle>
-                                            <DialogDescription>
-                                                Enter a filename for your {downloadFormat?.toUpperCase()} download.
-                                            </DialogDescription>
-                                        </DialogHeader>
-                                        <div className="flex items-center space-x-2 py-4">
-                                            <div className="grid flex-1 gap-2">
-                                                <Label htmlFor="filename" className="sr-only">
-                                                    Filename
-                                                </Label>
-                                                <Input
-                                                    id="filename"
-                                                    value={customFilename}
-                                                    onChange={(e) => setCustomFilename(e.target.value)}
-                                                    placeholder="Enter filename"
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            if (downloadFormat === 'pdf') downloadAsPDF(customFilename)
-                                                            else if (downloadFormat === 'md') downloadAsMarkdown(customFilename)
-                                                            else if (downloadFormat === 'csv') downloadAsCSV(customFilename)
-                                                            else if (downloadFormat === 'image') downloadImage(customFilename)
-                                                            setShowRenameDialog(false)
-                                                        }
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                        <DialogFooter className="sm:justify-end">
-                                            <Button type="button" variant="secondary" onClick={() => setShowRenameDialog(false)}>
-                                                Cancel
-                                            </Button>
-                                            <Button type="button" onClick={() => {
-                                                if (downloadFormat === 'pdf') downloadAsPDF(customFilename)
-                                                else if (downloadFormat === 'md') downloadAsMarkdown(customFilename)
-                                                else if (downloadFormat === 'csv') downloadAsCSV(customFilename)
-                                                else if (downloadFormat === 'image') downloadImage(customFilename)
-                                                setShowRenameDialog(false)
-                                            }}>
-                                                <Download className="h-4 w-4 mr-2" />
-                                                Download
-                                            </Button>
-                                        </DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
-                                <div id="report-content" className="prose prose-sm dark:prose-invert max-w-none border rounded-md p-6 bg-background h-[600px] max-h-[80vh] overflow-y-auto">
-                                    {agentId === 'ad_copy' ? (
-                                        <div className="overflow-x-auto">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        {parseCSV(response)[0]?.map((header, i) => (
-                                                            <TableHead key={i} className="font-bold">{header}</TableHead>
-                                                        ))}
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {parseCSV(response).slice(1).map((row, i) => (
-                                                        <TableRow key={i}>
-                                                            {row.map((cell, j) => (
-                                                                <TableCell key={j}>{cell}</TableCell>
-                                                            ))}
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    ) : (agentId === 'image_generation' || agentId === 'linkedin_headshot') && (response.startsWith('http') || response.startsWith('data:image/')) ? (
-                                        <div className="flex justify-center">
-                                            <img
-                                                src={response}
-                                                alt="Generated Asset"
-                                                className="max-w-full rounded-lg shadow-lg"
-                                                onError={(e) => {
-                                                    e.currentTarget.style.display = 'none';
-                                                    const parent = e.currentTarget.parentElement;
-                                                    if (parent) {
-                                                        parent.innerHTML = `
-                                                            <div class="flex flex-col items-center justify-center p-12 bg-muted rounded-lg border border-dashed border-border text-center">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-muted-foreground opacity-50"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                                                                <h3 class="font-semibold text-lg">Image Expired</h3>
-                                                                <p class="text-sm text-muted-foreground mt-2 max-w-xs">The temporary link for this image has expired. Please generate a new image.</p>
-                                                            </div>
-                                                        `;
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="markdown-container prose dark:prose-invert max-w-none">
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                                {response}
-                                            </ReactMarkdown>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center py-12 text-muted-foreground">
-                                <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                <p>Submit your input to generate AI-powered results</p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Chat Conversation Section - Only for enabled agents */}
-            {isChatEnabled && (
-                <Card className="mt-6 border-warm-border bg-warm-surface">
-                    <CardHeader className="pb-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div>
-                                <CardTitle className="flex items-center text-lg sm:text-xl">
-                                    <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                                    AI Conversation
-                                </CardTitle>
-                                <CardDescription className="text-xs sm:text-sm">
-                                    Have a follow-up conversation with the AI agent
-                                </CardDescription>
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setShowChat(!showChat)}
-                                className="w-full sm:w-auto"
-                            >
-                                {showChat ? 'Hide Chat' : 'Show Chat'}
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    {showChat && (
-                        <CardContent className="pt-0">
-                            <div className="space-y-3 sm:space-y-4">
-                                {/* Chat Messages */}
-                                <div className="border rounded-lg p-3 sm:p-4 h-64 sm:h-96 overflow-y-auto bg-muted/20">
-                                    {chatMessages.length === 0 ? (
-                                        <div className="text-center py-8 sm:py-12 text-muted-foreground">
-                                            <MessageCircle className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
-                                            <p className="text-xs sm:text-sm">Start a conversation with the AI agent</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3 sm:space-y-4">
-                                            {chatMessages.map((msg, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                                                >
-                                                    <div
-                                                        className={`max-w-[85%] sm:max-w-[80%] rounded-lg p-2.5 sm:p-3 ${msg.role === 'user'
-                                                            ? 'bg-primary text-primary-foreground'
-                                                            : 'bg-muted'
-                                                            }`}
-                                                    >
-                                                        {msg.role === 'assistant' ? (
-                                                            <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none">
-                                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                                                    {msg.content}
-                                                                </ReactMarkdown>
-                                                            </div>
-                                                        ) : (
-                                                            <p className="text-xs sm:text-sm whitespace-pre-wrap">{msg.content}</p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {chatLoading && (
-                                                <div className="flex justify-start">
-                                                    <div className="bg-muted rounded-lg p-2.5 sm:p-3">
-                                                        <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Chat Input */}
-                                <form onSubmit={handleChatSubmit} className="flex gap-2">
-                                    <Input
-                                        placeholder="Type your message..."
-                                        value={chatInput}
-                                        onChange={(e) => setChatInput(e.target.value)}
-                                        disabled={chatLoading}
-                                        className="flex-1 text-sm"
-                                    />
-                                    <Button type="submit" disabled={chatLoading || !chatInput.trim()} size="sm" className="px-3 sm:px-4">
-                                        <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                    </Button>
                                 </form>
                             </div>
-                        </CardContent>
-                    )}
-                </Card>
+                        </div>
+                    </ParticleCard>
+                </div>
+
+                <div className="lg:col-span-12 xl:col-span-7 h-full">
+                    <ParticleCard
+                        className="w-full border-white/10 bg-[#030303] overflow-hidden shadow-2xl !aspect-auto h-[850px] magic-bento-card--static-glow flex flex-col"
+                        particleCount={0}
+                        glowColor="245, 158, 11"
+                        enableTilt={false}
+                    >
+                        <div className="p-6 sm:p-10 flex flex-col h-full flex-1">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10 shrink-0">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 shadow-inner">
+                                        <FileText className="h-6 w-6 text-amber-500" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-white tracking-tight">AI Artifact</h2>
+                                        <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mt-0.5">Generated Output</p>
+                                    </div>
+                                </div>
+
+                                {response && !error && (
+                                    <div className="flex items-center gap-3 no-print flex-wrap sm:flex-nowrap">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setShowFullscreenOutput(true)}
+                                            className="bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl hover:bg-amber-500/20 h-10 px-4 font-bold transition-all flex items-center gap-2 group"
+                                        >
+                                            <Maximize2 className="h-4 w-4 transition-transform group-hover:scale-110" />
+                                            <span className="text-[10px] uppercase tracking-widest">Full View</span>
+                                        </Button>
+
+                                        <div className="h-8 w-[1px] bg-white/10 hidden sm:block mx-1" />
+
+                                        {agentId === 'ad_copy' ? (
+                                            <>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setCustomFilename(`${agentId}-report`)
+                                                        setDownloadFormat('csv')
+                                                        setShowRenameDialog(true)
+                                                    }}
+                                                    className="bg-amber-500 text-black hover:bg-amber-400 hover:text-black rounded-xl h-10 px-6 font-bold transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                    <span className="text-[10px] uppercase tracking-widest">Download CSV</span>
+                                                </Button>
+                                            </>
+                                        ) : agentId === 'image_generation' || agentId === 'linkedin_headshot' ? (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setCustomFilename(`${agentId}-image`)
+                                                    setDownloadFormat('image')
+                                                    setShowRenameDialog(true)
+                                                }}
+                                                className="bg-white/5 border border-white/10 text-white rounded-xl hover:bg-white/10 h-10 px-4 transition-all flex items-center gap-2"
+                                            >
+                                                <Download className="h-4 w-4" />
+                                                <span className="text-[10px] uppercase tracking-widest font-bold">Export Artifact</span>
+                                            </Button>
+                                        ) : (
+                                            <div className="flex items-center h-10 bg-white/5 border border-white/10 rounded-xl overflow-hidden shadow-sm">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={copyToClipboard}
+                                                    className="text-white/40 hover:text-white hover:bg-white/10 px-4 h-full border-r border-white/5 rounded-none transition-all flex items-center gap-2"
+                                                >
+                                                    <Copy className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider">Copy</span>
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setCustomFilename(`${agentId}-report`)
+                                                        setDownloadFormat('md')
+                                                        setShowRenameDialog(true)
+                                                    }}
+                                                    className="text-white/40 hover:text-white hover:bg-white/10 px-4 h-full border-r border-white/5 rounded-none transition-all flex items-center gap-2"
+                                                >
+                                                    <Download className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider">MD</span>
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setCustomFilename(`${agentId}-report`)
+                                                        setDownloadFormat('pdf')
+                                                        setShowRenameDialog(true)
+                                                    }}
+                                                    className="text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 px-5 h-full rounded-none font-black transition-all flex items-center gap-2"
+                                                >
+                                                    <FileText className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider">PDF</span>
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex-1 min-h-0">
+                                {error ? (
+                                    <div className="h-full flex flex-col items-center justify-center p-10 bg-red-500/5 border border-red-500/10 rounded-3xl text-center">
+                                        <XCircle className="h-16 w-16 text-red-500/40 mb-6" />
+                                        <h3 className="text-xl font-bold text-white mb-2">Architectural Fault</h3>
+                                        <p className="text-sm text-red-400/70 max-w-sm leading-relaxed">{error}</p>
+                                        <Button onClick={() => setError('')} className="mt-8 bg-white/10 hover:bg-white/20 text-white rounded-xl px-6">
+                                            Acknowledge & Retry
+                                        </Button>
+                                    </div>
+                                ) : response ? (
+                                    <div className="h-full flex flex-col min-h-0">
+                                        <ScrollArea id="report-content" className="flex-1 rounded-3xl border border-white/5 bg-white/[0.01] p-6 sm:p-10">
+                                            {(agentId === 'image_generation' || agentId === 'linkedin_headshot') && (response.startsWith('http') || response.startsWith('data:image/')) ? (
+                                                <div className="flex justify-center h-full items-center py-10">
+                                                    <div className="relative group">
+                                                        <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                                                        <img
+                                                            src={response}
+                                                            alt="Generated Asset"
+                                                            className="relative max-w-full rounded-2xl shadow-2xl border border-white/10"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ) : agentId === 'ad_copy' ? (
+                                                <CSVTable csvData={response} />
+                                            ) : (
+                                                <div className="markdown-container prose prose-invert prose-amber max-w-none 
+                                                    prose-h1:text-3xl prose-h1:font-black prose-h1:text-white prose-h1:mb-10 prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-6
+                                                    prose-h2:text-2xl prose-h2:font-bold prose-h2:text-amber-500 prose-h2:mt-16 prose-h2:mb-6
+                                                    prose-h3:text-xl prose-h3:font-bold prose-h3:text-white/90 prose-h3:mt-12
+                                                    prose-p:text-white/60 prose-p:leading-8 prose-p:text-[15px] prose-p:mb-6
+                                                    prose-li:text-white/60 prose-li:mb-4 prose-li:leading-7
+                                                    prose-strong:text-white prose-strong:font-bold
+                                                    prose-code:bg-white/5 prose-code:px-2 prose-code:py-1 prose-code:rounded-lg prose-code:text-amber-400
+                                                ">
+                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                        {response}
+                                                    </ReactMarkdown>
+                                                </div>
+                                            )}
+                                        </ScrollArea>
+                                    </div>
+                                ) : (
+                                    <div className="h-full flex flex-col items-center justify-center text-center bg-white/[0.01] border border-white/5 rounded-3xl px-10 py-20">
+                                        <div className="relative mb-10">
+                                            <div className="absolute inset-0 bg-amber-500/10 blur-[100px] rounded-full" />
+                                            <div className="relative h-24 w-24 rounded-3xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-center shadow-inner">
+                                                <Sparkles className="h-12 w-12 text-amber-500 animate-pulse" />
+                                            </div>
+                                        </div>
+                                        <h3 className="text-2xl font-black text-white mb-4">Awaiting Parameters</h3>
+                                        <p className="text-white/30 text-base max-w-sm mx-auto leading-relaxed">Fill out the project specifications on the left to activate the AI agent and generate deep intelligence.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </ParticleCard>
+                </div>
+            </div>
+
+            {isChatEnabled && response && (
+                <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+                    <Card className="border-white/10 bg-[#030303] overflow-hidden !aspect-auto !min-h-0 shadow-2xl rounded-3xl">
+                        <CardHeader className="pb-6 px-6 sm:px-10 border-b border-white/5">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 shadow-inner">
+                                        <MessageCircle className="h-6 w-6 text-amber-500" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-2xl font-bold text-white">Refinement Oracle</CardTitle>
+                                        <CardDescription className="text-white/40 font-medium">Chat directly with the agent to fine-tune your report</CardDescription>
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowChat(!showChat)}
+                                    className="bg-white/5 border-white/10 text-white hover:bg-white/10 rounded-xl px-6 h-12 font-bold"
+                                >
+                                    {showChat ? 'Minimize Interface' : 'Open Conversation'}
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        {showChat && (
+                            <>
+                                <CardContent className="p-6 sm:p-10">
+                                    <div className="space-y-8">
+                                        <ScrollArea className="rounded-3xl p-6 h-[500px] bg-white/[0.01] border border-white/5">
+                                            {chatMessages.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center h-[400px] text-white/20 text-center px-10">
+                                                    <div className="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center mb-6">
+                                                        <MessageCircle className="h-8 w-8 opacity-20" />
+                                                    </div>
+                                                    <p className="max-w-xs text-sm leading-relaxed">Ask clarifying questions, request deeper analysis on specific sections, or ask the AI to re-write parts of the report.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-8 pb-4">
+                                                    {chatMessages.map((msg, idx) => (
+                                                        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                                            <div className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-6 py-4 shadow-xl ${msg.role === 'user' ? 'bg-amber-500 text-black font-bold' : 'bg-white/5 border border-white/10 text-white/90'}`}>
+                                                                {msg.role === 'assistant' ? (
+                                                                    <div className="prose prose-invert prose-sm max-w-none prose-p:text-white/70">
+                                                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                                            {msg.content}
+                                                                        </ReactMarkdown>
+                                                                    </div>
+                                                                ) : (
+                                                                    <p className="text-[15px] whitespace-pre-wrap">{msg.content}</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {chatLoading && (
+                                                        <div className="flex justify-start">
+                                                            <div className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 flex items-center gap-4">
+                                                                <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
+                                                                <span className="text-[10px] text-amber-500 uppercase tracking-widest font-black">Synthesizing Thought</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </ScrollArea>
+                                    </div>
+                                </CardContent>
+                                <CardFooter className="p-6 sm:p-10 border-t border-white/5 bg-white/[0.02]">
+                                    <form onSubmit={handleChatSubmit} className="flex gap-4 w-full">
+                                        <Input
+                                            placeholder="Provide feedback or ask a follow-up question..."
+                                            value={chatInput}
+                                            onChange={(e) => setChatInput(e.target.value)}
+                                            disabled={chatLoading}
+                                            className="h-16 bg-[#0a0a0a] border-white/10 text-white rounded-2xl focus:border-amber-500/50 px-6 text-base"
+                                        />
+                                        <Button type="submit" disabled={chatLoading || !chatInput.trim()} className="h-16 w-16 rounded-2xl bg-amber-500 text-black hover:bg-amber-400 p-0 flex items-center justify-center shrink-0">
+                                            <Send className="h-8 w-8" />
+                                        </Button>
+                                    </form>
+                                </CardFooter>
+                            </>
+                        )}
+                    </Card>
+                </div>
             )}
+
+            {!['deep_research', 'ad_copy', 'image_generation', 'linkedin_headshot'].includes(agentId) && (
+                <div className="pt-20 border-t border-white/5">
+                    <Footer />
+                </div>
+            )}
+
+            <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+                <DialogContent className="sm:max-w-md bg-[#0a0a0a] border-white/10 text-white rounded-3xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-bold">Secure Export</DialogTitle>
+                        <DialogDescription className="text-white/40">Provide a professional name for your generated {downloadFormat?.toUpperCase()} artifact.</DialogDescription>
+                    </DialogHeader>
+                    <div className="py-6">
+                        <Label htmlFor="filename" className="text-white/60 text-xs font-bold uppercase tracking-widest ml-1 mb-2 block">Filename</Label>
+                        <Input
+                            id="filename"
+                            value={customFilename}
+                            onChange={(e) => setCustomFilename(e.target.value)}
+                            className="h-14 bg-white/5 border-white/10 text-white rounded-2xl focus:border-amber-500/50"
+                        />
+                    </div>
+                    <DialogFooter className="sm:justify-end gap-3">
+                        <Button variant="ghost" onClick={() => setShowRenameDialog(false)} className="text-white/40 hover:text-white rounded-xl">Cancel</Button>
+                        <Button onClick={() => {
+                            if (downloadFormat === 'pdf') downloadAsPDF(customFilename)
+                            else if (downloadFormat === 'md') downloadAsMarkdown(customFilename)
+                            else if (downloadFormat === 'csv') downloadAsCSV(customFilename)
+                            else if (downloadFormat === 'image') downloadImage(customFilename)
+                            setShowRenameDialog(false)
+                        }} className="bg-amber-500 text-black hover:bg-amber-400 font-bold rounded-xl px-8">Download</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showFullscreenOutput} onOpenChange={setShowFullscreenOutput}>
+                <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] bg-[#030303] border-white/10 text-white rounded-3xl flex flex-col p-0 overflow-hidden">
+                    <DialogHeader className="p-6 border-b border-white/5">
+                        <DialogTitle className="text-2xl font-bold">AI Artifact Full View</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-hidden p-6 sm:p-10">
+                        <ScrollArea className="h-full">
+                            {(agentId === 'image_generation' || agentId === 'linkedin_headshot') && (response.startsWith('http') || response.startsWith('data:image/')) ? (
+                                <div className="flex justify-center h-full items-center">
+                                    <img src={response} alt="Generated Asset" className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain" />
+                                </div>
+                            ) : agentId === 'ad_copy' ? (
+                                <CSVTable csvData={response} />
+                            ) : (
+                                <div className="markdown-container prose prose-invert prose-amber max-w-none">
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {response}
+                                    </ReactMarkdown>
+                                </div>
+                            )}
+                        </ScrollArea>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

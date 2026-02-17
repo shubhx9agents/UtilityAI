@@ -73,10 +73,10 @@ const agents = [
     name: 'LinkedIn Headshot',
     description: 'Professional profile photos powered by AI. Upload a selfie, get polished results.',
     icon: Camera,
-    iconBg: 'bg-violet-500/15',
-    iconColor: 'text-violet-500',
-    linkColor: 'text-violet-500',
-    gradient: 'from-violet-500/20 to-purple-500/5',
+    iconBg: 'bg-amber-500/15',
+    iconColor: 'text-amber-500',
+    linkColor: 'text-amber-500',
+    gradient: 'from-amber-500/20 to-orange-500/5',
   },
 ]
 
@@ -137,10 +137,10 @@ const features = [
     description: 'Track usage, measure ROI, and optimize your workflows with detailed analytics.',
     icon: BarChart3,
     span: 'lg:col-span-3',
-    gradient: 'from-purple-500/15 via-purple-500/5 to-transparent',
-    iconBg: 'bg-purple-500/15',
-    iconColor: 'text-purple-500',
-    glowColor: 'rgba(168,85,247,0.3)',
+    gradient: 'from-amber-500/15 via-amber-500/5 to-transparent',
+    iconBg: 'bg-amber-500/15',
+    iconColor: 'text-amber-500',
+    glowColor: 'rgba(245,158,11,0.3)',
   },
 ]
 
@@ -213,7 +213,7 @@ export default function HomePage() {
               transition={{ delay: 0.3, duration: 0.6 }}
               className="mt-8 text-lg sm:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed"
             >
-              Deep research, ad creatives, LinkedIn headshots, and high-converting copy. 
+              Deep research, ad creatives, LinkedIn headshots, and high-converting copy.
               Built for marketing and sales teams who ship fast.
             </motion.p>
 
@@ -242,29 +242,29 @@ export default function HomePage() {
               <div className="flex items-center gap-3">
                 <div className="flex -space-x-3">
                   {/* Professional stacked avatars with real user images */}
-                  <NextImage 
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face" 
+                  <NextImage
+                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face"
                     alt="User"
                     width={36}
                     height={36}
                     className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
                   />
-                  <NextImage 
-                    src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face" 
+                  <NextImage
+                    src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face"
                     alt="User"
                     width={36}
                     height={36}
                     className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
                   />
-                  <NextImage 
-                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face" 
+                  <NextImage
+                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face"
                     alt="User"
                     width={36}
                     height={36}
                     className="w-9 h-9 rounded-full border-2 border-[#030303] object-cover ring-2 ring-amber-500/20"
                   />
-                  <NextImage 
-                    src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face" 
+                  <NextImage
+                    src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face"
                     alt="User"
                     width={36}
                     height={36}
@@ -314,17 +314,17 @@ export default function HomePage() {
                   </div>
                   <div className="w-16" />
                 </div>
-                
+
                 {/* Dashboard Image */}
                 <div className="rounded-b-xl overflow-hidden">
-                  <img 
-                    src="/dashboard/preview.png" 
+                  <img
+                    src="/dashboard/preview.png"
                     alt="UtilityAI Canvas - AI Workflow Automation Dashboard"
                     className="w-full h-auto"
                   />
                 </div>
               </div>
-              
+
               {/* Glow effect */}
               <div className="absolute -inset-4 bg-gradient-to-r from-amber-500/20 via-orange-500/10 to-rose-500/20 rounded-3xl blur-3xl -z-10 opacity-50" />
             </motion.div>
@@ -360,11 +360,11 @@ export default function HomePage() {
             {agents.map((agent) => (
               <StaggerItem key={agent.id}>
                 <Link href="/register">
-                <BentoCard
+                  <BentoCard
                     className="h-full p-6 hover:shadow-lg"
-                  gradient={`bg-gradient-to-br ${agent.gradient}`}
+                    gradient={`bg-gradient-to-br ${agent.gradient}`}
                   >
-                    <div 
+                    <div
                       className={`w-14 h-14 rounded-2xl ${agent.iconBg} flex items-center justify-center mb-6 transition-all duration-300 group-hover:scale-110`}
                       style={{ boxShadow: `0 0 24px 4px ${agent.iconColor === 'text-amber-500' ? 'rgba(245,158,11,0.25)' : agent.iconColor === 'text-rose-500' ? 'rgba(244,63,94,0.25)' : agent.iconColor === 'text-teal-500' ? 'rgba(20,184,166,0.25)' : 'rgba(139,92,246,0.25)'}` }}
                     >
@@ -375,11 +375,11 @@ export default function HomePage() {
                     </h3>
                     <p className="text-sm text-white/65 leading-relaxed mb-6">
                       {agent.description}
-                  </p>
+                    </p>
                     <div className={`inline-flex items-center text-sm font-semibold ${agent.linkColor} group-hover:gap-2 transition-all`}>
                       Try agent <ArrowRight className="ml-1 w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </div>
-                </BentoCard>
+                    </div>
+                  </BentoCard>
                 </Link>
               </StaggerItem>
             ))}
@@ -406,7 +406,7 @@ export default function HomePage() {
                   className="h-full p-8 hover:shadow-lg"
                   gradient={`bg-gradient-to-br ${feature.gradient}`}
                 >
-                  <div 
+                  <div
                     className={`w-14 h-14 rounded-2xl ${feature.iconBg} flex items-center justify-center mb-6 transition-all duration-300 group-hover:scale-110`}
                     style={{ boxShadow: `0 0 24px 4px ${feature.glowColor}` }}
                   >
