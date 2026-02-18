@@ -54,7 +54,7 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     },
     linkedin_headshot: {
         system_message: 'Generate a professional LinkedIn headshot from any image.',
-        questions: ['User Image', 'Image Model'],
+        questions: ['User Image', 'Instructional Prompt', 'Image Model'],
         image_fields: ['User Image'],
     },
 }
@@ -216,8 +216,27 @@ export class AIAgentService {
         }
 
         try {
-            // 1. Groq Call
-            const systemMessage = AGENT_CONFIGS['image_generation'].system_message
+            // 1. Groq Call - Refine prompt for ad/product image generation
+            const systemMessage = `You are an expert AI image prompt engineer specializing in advertisement and product imagery.
+Your task is to take a user's base image and their instructional prompt, and generate a highly detailed, refined prompt for an AI image generator.
+
+CRITICAL REQUIREMENTS:
+1. The output must be an AD IMAGE or PRODUCT IMAGE — NOT a portrait or headshot.
+2. Focus on the user's instructional prompt as the primary directive.
+3. If a base image is provided, describe how to incorporate or transform it per the user's instructions.
+4. Include details about composition, lighting, style, and visual quality.
+5. Output ONLY the refined prompt text — no preamble, no explanation.`.trim()
+
+            // Extract instructional prompt from context if provided separately
+            const instructionalPrompt = typeof context.instructional_prompt === 'string'
+                ? context.instructional_prompt.trim()
+                : (typeof context['Instructional Prompt'] === 'string'
+                    ? context['Instructional Prompt'].trim()
+                    : (typeof context.prompt === 'string' ? context.prompt.trim() : ''))
+            const groqUserInput = instructionalPrompt
+                ? `User Instruction: ${instructionalPrompt}\n\n${userInput}`
+                : userInput
+
             const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -228,7 +247,7 @@ export class AIAgentService {
                     model: 'llama-3.3-70b-versatile',
                     messages: [
                         { role: 'system', content: systemMessage },
-                        { role: 'user', content: userInput }
+                        { role: 'user', content: groqUserInput }
                     ]
                 })
             })
@@ -238,11 +257,17 @@ export class AIAgentService {
             }
 
             const groqData = await groqRes.json()
-            const refinedPrompt = groqData.choices?.[0]?.message?.content || userInput
+            const refinedPrompt = groqData.choices?.[0]?.message?.content || groqUserInput
 
             // 2. Image Generation (Gemini default, BytePlus optional)
-            // Dynamically find images in context (as Canvas uses dynamic field names)
-            const contextImages = Object.values(context).filter(val => typeof val === 'string' && val.startsWith('data:image/'))
+            // Only pick up base/reference images — NOT user_image/user_photo (those belong to linkedin_headshot)
+            const contextImages = Object.entries(context)
+                .filter(([key, val]) => {
+                    if (typeof val !== 'string' || !val.startsWith('data:image/')) return false
+                    const k = key.toLowerCase()
+                    return !k.includes('user_image') && !k.includes('user_photo') && !k.includes('headshot')
+                })
+                .map(([, val]) => val as string)
 
             const imageUrl = this.isBytePlusModel(imageModel)
                 ? await (async () => {
@@ -307,7 +332,12 @@ export class AIAgentService {
         try {
             const backgroundPreference = typeof context.headshot_background === 'string' ? context.headshot_background : ''
             const outfitPreference = typeof context.headshot_outfit === 'string' ? context.headshot_outfit : ''
+            // Also read the instructional_prompt field added to the agent config
+            const instructionalPrompt = typeof context.instructional_prompt === 'string'
+                ? context.instructional_prompt.trim()
+                : (typeof context['Instructional Prompt'] === 'string' ? context['Instructional Prompt'].trim() : '')
             const preferenceNotes = [
+                instructionalPrompt ? `User style request: ${instructionalPrompt}` : '',
                 backgroundPreference ? `Preferred background: ${backgroundPreference}` : '',
                 outfitPreference ? `Preferred attire: ${outfitPreference}` : ''
             ].filter(Boolean).join('\n')
@@ -322,10 +352,11 @@ export class AIAgentService {
             CRITICAL REQUIREMENTS:
             1. The user's face MUST NOT CHANGE. It must be perfectly preserved and look very realistic.
             2. The style must be professional, high-end, and natural (avoid over-retouching).
-            3. Detailed background: Use the user's preferred background if provided. Otherwise pick a neutral office, modern library, or soft-focus minimalist architectural background.
-            4. Lighting: Soft cinematic studio lighting, butterfly lighting, or natural window light.
-            5. Attire: Use the user's preferred attire if provided. Otherwise choose professional business wear (blazer, suit, or smart professional blouse/shirt).
-            6. Resolution: High definition, 8k, sharp focus on the eyes, cinematic quality.
+            3. If the user provided a style request, follow it as the primary directive for background, attire, and mood.
+            4. Detailed background: Use the user's preferred background if provided. Otherwise pick a neutral office, modern library, or soft-focus minimalist architectural background.
+            5. Lighting: Soft cinematic studio lighting, butterfly lighting, or natural window light.
+            6. Attire: Use the user's preferred attire if provided. Otherwise choose professional business wear (blazer, suit, or smart professional blouse/shirt).
+            7. Resolution: High definition, 8k, sharp focus on the eyes, cinematic quality.
             
             Output ONLY the refined prompt text.
             `.trim()
@@ -355,8 +386,19 @@ export class AIAgentService {
             const refinedPrompt = groqData.choices?.[0]?.message?.content || "Professional LinkedIn headshot, corporate style, high quality"
 
             // 2. Image Generation (Gemini default, BytePlus optional)
-            // Dynamically find images in context (as Canvas uses dynamic field names)
-            const contextImages = Object.values(context).filter(val => typeof val === 'string' && val.startsWith('data:image/'))
+            // Only pick up user portrait images — NOT base_image/reference_image (those belong to image_generation)
+            const contextImages = Object.entries(context)
+                .filter(([key, val]) => {
+                    if (typeof val !== 'string' || !val.startsWith('data:image/')) return false
+                    const k = key.toLowerCase()
+                    return k.includes('user_image') || k.includes('user_photo') || k.includes('headshot') || k === 'user_image'
+                })
+                .map(([, val]) => val as string)
+            // Fallback: if no specific user portrait field found, use the first image in context
+            if (contextImages.length === 0) {
+                const fallback = Object.values(context).find(val => typeof val === 'string' && (val as string).startsWith('data:image/'))
+                if (fallback) contextImages.push(fallback as string)
+            }
 
             const imageUrl = this.isBytePlusModel(imageModel)
                 ? await (async () => {

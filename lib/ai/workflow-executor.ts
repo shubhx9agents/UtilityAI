@@ -98,9 +98,10 @@ export class WorkflowExecutionService {
                     continue
                 }
 
+                let stepInput: Record<string, any> = {}
                 try {
                     // Build input for this step
-                    const stepInput = this.buildStepInput(step, userInputs, stepResults)
+                    stepInput = this.buildStepInput(step, userInputs, stepResults)
 
                     // Update step status to running
                     await this.updateStepStatus(executionId, stepId, 'running', stepInput)
@@ -109,14 +110,24 @@ export class WorkflowExecutionService {
                     const result = await this.executeStep(step, stepInput)
 
                     // Store result
-                    stepResults[stepId] = result
+                    stepResults[stepId] = {
+                        ...result,
+                        input: stepInput,
+                        output: result.response,
+                        output_data: result
+                    }
 
                     // Update step status to completed
                     await this.updateStepStatus(executionId, stepId, 'completed', stepInput, null, result)
                 } catch (stepError: any) {
                     console.error(`Step ${stepId} failed:`, stepError)
                     await this.updateStepStatus(executionId, stepId, 'failed', null, stepError.message)
-                    stepResults[stepId] = { error: stepError.message }
+                    stepResults[stepId] = {
+                        error: stepError.message,
+                        input: stepInput,
+                        output: null,
+                        output_data: null
+                    }
                 }
             }
 
@@ -451,8 +462,13 @@ export class WorkflowExecutionService {
             }
         }
 
-        // Check if all relevant results are images
-        const allImages = relevantResults.every(r => r.agent_type === 'image_generation' || r.agent_type === 'linkedin_headshot')
+        // Check if any relevant results are images (by agent_type OR by response content)
+        const isImageResult = (r: any) =>
+            r.agent_type === 'image_generation' ||
+            r.agent_type === 'linkedin_headshot' ||
+            (typeof r.response === 'string' && r.response.startsWith('data:image/'))
+
+        const allImages = relevantResults.every(isImageResult)
         if (allImages && relevantResults.length > 0) {
             return {
                 response: relevantResults.length === 1 ? relevantResults[0].response : relevantResults.map(r => r.response),

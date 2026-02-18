@@ -126,6 +126,113 @@ const ensurePrimaryConfigInput = (inputs: ConfigInputSpec[]): ConfigInputSpec[] 
     return normalized
 }
 
+const toTextValue = (value: unknown): string => {
+    if (value === undefined || value === null) return ''
+    if (Array.isArray(value)) return value.map(item => toTextValue(item)).filter(Boolean).join(', ')
+    return String(value).trim()
+}
+
+const buildOnboardingDefaults = (onboarding: OnboardingData | null): Record<string, string> => {
+    if (!onboarding) return {}
+
+    const businessName = toTextValue(onboarding.business_name)
+    const industry = toTextValue(onboarding.industry)
+    const audience = toTextValue(onboarding.audience_desc)
+    const goals = toTextValue(onboarding.primary_goal)
+    const painPoints = toTextValue(onboarding.pain_points)
+    const description = toTextValue(onboarding.description)
+    const mission = toTextValue(onboarding.mission)
+    const usp = toTextValue(onboarding.usp)
+    const tone = toTextValue(onboarding.tone_voice)
+    const channels = toTextValue(onboarding.marketing_channels)
+
+    const defaults: Record<string, string> = {
+        business_name: businessName,
+        company_name: businessName,
+        product_service_name: businessName,
+        product_name: businessName,
+        service_name: businessName,
+        niche: industry,
+        industry,
+        target_audience: audience,
+        audience,
+        primary_goal: goals,
+        goals,
+        primary_problem: painPoints,
+        secondary_problems: painPoints,
+        pain_points: painPoints,
+        business_description: description,
+        description,
+        mission_statement: mission,
+        core_philosophy: mission,
+        primary_promise: usp,
+        usp,
+        ad_tone: tone,
+        tone_of_voice: tone,
+        platforms: channels,
+        marketing_channels: channels,
+    }
+
+    return Object.entries(defaults).reduce((acc, [key, value]) => {
+        if (value) {
+            acc[key] = value
+        }
+        return acc
+    }, {} as Record<string, string>)
+}
+
+const buildOnboardingContextText = (onboarding: OnboardingData | null): string => {
+    if (!onboarding) return ''
+
+    const lines = [
+        `Business name: ${toTextValue(onboarding.business_name)}`,
+        `Industry: ${toTextValue(onboarding.industry)}`,
+        `Target audience: ${toTextValue(onboarding.audience_desc)}`,
+        `Primary goal: ${toTextValue(onboarding.primary_goal)}`,
+        `Pain points: ${toTextValue(onboarding.pain_points)}`,
+        `Mission: ${toTextValue(onboarding.mission)}`,
+        `Unique value proposition: ${toTextValue(onboarding.usp)}`,
+        `Tone of voice: ${toTextValue(onboarding.tone_voice)}`,
+        `Marketing channels: ${toTextValue(onboarding.marketing_channels)}`,
+    ].filter(line => !line.endsWith(': '))
+
+    return lines.join('\n')
+}
+
+const mergeExecutionInputsWithOnboarding = (
+    currentInputs: Record<string, string>,
+    onboarding: OnboardingData | null
+): Record<string, string> => {
+    const defaults = buildOnboardingDefaults(onboarding)
+    const merged = { ...defaults, ...currentInputs }
+    const context = buildOnboardingContextText(onboarding)
+
+    if (!context) return merged
+
+    const marker = 'Business profile context:'
+    const existingUserInput = typeof merged.user_input === 'string' ? merged.user_input.trim() : ''
+    if (!existingUserInput) {
+        merged.user_input = `${marker}\n${context}`
+        return merged
+    }
+
+    if (!existingUserInput.toLowerCase().includes(marker.toLowerCase())) {
+        merged.user_input = `${existingUserInput}\n\n${marker}\n${context}`
+    }
+
+    return merged
+}
+
+const serializeJsonTemplate = (value: unknown): string => {
+    if (value === undefined || value === null) return '{}'
+    if (typeof value === 'string') return value
+    try {
+        return JSON.stringify(value, null, 2)
+    } catch {
+        return '{}'
+    }
+}
+
 type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
 type StepDisplayMeta = {
     index: number
@@ -147,19 +254,22 @@ type FlowNodeData = {
 
 const AGENT_NODE_LIBRARY: Record<string, { inputs: string[]; outputs: string[] }> = {
     deep_research: {
-        inputs: ['user_input', 'audience', 'goals'],
+        inputs: ['user_input', 'core_philosophy'],
         outputs: ['research_summary', 'insights'],
     },
     ad_copy: {
-        inputs: ['user_input', 'platforms', 'tone'],
+        inputs: [
+            'platforms',
+            'ad_tone'
+        ],
         outputs: ['ad_copy_csv'],
     },
     image_generation: {
-        inputs: ['base_image', 'prompt', 'reference_image', 'image_model'],
+        inputs: ['base_image', 'instructional_prompt', 'reference_image', 'image_model'],
         outputs: ['image_url'],
     },
     linkedin_headshot: {
-        inputs: ['user_image', 'image_model'],
+        inputs: ['user_image', 'instructional_prompt', 'image_model'],
         outputs: ['headshot_url'],
     },
 }
@@ -284,6 +394,7 @@ export default function CanvasPage() {
     const [executionResult, setExecutionResult] = useState<any>(null)
     const [stepStatuses, setStepStatuses] = useState<Record<string, StepStatus>>({})
     const [selectedResultStepId, setSelectedResultStepId] = useState<string | null>(null)
+    const [showStepJsonDialog, setShowStepJsonDialog] = useState(false)
 
     // Progress tracking state
     const [executionProgress, setExecutionProgress] = useState(0)
@@ -364,6 +475,15 @@ export default function CanvasPage() {
 
     useEffect(() => {
         if (!showResultsDialog) return
+        const hasExplicitSelection = (
+            selectedResultStepId === '__inputs__' && Boolean(executionResult?.user_inputs)
+        ) || (
+            selectedResultStepId === '__summary__' && Boolean(executionResult?.final_result?.summary)
+        ) || (
+            selectedResultStepId ? Boolean(executionResult?.step_results?.[selectedResultStepId]) : false
+        )
+        if (hasExplicitSelection) return
+
         // Default to summary if available, otherwise first step
         if (executionResult?.final_result?.summary) {
             setSelectedResultStepId('__summary__')
@@ -375,7 +495,11 @@ export default function CanvasPage() {
                 setSelectedResultStepId(null)
             }
         }
-    }, [showResultsDialog, executionResult?.step_results])
+    }, [executionResult?.final_result?.summary, executionResult?.step_results, executionResult?.user_inputs, selectedResultStepId, showResultsDialog])
+
+    useEffect(() => {
+        setShowStepJsonDialog(false)
+    }, [selectedResultStepId, showResultsDialog])
 
     const parseCSV = (csvText: string): string[][] => {
         const lines = csvText.split('\n').filter(line => line.trim())
@@ -930,6 +1054,13 @@ export default function CanvasPage() {
         setIsCanvasDirty(true)
     }, [setFlowEdges, normalizeFlowEdges])
 
+    const handleCanvasNodeClick = useCallback((_: unknown, node: Node<FlowNodeData>) => {
+        if (node.data.nodeType !== 'agent') return
+        if (!executionResult?.step_results?.[node.id]) return
+        setSelectedResultStepId(node.id)
+        setShowResultsDialog(true)
+    }, [executionResult?.step_results])
+
     const openNodeEditor = useCallback((nodeId: string) => {
         const node = flowNodes.find(item => item.id === nodeId)
         if (!node || node.data.nodeType !== 'agent') return
@@ -1027,14 +1158,72 @@ export default function CanvasPage() {
                 ? [...node.data.inputs]
                 : ['user_input']
 
+            const normalizeFieldKey = (value: string) => value
+                .toLowerCase()
+                .trim()
+                .replace(/\s+/g, '_')
+                .replace(/\//g, '_')
+                .replace(/\([^)]*\)/g, '')
+                .replace(/[^a-z0-9_]/g, '')
+                .replace(/_+/g, '_')
+                .replace(/^_+|_+$/g, '')
+
+            const hasAnyInputAlias = (aliases: string[]) => {
+                const normalizedAliases = aliases.map(normalizeFieldKey)
+                return inputs.some(value => normalizedAliases.includes(normalizeFieldKey(value)))
+            }
+
+            const ensureInputField = (field: string, aliases: string[] = [field]) => {
+                if (!hasAnyInputAlias(aliases)) {
+                    inputs.push(field)
+                }
+            }
+
+            // Strip fields that are always injected from onboarding — never ask the user for these
+            const ONBOARDING_ONLY_FIELDS = [
+                'audience', 'goals', 'target_audience', 'primary_problem', 'secondary_problems', 'secondary_problem',
+                'tone', 'ad_tone', 'main_features', 'main_features_benefits', 'features', 'benefits',
+                'product_service_name', 'product_name', 'service_name', 'niche', 'primary_promise', 'cases'
+            ]
+            const ALWAYS_ASK_FIELDS = new Set([
+                'ad_tone',
+                'platforms',
+                'core_philosophy',
+            ])
+            inputs = inputs.filter(i => {
+                const normalized = normalizeFieldKey(i)
+                return !ONBOARDING_ONLY_FIELDS.includes(normalized) || ALWAYS_ASK_FIELDS.has(normalized)
+            })
+
+            // Normalize inputs per agent type — fixes nodes created before field renames
+            const agentType = node.data.agentType
+            if (agentType === 'image_generation') {
+                // Replace old 'prompt' with 'instructional_prompt', remove 'reference_image'
+                inputs = inputs.map(i => i === 'prompt' ? 'instructional_prompt' : i)
+                inputs = inputs.filter(i => !i.toLowerCase().includes('reference_image'))
+                // Always ensure base_image and instructional_prompt are present
+                if (!inputs.some(i => i.toLowerCase().includes('base_image'))) inputs.unshift('base_image')
+                if (!inputs.some(i => i.toLowerCase().includes('instructional_prompt'))) inputs.splice(1, 0, 'instructional_prompt')
+            } else if (agentType === 'linkedin_headshot') {
+                // Always ensure user_image and instructional_prompt are present
+                if (!inputs.some(i => i.toLowerCase().includes('user_image'))) inputs.unshift('user_image')
+                if (!inputs.some(i => i.toLowerCase().includes('instructional_prompt'))) inputs.splice(1, 0, 'instructional_prompt')
+            } else if (agentType === 'ad_copy') {
+                ensureInputField('ad_tone', ['ad_tone', 'tone', 'tone_of_voice'])
+                ensureInputField('platforms', ['platforms', 'specific_platforms', 'marketing_channels'])
+            } else if (agentType === 'deep_research') {
+                ensureInputField('core_philosophy', ['core_philosophy', 'my_core_philosophy_or_approach', 'mission_statement'])
+            }
+
             // Force image_model for image agents if not present to ensure user is always asked
-            const isImageAgent = node.data.agentType === 'image_generation' || node.data.agentType === 'linkedin_headshot'
+            const isImageAgent = agentType === 'image_generation' || agentType === 'linkedin_headshot'
             if (isImageAgent && !inputs.some(i => i.toLowerCase().includes('image_model'))) {
                 inputs.push('image_model')
             }
             const userInputSpecs = inputs.map((field) => {
                 const isImageModel = field.toLowerCase().includes('image_model') || field.toLowerCase() === 'image model'
-                const type: 'text' | 'image' = field.toLowerCase().includes('image') && !isImageModel ? 'image' : 'text'
+                const isInstructionalPrompt = field.toLowerCase().endsWith('instructional_prompt') && isImageAgent
+                const type: 'text' | 'image' = field.toLowerCase().includes('image') && !isImageModel && !isInstructionalPrompt ? 'image' : 'text'
 
                 let processedField = field
                 let label = field.replace(/_/g, ' ')
@@ -1042,6 +1231,10 @@ export default function CanvasPage() {
                 if (isImageModel) {
                     processedField = `${node.id}_image_model`
                     label = `Model for ${node.data.label}`
+                } else if (isInstructionalPrompt) {
+                    // Prefix with node.id so each image agent gets its OWN instructional prompt field
+                    processedField = `${node.id}_instructional_prompt`
+                    label = `Instructions for ${node.data.label}`
                 }
 
                 return {
@@ -1128,25 +1321,33 @@ export default function CanvasPage() {
             const planForExecution = buildWorkflowPlanFromCanvas() || selectedWorkflow?.workflow_plan
             const agentIds = planForExecution?.steps?.map((s: any) => s.agent_id) || []
 
-            const res = await fetch('/api/canvas/workflows/input-config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode, agentIds })
-            })
-            const data = await res.json()
+            // Always use plan-derived fields as the source of truth for the form.
+            // This ensures node-prefixed fields (e.g. {nodeId}_instructional_prompt) appear correctly.
+            const planFields = ensurePrimaryConfigInput(getRequiredInputs())
 
             if (mode === 'manual') {
-                setConfigInputs(ensurePrimaryConfigInput(data.inputs || []))
+                setConfigInputs(planFields)
             } else {
-                // Hybrid: merge injected data into userInputs and set new questions
-                console.log('[Canvas Debug] Hybrid mode response:', JSON.stringify(data, null, 2))
-                if (data.injected_data) {
-                    console.log('[Canvas Debug] Injected data:', data.injected_data)
-                    // Existing run inputs always win over profile-injected defaults.
-                    setUserInputs(prev => ({ ...data.injected_data, ...prev }))
-                    toast.success('Onboarding data injected!')
+                // Hybrid: call API only for onboarding data injection, not for question list
+                try {
+                    const res = await fetch('/api/canvas/workflows/input-config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mode, agentIds })
+                    })
+                    const data = await res.json()
+                    console.log('[Canvas Debug] Hybrid mode response:', JSON.stringify(data, null, 2))
+                    if (data.injected_data) {
+                        console.log('[Canvas Debug] Injected data:', data.injected_data)
+                        // Existing run inputs always win over profile-injected defaults.
+                        setUserInputs(prev => ({ ...data.injected_data, ...prev }))
+                        toast.success('Onboarding data injected!')
+                    }
+                } catch (hybridErr) {
+                    console.warn('Hybrid data injection failed, continuing with plan fields:', hybridErr)
                 }
-                setConfigInputs(ensurePrimaryConfigInput(data.new_questions || []))
+                // Always use plan-derived fields regardless of hybrid API result
+                setConfigInputs(planFields)
             }
             setInputStepIndex(0)
         } catch (error) {
@@ -1224,11 +1425,12 @@ export default function CanvasPage() {
 
             const abortController = new AbortController()
             executionAbortControllerRef.current = abortController
+            const executionPayload = mergeExecutionInputsWithOnboarding(userInputs, onboardingData)
 
             const res = await fetch(`/api/canvas/workflows/${selectedWorkflow.id}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_inputs: userInputs }),
+                body: JSON.stringify({ user_inputs: executionPayload }),
                 signal: abortController.signal
             })
             const data = await res.json()
@@ -1242,7 +1444,10 @@ export default function CanvasPage() {
                 return
             }
             setExecutionProgress(100)
-            setExecutionResult(data)
+            setExecutionResult({
+                ...data,
+                user_inputs: data?.user_inputs || executionPayload
+            })
 
             // Update step statuses from result
             if (data.step_results) {
@@ -1323,7 +1528,9 @@ export default function CanvasPage() {
                             agent_type: step.agent_type,
                             response: step.output_data?.response,
                             error: step.error_message,
-                            input: step.input_data
+                            input: step.input_data,
+                            output: step.output_data?.response,
+                            output_data: step.output_data
                         }
                         return acc
                     }, {})
@@ -1460,6 +1667,7 @@ export default function CanvasPage() {
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}
                 onConnect={handleConnect}
+                onNodeClick={handleCanvasNodeClick}
                 onNodeDoubleClick={(_, node) => openNodeEditor(node.id)}
                 fitView
                 fitViewOptions={{ padding: 0.2 }}
@@ -2497,6 +2705,22 @@ export default function CanvasPage() {
                                     const content = isInputs ? (typeof result === 'object' ? JSON.stringify(result, null, 2) : result) : (result?.error || result?.response || result?.summary || (result ? (typeof result === 'string' ? result : JSON.stringify(result, null, 2)) : 'Select a step to view its output.'))
                                     const agentType = result?.agent_type
                                     const isSummary = selectedResultStepId === '__summary__'
+                                    const isStepSelection = !isInputs && !isSummary && Boolean(selectedResultStepId)
+                                    const stepInputTemplate = isStepSelection ? (result?.input ?? {}) : null
+                                    const stepOutputTemplate = isStepSelection
+                                        ? (result?.output_data ?? result?.output ?? (
+                                            result?.error
+                                                ? { error: result.error }
+                                                : {
+                                                    response: result?.response,
+                                                    refined_prompt: result?.refined_prompt,
+                                                    agent_type: result?.agent_type,
+                                                    step_id: selectedResultStepId
+                                                }
+                                        ))
+                                        : null
+                                    const stepInputJson = serializeJsonTemplate(stepInputTemplate)
+                                    const stepOutputJson = serializeJsonTemplate(stepOutputTemplate)
                                     const outputLabel = isInputs
                                         ? 'Run Inputs'
                                         : isSummary
@@ -2518,6 +2742,12 @@ export default function CanvasPage() {
                                                 </div>
                                                 {result && !result.error && (
                                                     <div className="flex gap-2">
+                                                        {isStepSelection && (
+                                                            <Button variant="outline" size="sm" onClick={() => setShowStepJsonDialog(true)}>
+                                                                <FileText className="h-4 w-4 mr-2" />
+                                                                JSON I/O
+                                                            </Button>
+                                                        )}
                                                         {isImage ? (
                                                             <Button variant="outline" size="sm" onClick={() => downloadAsFile(content, selectedResultStepId as string, 'jpeg')}>
                                                                 <Download className="h-4 w-4 mr-2" />
@@ -2566,6 +2796,44 @@ export default function CanvasPage() {
                                                     </div>
                                                 )}
                                             </div>
+                                            {isStepSelection && (
+                                                <Dialog open={showStepJsonDialog} onOpenChange={setShowStepJsonDialog}>
+                                                    <DialogContent className="max-w-5xl w-[95vw] h-[78vh] max-h-[78vh] overflow-hidden flex flex-col">
+                                                        <DialogHeader>
+                                                            <DialogTitle>Node JSON Templates</DialogTitle>
+                                                            <DialogDescription>
+                                                                Input and output payloads for this node execution.
+                                                            </DialogDescription>
+                                                        </DialogHeader>
+                                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1 min-h-0">
+                                                            <div className="rounded-lg border bg-background p-3 flex flex-col min-h-0">
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <Label className="text-[11px] font-semibold uppercase text-muted-foreground">Node Input JSON</Label>
+                                                                    <Button variant="outline" size="sm" onClick={() => copyToClipboard(stepInputJson)}>
+                                                                        <Copy className="h-4 w-4 mr-2" />
+                                                                        Copy
+                                                                    </Button>
+                                                                </div>
+                                                                <ScrollArea className="flex-1 min-h-0">
+                                                                    <pre className="text-xs leading-5 whitespace-pre-wrap break-all pr-2">{stepInputJson}</pre>
+                                                                </ScrollArea>
+                                                            </div>
+                                                            <div className="rounded-lg border bg-background p-3 flex flex-col min-h-0">
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <Label className="text-[11px] font-semibold uppercase text-muted-foreground">Node Output JSON</Label>
+                                                                    <Button variant="outline" size="sm" onClick={() => copyToClipboard(stepOutputJson)}>
+                                                                        <Copy className="h-4 w-4 mr-2" />
+                                                                        Copy
+                                                                    </Button>
+                                                                </div>
+                                                                <ScrollArea className="flex-1 min-h-0">
+                                                                    <pre className="text-xs leading-5 whitespace-pre-wrap break-all pr-2">{stepOutputJson}</pre>
+                                                                </ScrollArea>
+                                                            </div>
+                                                        </div>
+                                                    </DialogContent>
+                                                </Dialog>
+                                            )}
                                             <div className="flex-1 min-h-0 bg-muted rounded-lg p-4">
                                                 <ScrollArea className="h-full">
                                                     {isImage ? (
