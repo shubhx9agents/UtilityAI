@@ -4,14 +4,11 @@ import React, { useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import NextImage from 'next/image'
 import {
   Sparkles,
   ArrowRight,
   CheckCircle2,
-  Search,
-  ImagePlus,
-  User,
-  PenTool,
   Workflow,
   Palette,
   Box,
@@ -49,39 +46,39 @@ const stats = [
 ]
 
 const agentsList = [
-  { 
-    name: 'Deep Research', 
-    href: '/agents/deep_research', 
-    desc: 'Market analysis', 
+  {
+    name: 'Deep Research',
+    href: '/agents/deep_research',
+    desc: 'Market analysis',
     label: 'Analysis',
-    icon: Search,
+    svgSrc: '/landing_page_deep_research.svg',
     color: 'from-violet-500 to-purple-600',
     bgGlow: 'bg-violet-500/10'
   },
-  { 
-    name: 'Ad Image Generation', 
-    href: '/agents/image_generation', 
-    desc: 'Ad visuals', 
+  {
+    name: 'Ad Image Generation',
+    href: '/agents/image_generation',
+    desc: 'Ad visuals',
     label: 'Visuals',
-    icon: ImagePlus,
+    svgSrc: '/landing_page_ad_image.svg',
     color: 'from-pink-500 to-rose-600',
     bgGlow: 'bg-pink-500/10'
   },
-  { 
-    name: 'LinkedIn Headshot', 
-    href: '/agents/linkedin_headshot', 
-    desc: 'Profile photos', 
+  {
+    name: 'LinkedIn Headshot',
+    href: '/agents/linkedin_headshot',
+    desc: 'Profile photos',
     label: 'Profile',
-    icon: User,
+    svgSrc: '/landing_page_linkedin.svg',
     color: 'from-cyan-500 to-blue-600',
     bgGlow: 'bg-cyan-500/10'
   },
-  { 
-    name: 'Ad Copy Generator', 
-    href: '/agents/ad_copy', 
-    desc: 'Ad variations', 
+  {
+    name: 'Ad Copy Generator',
+    href: '/agents/ad_copy',
+    desc: 'Ad variations',
     label: 'Copy',
-    icon: PenTool,
+    svgSrc: '/landing_page_ad_copy.svg',
     color: 'from-amber-500 to-orange-600',
     bgGlow: 'bg-amber-500/10'
   },
@@ -116,12 +113,12 @@ export default function DashboardPage() {
         {/* Subtle corner glow accents */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl" />
-        
+
         {/* Shimmer sweep overlay */}
         <div className="absolute inset-0 overflow-hidden rounded-[20px] pointer-events-none z-20">
           <div className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer-sweep" />
         </div>
-        
+
         {/* Inner content container */}
         <div className="relative z-10 flex flex-col gap-6 p-6 sm:p-8 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -164,14 +161,14 @@ export default function DashboardPage() {
             >
               {/* Vibrant base gradient - always visible */}
               <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient.replace('/20', '/40').replace('/10', '/20')} opacity-100`} />
-              
+
               {/* Multiple glassmorphism layers */}
               <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-t from-[#030303] via-transparent to-transparent" />
-              
+
               {/* Animated gradient bloom on hover */}
               <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient.replace('/20', '/60').replace('/10', '/40')} opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
-              
+
               {/* Large centered icon with halo glow */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative animate-breathe">
@@ -181,7 +178,7 @@ export default function DashboardPage() {
                   <action.icon className="h-20 w-20 text-white/20 group-hover:text-white/50 transition-all duration-500 group-hover:scale-110 drop-shadow-2xl" strokeWidth={1} />
                 </div>
               </div>
-              
+
               <div className="magic-bento-card__header relative z-10">
                 <div className="magic-bento-card__label text-xs uppercase tracking-widest text-white/50 group-hover:text-white/80 transition-all">{action.label}</div>
                 <div className="relative p-2.5 rounded-xl bg-white/10 group-hover:bg-amber-500/30 transition-all duration-500 shadow-lg shadow-black/20 group-hover:shadow-amber-500/20 animate-halo-glow">
@@ -210,21 +207,21 @@ export default function DashboardPage() {
           >
             {/* Matching gradient background like action cards */}
             <div className={`absolute inset-0 bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent`} />
-            
+
             {/* Glassmorphism layers */}
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-white/[0.02] to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#030303] via-transparent to-transparent" />
-            
+
             {/* Animated radial gradient bloom on hover */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-amber-500/20 via-orange-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
+
             {/* Large background number with breathing effect */}
             <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
               <span className="text-[140px] font-black text-white/[0.04] group-hover:text-white/[0.08] transition-all duration-700 group-hover:scale-110 animate-breathe drop-shadow-2xl">
                 {stat.value}
               </span>
             </div>
-            
+
             <div className="magic-bento-card__header relative z-10">
               <div className="magic-bento-card__label text-xs uppercase tracking-widest text-white/50 group-hover:text-white/80 transition-all">{stat.label}</div>
               <div className="p-2.5 rounded-xl bg-white/10 group-hover:bg-amber-500/20 transition-all duration-500 shadow-lg shadow-black/20 group-hover:shadow-amber-500/20">
@@ -272,26 +269,26 @@ export default function DashboardPage() {
               >
                 {/* Vibrant colored gradient background - always visible */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${agent.color} opacity-[0.15]`} />
-                
+
                 {/* Glassmorphism layers */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-white/[0.02] to-transparent" />
-                
+
                 {/* Animated gradient bloom on hover */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${agent.color} opacity-0 group-hover:opacity-[0.25] transition-opacity duration-700`} />
-                
+
                 {/* Large centered agent icon with halo glow */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className={`relative flex h-28 w-28 items-center justify-center rounded-3xl ${agent.bgGlow.replace('/10', '/20')} border border-white/10 backdrop-blur-sm transition-all duration-500 group-hover:scale-110 group-hover:border-white/20 animate-breathe`}>
                     {/* Triple-layer icon glow halo */}
                     <div className={`absolute -inset-6 rounded-full bg-gradient-to-br ${agent.color} opacity-10 blur-3xl group-hover:opacity-30 transition-all duration-700`} />
                     <div className={`absolute -inset-3 rounded-full bg-gradient-to-br ${agent.color} opacity-20 blur-2xl group-hover:opacity-40 transition-all duration-500`} />
-                    <agent.icon className="h-14 w-14 text-white/70 group-hover:text-white transition-all duration-300 drop-shadow-lg" strokeWidth={1.5} />
+                    <NextImage src={agent.svgSrc} alt={agent.name} width={56} height={56} className="h-14 w-14 object-contain drop-shadow-lg" />
                   </div>
                 </div>
-                
+
                 {/* Bottom gradient fade for text readability */}
                 <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent" />
-                
+
                 <div className="magic-bento-card__header relative z-10">
                   <div className="magic-bento-card__label text-[10px] uppercase tracking-widest text-white/50 group-hover:text-white/80 transition-colors">{agent.label}</div>
                   <div className={`flex items-center gap-1.5`}>
@@ -321,7 +318,7 @@ export default function DashboardPage() {
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#0a0a0a] to-[#030303] shadow-xl relative">
         {/* Subtle gradient overlay */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-amber-500/5 via-transparent to-transparent" />
-        
+
         <div className="relative flex items-center gap-4 border-b border-white/5 p-6">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20">
             <CheckCircle2 className="h-6 w-6" />

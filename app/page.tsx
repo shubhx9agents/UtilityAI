@@ -4,9 +4,6 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import NextImage from 'next/image'
 import {
-  Search,
-  Image,
-  Type,
   ArrowRight,
   Zap,
   Shield,
@@ -15,7 +12,6 @@ import {
   BarChart3,
   Star,
   Play,
-  Camera,
   Code,
 } from 'lucide-react'
 
@@ -42,41 +38,45 @@ const agents = [
     id: 'research',
     name: 'Deep Research',
     description: 'Market and competitor analysis with structured outputs ready for strategy docs.',
-    icon: Search,
+    svgSrc: '/landing_page_deep_research.svg',
     iconBg: 'bg-amber-500/15',
     iconColor: 'text-amber-500',
     linkColor: 'text-amber-500',
     gradient: 'from-amber-500/20 to-orange-500/5',
+    svgFilter: 'brightness(0) saturate(100%) invert(72%) sepia(98%) saturate(800%) hue-rotate(5deg) brightness(105%) contrast(102%)',
   },
   {
     id: 'image',
     name: 'Ad Image Generation',
     description: 'On-brand visuals for ads and campaigns. Multiple formats, instant delivery.',
-    icon: Image,
+    svgSrc: '/landing_page_ad_image.svg',
     iconBg: 'bg-rose-500/15',
     iconColor: 'text-rose-500',
     linkColor: 'text-rose-500',
     gradient: 'from-rose-500/20 to-pink-500/5',
+    svgFilter: 'brightness(0) saturate(100%) invert(38%) sepia(90%) saturate(1200%) hue-rotate(320deg) brightness(105%) contrast(100%)',
   },
   {
     id: 'copy',
     name: 'Ad Copy Generator',
     description: 'Multiple variants, A/B-ready headlines. Never run out of creative ideas.',
-    icon: Type,
+    svgSrc: '/landing_page_ad_copy.svg',
     iconBg: 'bg-teal-500/15',
     iconColor: 'text-teal-500',
     linkColor: 'text-teal-500',
     gradient: 'from-teal-500/20 to-cyan-500/5',
+    svgFilter: 'brightness(0) saturate(100%) invert(62%) sepia(70%) saturate(500%) hue-rotate(140deg) brightness(95%) contrast(100%)',
   },
   {
     id: 'headshot',
     name: 'LinkedIn Headshot',
     description: 'Professional profile photos powered by AI. Upload a selfie, get polished results.',
-    icon: Camera,
+    svgSrc: '/landing_page_linkedin.svg',
     iconBg: 'bg-amber-500/15',
     iconColor: 'text-amber-500',
     linkColor: 'text-amber-500',
     gradient: 'from-amber-500/20 to-orange-500/5',
+    svgFilter: 'brightness(0) saturate(100%) invert(72%) sepia(98%) saturate(800%) hue-rotate(5deg) brightness(105%) contrast(102%)',
   },
 ]
 
@@ -227,7 +227,14 @@ export default function HomePage() {
               <GlowingButton href="/register" size="lg" >
                 Start free trial
               </GlowingButton>
-              <GlowingButton href="#demo" variant="secondary" size="lg" icon={<Play className="w-5 h-5" />}>
+              <GlowingButton
+                href="https://drive.google.com/file/d/1df-W8t-R7u-4ciZF2hlmiRZJFm1NGjgS/view?usp=drive_link"
+                variant="secondary"
+                size="lg"
+                icon={<Play className="w-5 h-5" />}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 Watch demo
               </GlowingButton>
             </motion.div>
@@ -364,11 +371,25 @@ export default function HomePage() {
                     className="h-full p-6 hover:shadow-lg"
                     gradient={`bg-gradient-to-br ${agent.gradient}`}
                   >
-                    <div
-                      className={`w-14 h-14 rounded-2xl ${agent.iconBg} flex items-center justify-center mb-6 transition-all duration-300 group-hover:scale-110`}
-                      style={{ boxShadow: `0 0 24px 4px ${agent.iconColor === 'text-amber-500' ? 'rgba(245,158,11,0.25)' : agent.iconColor === 'text-rose-500' ? 'rgba(244,63,94,0.25)' : agent.iconColor === 'text-teal-500' ? 'rgba(20,184,166,0.25)' : 'rgba(139,92,246,0.25)'}` }}
-                    >
-                      <agent.icon className={`w-7 h-7 ${agent.iconColor}`} />
+                    {/* Multi-layer glow container */}
+                    <div className="relative mb-6 transition-all duration-300 group-hover:scale-110">
+                      {/* Outer ambient glow */}
+                      <div
+                        className="absolute -inset-6 rounded-full blur-2xl opacity-40 group-hover:opacity-70 transition-opacity duration-500"
+                        style={{ background: `radial-gradient(circle, ${agent.iconColor === 'text-amber-500' ? 'rgba(245,158,11,0.6)' : agent.iconColor === 'text-rose-500' ? 'rgba(244,63,94,0.6)' : agent.iconColor === 'text-teal-500' ? 'rgba(20,184,166,0.6)' : 'rgba(139,92,246,0.6)'}, transparent 70%)` }}
+                      />
+                      {/* Mid glow */}
+                      <div
+                        className="absolute -inset-3 rounded-2xl blur-xl opacity-50 group-hover:opacity-80 transition-opacity duration-300"
+                        style={{ background: `${agent.iconColor === 'text-amber-500' ? 'rgba(245,158,11,0.35)' : agent.iconColor === 'text-rose-500' ? 'rgba(244,63,94,0.35)' : agent.iconColor === 'text-teal-500' ? 'rgba(20,184,166,0.35)' : 'rgba(139,92,246,0.35)'}` }}
+                      />
+                      {/* Icon container */}
+                      <div
+                        className={`relative w-20 h-20 rounded-2xl ${agent.iconBg} flex items-center justify-center`}
+                        style={{ boxShadow: `0 0 0 1px ${agent.iconColor === 'text-amber-500' ? 'rgba(245,158,11,0.4)' : agent.iconColor === 'text-rose-500' ? 'rgba(244,63,94,0.4)' : agent.iconColor === 'text-teal-500' ? 'rgba(20,184,166,0.4)' : 'rgba(139,92,246,0.4)'}, 0 0 40px 10px ${agent.iconColor === 'text-amber-500' ? 'rgba(245,158,11,0.4)' : agent.iconColor === 'text-rose-500' ? 'rgba(244,63,94,0.4)' : agent.iconColor === 'text-teal-500' ? 'rgba(20,184,166,0.4)' : 'rgba(139,92,246,0.4)'}` }}
+                      >
+                        <NextImage src={agent.svgSrc} alt={agent.name} width={52} height={52} className="w-[52px] h-[52px] object-contain drop-shadow-2xl" style={{ filter: agent.svgFilter }} />
+                      </div>
                     </div>
                     <h3 className="font-heading text-xl font-bold text-white mb-3">
                       {agent.name}

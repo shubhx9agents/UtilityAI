@@ -13,6 +13,8 @@ interface GlowingButtonProps {
   size?: 'default' | 'lg' | 'sm'
   className?: string
   icon?: ReactNode
+  target?: string
+  rel?: string
 }
 
 export function GlowingButton({
@@ -23,6 +25,8 @@ export function GlowingButton({
   size = 'default',
   className = '',
   icon,
+  target,
+  rel,
 }: GlowingButtonProps) {
   const baseStyles = cn(
     'relative inline-flex items-center justify-center font-semibold transition-all duration-300 rounded-full',
@@ -84,7 +88,7 @@ export function GlowingButton({
   }
 
   if (href) {
-    return <Link href={href}>{variants[variant]}</Link>
+    return <Link href={href} target={target} rel={rel}>{variants[variant]}</Link>
   }
 
   return (
