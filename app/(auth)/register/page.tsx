@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Sparkles, ArrowRight, Mail, Lock, User } from 'lucide-react'
+import { ArrowRight, Mail, Lock, User, CheckCircle2 } from 'lucide-react'
+import { Logo } from '@/components/landing/Logo'
 
 export default function RegisterPage() {
     const [name, setName] = useState('')
@@ -94,10 +95,7 @@ export default function RegisterPage() {
             <div className="hidden lg:flex lg:w-1/2 relative z-10 flex-col justify-center items-center p-12">
                 <div className="max-w-xl">
                     <Link href="/" className="flex items-center space-x-3 mb-8 animate-slide-up">
-                        <div className="h-16 w-16 rounded-2xl bg-amber-500 flex items-center justify-center text-zinc-900">
-                            <Sparkles className="h-9 w-9" />
-                        </div>
-                        <span className="font-heading text-4xl font-bold text-zinc-100">UtilityAI</span>
+                        <Logo size="lg" showText={true} animate={false} />
                     </Link>
 
                     <h1 className="font-heading text-5xl font-bold text-zinc-100 mb-6 animate-fade-in">
@@ -116,7 +114,7 @@ export default function RegisterPage() {
                         ].map((feature, i) => (
                             <div key={i} className="flex items-center space-x-3">
                                 <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                                    <Sparkles className="h-5 w-5 text-amber-500" />
+                                    <CheckCircle2 className="h-5 w-5 text-amber-500" />
                                 </div>
                                 <span className="text-zinc-300 text-lg">{feature}</span>
                             </div>
@@ -129,10 +127,7 @@ export default function RegisterPage() {
             <div className="w-full lg:w-1/2 relative z-10 flex items-center justify-center p-4">
                 {/* Logo for mobile */}
                 <Link href="/" className="lg:hidden absolute top-6 left-6 flex items-center space-x-2 animate-slide-up">
-                    <div className="h-10 w-10 rounded-xl bg-amber-500 flex items-center justify-center text-zinc-900">
-                        <Sparkles className="h-6 w-6" />
-                    </div>
-                    <span className="font-heading text-2xl font-bold text-zinc-100">UtilityAI</span>
+                    <Logo size="sm" showText={true} animate={false} />
                 </Link>
 
                 <Card className="relative w-full max-w-md border-zinc-800 bg-zinc-900/80 shadow-2xl backdrop-blur-sm animate-scale-in mx-4">
