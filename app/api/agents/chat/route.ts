@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeText } from '@/utils/sanitize'
+import { preCheckAgentCredit, deductAgentCreditOnSuccess, creditExhaustedResponse } from '@/lib/credits'
 
 // Build Gemini image parts from base64 data
 function buildGeminiImageParts(images: Record<string, string>): Array<{ inlineData: { mimeType: string; data: string } }> {
@@ -20,11 +21,8 @@ function buildGeminiImageParts(images: Record<string, string>): Array<{ inlineDa
 
 export async function POST(request: NextRequest) {
     try {
-        // Get user from session
         const supabase = await createClient()
-        const {
-            data: { user },
-        } = await supabase.auth.getUser()
+        const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -34,6 +32,12 @@ export async function POST(request: NextRequest) {
 
         if (!messages || !Array.isArray(messages)) {
             return NextResponse.json({ error: 'Invalid messages format' }, { status: 400 })
+        }
+
+        // ── 1. Pre-check aggregate credit limit (no deduction yet) ──
+        const preCheck = await preCheckAgentCredit(user.id)
+        if (!preCheck.allowed) {
+            return NextResponse.json(creditExhaustedResponse(preCheck), { status: 402 })
         }
 
         // System messages for different agent types
@@ -47,32 +51,27 @@ export async function POST(request: NextRequest) {
 
         let systemMessage = systemMessages[agent_type || 'default'] || systemMessages.default
 
-        // Append initial context if provided
         if (initialContext) {
-            systemMessage += `\n\nCONTEXT FROM AGENT OUTPUT:\nThe user has just generated the following content using the ${agent_type} agent. Use this context to answer any follow-up questions:\n\n${initialContext.substring(0, 10000)}` // Limit context size
+            systemMessage += `\n\nCONTEXT FROM AGENT OUTPUT:\nThe user has just generated the following content using the ${agent_type} agent. Use this context to answer any follow-up questions:\n\n${initialContext.substring(0, 10000)}`
         }
 
-        // Sanitize user messages
         const sanitizedMessages = messages.map((msg: any) => ({
             role: msg.role,
             content: sanitizeText(msg.content)
         }))
 
         const lastUserMessage = sanitizedMessages[sanitizedMessages.length - 1]?.content || ''
+        const agentKey = agent_type ? `${agent_type}_chat` : 'chat'
 
-        // If images are uploaded, use Gemini Vision API
+        // ── 2. Call the LLM (Gemini for images, Groq for text) ──
+
         if (uploadedImages && Object.keys(uploadedImages).length > 0) {
             const geminiApiKey = process.env.GEMINI_API_KEY
             if (!geminiApiKey) {
-                return NextResponse.json(
-                    { error: 'GEMINI_API_KEY is missing' },
-                    { status: 500 }
-                )
+                return NextResponse.json({ error: 'GEMINI_API_KEY is missing' }, { status: 500 })
             }
 
             const imageParts = buildGeminiImageParts(uploadedImages)
-
-            // Build conversation history for Gemini
             const geminiMessages = [
                 {
                     role: 'user',
@@ -96,25 +95,26 @@ export async function POST(request: NextRequest) {
             if (!geminiRes.ok) {
                 const errorText = await geminiRes.text()
                 console.error('Gemini Vision API Error:', errorText)
-                return NextResponse.json(
-                    { error: 'Failed to analyze image' },
-                    { status: 500 }
-                )
+                // No credit deducted — API failure
+                return NextResponse.json({ error: 'Failed to analyze image' }, { status: 500 })
             }
 
             const geminiData = await geminiRes.json()
-            const response = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to analyze the image.'
+            const response = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
 
+            // ── 3. Validate & deduct only on valid response ──
+            if (!response || response.trim().length < 5) {
+                return NextResponse.json({ error: 'No valid response from vision model' }, { status: 500 })
+            }
+
+            await deductAgentCreditOnSuccess(user.id, agentKey)
             return NextResponse.json({ response })
         }
 
-        // Otherwise, use Groq for text-only chat
+        // Text-only path — Groq
         const groqApiKey = process.env.GROQ_API_KEY
         if (!groqApiKey) {
-            return NextResponse.json(
-                { error: 'GROQ_API_KEY is missing' },
-                { status: 500 }
-            )
+            return NextResponse.json({ error: 'GROQ_API_KEY is missing' }, { status: 500 })
         }
 
         const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -135,18 +135,24 @@ export async function POST(request: NextRequest) {
         if (!groqRes.ok) {
             const errorText = await groqRes.text()
             console.error('Groq API Error:', errorText)
-            return NextResponse.json(
-                { error: 'Failed to get chat response' },
-                { status: 500 }
-            )
+            // No credit deducted — API failure
+            return NextResponse.json({ error: 'Failed to get chat response' }, { status: 500 })
         }
 
         const groqData = await groqRes.json()
-        const response = groqData.choices?.[0]?.message?.content || 'No response generated.'
+        const response = groqData.choices?.[0]?.message?.content
 
+        // ── 3. Validate & deduct only on valid response ──
+        if (!response || response.trim().length < 5) {
+            return NextResponse.json({ error: 'No valid response generated' }, { status: 500 })
+        }
+
+        await deductAgentCreditOnSuccess(user.id, agentKey)
         return NextResponse.json({ response })
+
     } catch (error: any) {
         console.error('Chat API Error:', error)
+        // No credit deducted — uncaught error
         return NextResponse.json(
             { error: error.message || 'Internal server error' },
             { status: 500 }

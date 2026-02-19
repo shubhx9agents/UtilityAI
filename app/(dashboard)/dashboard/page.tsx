@@ -3,6 +3,8 @@
 import React, { useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSubscription } from '@/contexts/SubscriptionContext'
+import { useCredits } from '@/contexts/CreditsContext'
+import { ExhaustedModal } from '@/components/credits/ExhaustedModal'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import NextImage from 'next/image'
@@ -95,6 +97,7 @@ const gettingStartedSteps = [
 export default function DashboardPage() {
   const { user } = useAuth()
   const { isPremium, upgrade } = useSubscription()
+  const { usage, limits } = useCredits()
   const gridRef = useRef<HTMLDivElement>(null)
 
   const displayName =
@@ -103,6 +106,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 pb-12">
+      {/* Credit exhaustion modal for free users */}
+      <ExhaustedModal />
       <GlobalSpotlight gridRef={gridRef} spotlightRadius={400} glowColor="245, 158, 11" />
 
       {/* Welcome - Premium hero card with subtle gradient border */}
@@ -138,7 +143,11 @@ export default function DashboardPage() {
               Welcome back, <span className="bg-gradient-to-r from-amber-400 to-amber-500 bg-clip-text text-transparent">{displayName}</span>
             </h1>
             <p className="mt-2 text-white/50">
-              You have <span className="font-bold text-amber-500">850 tokens</span> remaining this billing cycle.
+              You have{' '}
+              <span className="font-bold text-amber-500">
+                {Math.max(0, limits.outputs - usage.total_credits_used)} credits
+              </span>{' '}
+              remaining this cycle.
             </p>
           </div>
 

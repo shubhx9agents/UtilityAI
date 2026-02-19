@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSubscription } from '@/contexts/SubscriptionContext'
+import { useCredits } from '@/contexts/CreditsContext'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Logo } from '@/components/landing/Logo'
@@ -40,6 +41,7 @@ export default function DashboardLayout({
   const router = useRouter()
   const { user, signOut } = useAuth()
   const { isPremium, upgrade } = useSubscription()
+  const { usage, limits } = useCredits()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -135,8 +137,8 @@ export default function DashboardLayout({
                   key={item.name}
                   href={item.href}
                   className={`group relative flex items-center rounded-xl transition-all duration-200 ${sidebarCollapsed
-                      ? 'justify-center px-0 py-3'
-                      : 'gap-3 px-3 py-3'
+                    ? 'justify-center px-0 py-3'
+                    : 'gap-3 px-3 py-3'
                     } ${isActive
                       ? 'text-white'
                       : 'text-zinc-400 hover:text-white'
@@ -242,7 +244,7 @@ export default function DashboardLayout({
                   {/* Tooltip */}
                   <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-xs font-medium text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-xl min-w-[140px]">
                     <p className="font-semibold">{user?.user_metadata?.name || user?.email?.split('@')[0]}</p>
-                    <p className="text-amber-500/80 mt-0.5">{isPremium ? 'Premium Plan ★' : 'Free Plan • 75%'}</p>
+                    <p className="text-amber-500/80 mt-0.5">{isPremium ? 'Premium Plan ★' : `Free Plan • ${Math.round((usage.total_credits_used / limits.per_agent) * 100)}%`}</p>
                   </div>
                 </div>
 
@@ -287,17 +289,24 @@ export default function DashboardLayout({
 
                   <div className="relative mt-4 space-y-2">
                     <div className="flex justify-between text-xs">
-                      <span className="text-zinc-400">Usage</span>
-                      <span className="text-white font-medium">75%</span>
+                      <span className="text-zinc-400">Credits Used</span>
+                      <span className="text-white font-medium">
+                        {usage.total_credits_used} / {limits.outputs}
+                      </span>
                     </div>
                     <div className="relative h-2 overflow-hidden rounded-full bg-zinc-800">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all shadow-[0_0_10px_rgba(245,158,11,0.5)]"
-                        style={{ width: '75%' }}
+                        style={{ width: `${Math.min(100, Math.round((usage.total_credits_used / limits.per_agent) * 100))}%` }}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" style={{ width: '75%' }} />
                     </div>
-                    <p className="text-xs text-zinc-500">750 / 1000 credits</p>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-zinc-500">Canvas: {usage.canvas_creations_used} / {limits.canvas}</span>
+                      <span className={`font-medium ${usage.total_credits_used >= limits.outputs ? 'text-red-400' : 'text-zinc-400'
+                        }`}>
+                        {usage.total_credits_used >= limits.outputs ? 'Exhausted' : 'Active'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

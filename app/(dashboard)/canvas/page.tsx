@@ -59,6 +59,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from 'sonner'
+import { useCredits } from '@/contexts/CreditsContext'
+import { ExhaustedBanner } from '@/components/credits/ExhaustedBanner'
 import ReactFlow, {
     addEdge,
     Background,
@@ -333,6 +335,8 @@ const OutputNode = ({ data }: NodeProps<FlowNodeData>) => (
 )
 
 export default function CanvasPage() {
+    const { isCanvasExhausted, refetchUsage } = useCredits()
+
     // Workflows state
     const [workflows, setWorkflows] = useState<Workflow[]>([])
     const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null)
@@ -478,10 +482,10 @@ export default function CanvasPage() {
         const hasExplicitSelection = (
             selectedResultStepId === '__inputs__' && Boolean(executionResult?.user_inputs)
         ) || (
-            selectedResultStepId === '__summary__' && Boolean(executionResult?.final_result?.summary)
-        ) || (
-            selectedResultStepId ? Boolean(executionResult?.step_results?.[selectedResultStepId]) : false
-        )
+                selectedResultStepId === '__summary__' && Boolean(executionResult?.final_result?.summary)
+            ) || (
+                selectedResultStepId ? Boolean(executionResult?.step_results?.[selectedResultStepId]) : false
+            )
         if (hasExplicitSelection) return
 
         // Default to summary if available, otherwise first step
@@ -747,11 +751,18 @@ export default function CanvasPage() {
                 body: JSON.stringify({ name: newWorkflowName })
             })
             const data = await res.json()
+            if (res.status === 402) {
+                toast.error(data.error || 'Canvas quota exhausted. Please upgrade.')
+                setShowNewWorkflowDialog(false)
+                refetchUsage()
+                return
+            }
             if (data.workflow) {
                 setWorkflows([data.workflow, ...workflows])
                 setSelectedWorkflow(data.workflow)
                 setNewWorkflowName('')
                 setShowNewWorkflowDialog(false)
+                refetchUsage()
             }
         } catch (error) {
             console.error('Failed to create workflow:', error)
@@ -1916,39 +1927,47 @@ export default function CanvasPage() {
                         </DialogContent>
                     </Dialog>
 
-                    <Dialog open={showNewWorkflowDialog} onOpenChange={setShowNewWorkflowDialog}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="h-4 w-4 mr-2" />
-                                New Workflow
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Create New Workflow</DialogTitle>
-                                <DialogDescription>
-                                    Create an empty workflow to design manually
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="py-4">
-                                <Label>Workflow Name</Label>
-                                <Input
-                                    className="mt-2"
-                                    placeholder="My Workflow"
-                                    value={newWorkflowName}
-                                    onChange={(e) => setNewWorkflowName(e.target.value)}
-                                />
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setShowNewWorkflowDialog(false)}>
-                                    Cancel
+                    {isCanvasExhausted ? (
+                        <ExhaustedBanner
+                            message={`Canvas quota exhausted (${workflows.length} created). Upgrade to create more.`}
+                            className="w-full sm:w-auto"
+                        />
+                    ) : (
+                        <Dialog open={showNewWorkflowDialog} onOpenChange={setShowNewWorkflowDialog}>
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    New Workflow
                                 </Button>
-                                <Button onClick={createWorkflow} disabled={!newWorkflowName.trim()}>
-                                    Create
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Create New Workflow</DialogTitle>
+                                    <DialogDescription>
+                                        Create an empty workflow to design manually
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4">
+                                    <Label>Workflow Name</Label>
+                                    <Input
+                                        className="mt-2"
+                                        placeholder="My Workflow"
+                                        value={newWorkflowName}
+                                        onChange={(e) => setNewWorkflowName(e.target.value)}
+                                    />
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setShowNewWorkflowDialog(false)}>
+                                        Cancel
+                                    </Button>
+                                    <Button onClick={createWorkflow} disabled={!newWorkflowName.trim()}>
+                                        Create
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+
 
                     <Dialog
                         open={showRenameWorkflowDialog}

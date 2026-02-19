@@ -4,6 +4,7 @@ import { WorkflowPlan } from '@/types'
 import { validateWorkflowPlan } from '@/lib/ai/orchestrator'
 import { createWorkflowSchema, validateInput, validationErrorResponse } from '@/lib/validations'
 import { sanitizeText } from '@/utils/sanitize'
+import { enforceAndDeductCanvasCredit, creditExhaustedResponse } from '@/lib/credits'
 
 // GET /api/canvas/workflows - List user's workflows
 export async function GET(request: NextRequest) {
@@ -67,6 +68,12 @@ export async function POST(request: NextRequest) {
         const { name, description, workflow_plan } = validation.data
         const sanitizedName = sanitizeText(name)
         const sanitizedDescription = description ? sanitizeText(description) : null
+
+        // ── Backend canvas quota enforcement (cheat-proof) ──
+        const canvasCheck = await enforceAndDeductCanvasCredit(user.id)
+        if (!canvasCheck.allowed) {
+            return NextResponse.json(creditExhaustedResponse(canvasCheck), { status: 402 })
+        }
 
         console.log('Creating workflow:', { name: sanitizedName, user_id: user.id })
 

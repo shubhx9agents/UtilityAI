@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { CreditsProvider } from "@/contexts/CreditsContext";
 import { UpgradeModal } from "@/components/ui/UpgradeModal";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -33,8 +34,10 @@ export default function RootLayout({
         >
           <AuthProvider>
             <SubscriptionProvider>
-              {children}
-              <UpgradeModal />
+              <CreditsProvider>
+                {children}
+                <UpgradeModal />
+              </CreditsProvider>
             </SubscriptionProvider>
           </AuthProvider>
         </ThemeProvider>

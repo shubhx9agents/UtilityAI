@@ -26,6 +26,8 @@ import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { AgentSessionHistory } from '@/components/agent-session-history'
+import { useCredits } from '@/contexts/CreditsContext'
+import { ExhaustedBanner } from '@/components/credits/ExhaustedBanner'
 import {
     Table,
     TableBody,
@@ -47,6 +49,8 @@ export default function AgentPage() {
     const params = useParams()
     const agentId = params.agentId as AgentType
     const agent = AGENT_CONFIGS[agentId]
+    const { isAgentExhausted, refetchUsage } = useCredits()
+    const isExhausted = isAgentExhausted(agentId)
 
     const [formData, setFormData] = useState<Record<string, string>>({})
     const [additionalDetails, setAdditionalDetails] = useState('')
@@ -318,6 +322,8 @@ export default function AgentPage() {
                 if (data.refined_prompt) {
                     setRefinedPrompt(data.refined_prompt)
                 }
+                // Refresh usage so sidebar updates
+                refetchUsage()
 
                 // Clear uploaded images after generation
                 setUploadedImages({})
@@ -896,53 +902,60 @@ export default function AgentPage() {
                                         </div>
                                     )}
 
-                                    <div className="flex gap-4 pt-4 border-t border-white/5">
-                                        {formStep > 0 && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                onClick={() => setFormStep(prev => prev - 1)}
-                                                className="h-12 border border-white/10 text-white hover:bg-white/5 rounded-xl px-4"
-                                                disabled={loading}
-                                            >
-                                                <ChevronLeft className="h-5 w-5 mr-2" />
-                                                Back
-                                            </Button>
+                                    <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
+                                        {/* Exhaustion banner — shown when per-agent limit is hit */}
+                                        {isExhausted && (
+                                            <ExhaustedBanner message="Credits exhausted for this agent. Please upgrade your plan." />
                                         )}
 
-                                        {formStep < (agentId === 'linkedin_headshot' ? 1 : Math.ceil(agent.questions.length / 3) - 1) ? (
-                                            <Button
-                                                type="button"
-                                                onClick={() => setFormStep(prev => prev + 1)}
-                                                className="flex-1 h-12 bg-white/10 text-white hover:bg-white/20 font-bold rounded-xl"
-                                                disabled={loading}
-                                            >
-                                                Continue
-                                                <ChevronRight className="h-5 w-5 ml-2" />
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                type="button"
-                                                onClick={handleSubmit}
-                                                className="flex-1 h-12 bg-amber-500 text-black hover:bg-amber-400 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] active:scale-[0.98] flex items-center justify-center gap-2 border border-amber-400/20 group relative overflow-hidden"
-                                                disabled={loading}
-                                            >
-                                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                                                {loading ? (
-                                                    <>
-                                                        <Loader2 className="h-5 w-5 animate-spin" />
-                                                        <span className="text-sm">Synthesizing...</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Sparkles className="h-5 w-5 group-hover:rotate-12 transition-transform" />
-                                                        <span className="text-[10px] whitespace-nowrap uppercase tracking-widest">
-                                                            {agentId === 'deep_research' ? 'Run Deep Research' : 'Ignite Intelligence'}
-                                                        </span>
-                                                    </>
-                                                )}
-                                            </Button>
-                                        )}
+                                        <div className="flex gap-4">
+                                            {formStep > 0 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    onClick={() => setFormStep(prev => prev - 1)}
+                                                    className="h-12 border border-white/10 text-white hover:bg-white/5 rounded-xl px-4"
+                                                    disabled={loading}
+                                                >
+                                                    <ChevronLeft className="h-5 w-5 mr-2" />
+                                                    Back
+                                                </Button>
+                                            )}
+
+                                            {formStep < (agentId === 'linkedin_headshot' ? 1 : Math.ceil(agent.questions.length / 3) - 1) ? (
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => setFormStep(prev => prev + 1)}
+                                                    className="flex-1 h-12 bg-white/10 text-white hover:bg-white/20 font-bold rounded-xl"
+                                                    disabled={loading}
+                                                >
+                                                    Continue
+                                                    <ChevronRight className="h-5 w-5 ml-2" />
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    type="button"
+                                                    onClick={handleSubmit}
+                                                    className="flex-1 h-12 bg-amber-500 text-black hover:bg-amber-400 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] active:scale-[0.98] flex items-center justify-center gap-2 border border-amber-400/20 group relative overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+                                                    disabled={loading || isExhausted}
+                                                >
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                                                    {loading ? (
+                                                        <>
+                                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                                            <span className="text-sm">Synthesizing...</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Sparkles className="h-5 w-5 group-hover:rotate-12 transition-transform" />
+                                                            <span className="text-[10px] whitespace-nowrap uppercase tracking-widest">
+                                                                {agentId === 'deep_research' ? 'Run Deep Research' : 'Ignite Intelligence'}
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 </form>
                             </div>

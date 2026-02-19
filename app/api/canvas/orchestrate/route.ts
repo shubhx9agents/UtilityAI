@@ -256,6 +256,7 @@ export async function POST(request: NextRequest) {
             }, { status: 400 })
         }
 
+
         // If just agents selected without instruction, generate default workflow
         if (hasSelectedAgents && !instruction) {
             let plan = generateDefaultWorkflow(
