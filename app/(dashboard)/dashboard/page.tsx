@@ -2,6 +2,7 @@
 
 import React, { useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import NextImage from 'next/image'
@@ -16,6 +17,7 @@ import {
   Play,
   Rocket,
   Star,
+  Crown,
 } from 'lucide-react'
 import { ParticleCard, BentoCardGrid, GlobalSpotlight } from '@/components/ui/MagicBento'
 
@@ -92,6 +94,7 @@ const gettingStartedSteps = [
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const { isPremium, upgrade } = useSubscription()
   const gridRef = useRef<HTMLDivElement>(null)
 
   const displayName =
@@ -138,14 +141,25 @@ export default function DashboardPage() {
               You have <span className="font-bold text-amber-500">850 tokens</span> remaining this billing cycle.
             </p>
           </div>
-          <Link href="/upgrade" className="shrink-0">
-            <Button className="group relative rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 px-8 py-6 text-lg font-bold text-black transition-all hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105 active:scale-100">
+
+          {/* Upgrade / Premium badge */}
+          {isPremium ? (
+            <div className="shrink-0 flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500/15 to-amber-500/5 border border-amber-500/30">
+              <Crown className="h-5 w-5 text-amber-400" />
+              <span className="text-sm font-bold text-amber-400">Premium Active</span>
+            </div>
+          ) : (
+            <button
+              id="dashboard-upgrade-btn"
+              onClick={upgrade}
+              className="group shrink-0 relative rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 px-8 py-4 text-base font-bold text-black transition-all hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105 active:scale-100"
+            >
               <span className="relative z-10 flex items-center gap-2">
                 Upgrade Plan
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </span>
-            </Button>
-          </Link>
+            </button>
+          )}
         </div>
       </ParticleCard>
 

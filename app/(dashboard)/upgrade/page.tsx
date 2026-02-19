@@ -3,10 +3,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '../../../components/ui/badge'
-import { Check, X, Sparkles, Zap, Shield, Rocket } from 'lucide-react'
+import { Check, X, Sparkles, Rocket, Crown } from 'lucide-react'
 import Link from 'next/link'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 
 export default function UpgradePage() {
+    const { isPremium, upgrade } = useSubscription()
+
     return (
         <div className="space-y-8 animate-fade-in max-w-5xl mx-auto pb-10">
             {/* Header */}
@@ -17,6 +20,13 @@ export default function UpgradePage() {
                 <p className="text-xl text-white/50 max-w-2xl mx-auto">
                     Supercharge your workflow with advanced AI capabilities, unlimited history, and priority support.
                 </p>
+                {/* Premium status banner */}
+                {isPremium && (
+                    <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500/20 to-amber-500/10 border border-amber-500/30 text-amber-400 font-semibold text-sm">
+                        <Crown className="h-4 w-4" />
+                        You are on the Premium plan — enjoy all features!
+                    </div>
+                )}
             </div>
 
             {/* Plans Grid */}
@@ -26,7 +36,9 @@ export default function UpgradePage() {
                     <CardHeader>
                         <CardTitle className="flex justify-between items-center text-white">
                             <span className="text-2xl font-bold">Starter</span>
-                            <Badge variant="secondary" className="bg-white/10 text-white border-white/20">Current</Badge>
+                            <Badge variant="secondary" className="bg-white/10 text-white border-white/20">
+                                {isPremium ? 'Previous' : 'Current'}
+                            </Badge>
                         </CardTitle>
                         <CardDescription className="text-white/40 font-medium">Perfect for exploring AI capabilities</CardDescription>
                         <div className="pt-4">
@@ -50,11 +62,11 @@ export default function UpgradePage() {
                             </li>
                             <li className="flex items-center text-white/30">
                                 <X className="h-4 w-4 mr-3" />
-                                <span>Deep Research & Analysis</span>
+                                <span>Deep Research &amp; Analysis</span>
                             </li>
                             <li className="flex items-center text-white/30">
                                 <X className="h-4 w-4 mr-3" />
-                                <span>Export to PDF & CSV</span>
+                                <span>Export to PDF &amp; CSV</span>
                             </li>
                         </ul>
                     </CardContent>
@@ -70,7 +82,13 @@ export default function UpgradePage() {
                     <CardHeader>
                         <CardTitle className="flex justify-between items-center text-white mt-2">
                             <span className="text-2xl font-bold">Pro</span>
-                            <Sparkles className="h-6 w-6 text-amber-500" />
+                            {isPremium ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold">
+                                    <Crown className="h-3 w-3" /> Active
+                                </span>
+                            ) : (
+                                <Sparkles className="h-6 w-6 text-amber-500" />
+                            )}
                         </CardTitle>
                         <CardDescription className="text-amber-500/60 font-medium">For power users and professionals</CardDescription>
                         <div className="pt-4">
@@ -90,7 +108,7 @@ export default function UpgradePage() {
                             </li>
                             <li className="flex items-center text-white/80">
                                 <Check className="h-4 w-4 text-amber-500 mr-3" />
-                                <span className="font-bold">Fastest 'Turbo' Processing</span>
+                                <span className="font-bold">Fastest &apos;Turbo&apos; Processing</span>
                             </li>
                             <li className="flex items-center text-white/80">
                                 <Check className="h-4 w-4 text-amber-500 mr-3" />
@@ -101,9 +119,21 @@ export default function UpgradePage() {
                                 <span>Priority 24/7 Support</span>
                             </li>
                         </ul>
-                        <Button className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold h-12 text-lg shadow-lg shadow-amber-500/20" disabled>
-                            Upgrade Now
-                        </Button>
+
+                        {isPremium ? (
+                            <div className="w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-500/10 border border-amber-500/30 text-amber-400 font-bold text-base">
+                                <Crown className="h-5 w-5" />
+                                Premium Active
+                            </div>
+                        ) : (
+                            <Button
+                                id="upgrade-page-upgrade-btn"
+                                onClick={upgrade}
+                                className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold h-12 text-lg shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 transition-all hover:scale-[1.02] active:scale-100"
+                            >
+                                Upgrade Now
+                            </Button>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -130,4 +160,3 @@ export default function UpgradePage() {
         </div>
     )
 }
-

@@ -1,9 +1,10 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Check, Sparkles } from 'lucide-react'
+import { Check, Sparkles, Crown } from 'lucide-react'
 import { GlowingButton } from './GlowingButton'
 import { cn } from '@/lib/utils'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 
 interface PricingTier {
   name: string
@@ -14,6 +15,7 @@ interface PricingTier {
   cta: string
   popular?: boolean
   href: string
+  isUpgrade?: boolean
 }
 
 const tiers: PricingTier[] = [
@@ -44,9 +46,10 @@ const tiers: PricingTier[] = [
       'Priority support',
       'Team collaboration',
     ],
-    cta: 'Start free trial',
+    cta: 'Upgrade to Premium',
     popular: true,
     href: '/register',
+    isUpgrade: true,
   },
   {
     name: 'Enterprise',
@@ -67,6 +70,8 @@ const tiers: PricingTier[] = [
 ]
 
 export function PricingSection() {
+  const { upgrade, isPremium } = useSubscription()
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       {tiers.map((tier, i) => (
@@ -119,13 +124,32 @@ export function PricingSection() {
           </ul>
 
           {/* CTA */}
-          <GlowingButton
-            href={tier.href}
-            variant={tier.popular ? 'primary' : 'secondary'}
-            className="w-full justify-center"
-          >
-            {tier.cta}
-          </GlowingButton>
+          {tier.isUpgrade ? (
+            /* Upgrade button for Pro tier — calls context upgrade() */
+            isPremium ? (
+              <div className="w-full flex items-center justify-center gap-2 py-3 rounded-full bg-gradient-to-r from-amber-500/20 to-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-semibold">
+                <Crown className="w-4 h-4" />
+                Premium Active
+              </div>
+            ) : (
+              <button
+                id="pricing-upgrade-btn"
+                onClick={upgrade}
+                className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-zinc-900 text-sm font-semibold hover:from-amber-400 hover:to-orange-400 shadow-[0_0_30px_rgba(245,158,11,0.4)] hover:shadow-[0_0_40px_rgba(245,158,11,0.6)] transition-all hover:scale-[1.02] active:scale-100"
+              >
+                <Sparkles className="w-4 h-4" />
+                {tier.cta}
+              </button>
+            )
+          ) : (
+            <GlowingButton
+              href={tier.href}
+              variant={tier.popular ? 'primary' : 'secondary'}
+              className="w-full justify-center"
+            >
+              {tier.cta}
+            </GlowingButton>
+          )}
         </motion.div>
       ))}
     </div>
