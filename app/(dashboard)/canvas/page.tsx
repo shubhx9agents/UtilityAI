@@ -335,7 +335,7 @@ const OutputNode = ({ data }: NodeProps<FlowNodeData>) => (
 )
 
 export default function CanvasPage() {
-    const { isCanvasExhausted, refetchUsage } = useCredits()
+    const { isCanvasExhausted, isAgentExhausted, refetchUsage } = useCredits()
 
     // Workflows state
     const [workflows, setWorkflows] = useState<Workflow[]>([])
@@ -1841,91 +1841,93 @@ export default function CanvasPage() {
                     </div>
                 )}
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                    <Dialog open={showOrchestratorDialog} onOpenChange={setShowOrchestratorDialog}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline">
-                                <Wand2 className="h-4 w-4 mr-2" />
-                                AI Orchestrator
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2">
-                                    <Sparkles className="h-5 w-5 text-amber-500" />
+                    {!isAgentExhausted() && (
+                        <Dialog open={showOrchestratorDialog} onOpenChange={setShowOrchestratorDialog}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline">
+                                    <Wand2 className="h-4 w-4 mr-2" />
                                     AI Orchestrator
-                                </DialogTitle>
-                                <DialogDescription>
-                                    Describe how you want agents to work together, or select agents manually
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label>Natural Language Instruction</Label>
-                                    <textarea
-                                        className="w-full min-h-[100px] p-3 border rounded-md bg-background text-sm"
-                                        placeholder="e.g., 'Run Deep Research first, then use the insights to write an Email Sequence, and finally create Social Media posts based on the emails'"
-                                        value={orchestratorInstruction}
-                                        onChange={(e) => setOrchestratorInstruction(e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>Or Select Agents Manually</Label>
-                                    <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
-                                        {agents.map(agent => (
-                                            <div
-                                                key={agent.id}
-                                                className={`p-3 border rounded-lg cursor-pointer transition-all ${selectedAgents.includes(agent.id)
-                                                    ? 'border-amber-500 bg-amber-500/10'
-                                                    : 'hover:border-warm-border'
-                                                    }`}
-                                                onClick={() => toggleAgentSelection(agent.id)}
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <Bot className="h-4 w-4 text-amber-500" />
-                                                    <span className="font-medium text-sm">{agent.name}</span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                                                    {agent.capabilities.slice(0, 2).join(', ')}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {selectedAgents.length > 0 && !orchestratorInstruction && (
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                                <DialogHeader>
+                                    <DialogTitle className="flex items-center gap-2">
+                                        <Sparkles className="h-5 w-5 text-amber-500" />
+                                        AI Orchestrator
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                        Describe how you want agents to work together, or select agents manually
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
                                     <div className="space-y-2">
-                                        <Label>Workflow Mode</Label>
-                                        <Select value={workflowMode} onValueChange={(v: any) => setWorkflowMode(v)}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="sequential">Sequential (one after another)</SelectItem>
-                                                <SelectItem value="parallel">Parallel (run together)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <Label>Natural Language Instruction</Label>
+                                        <textarea
+                                            className="w-full min-h-[100px] p-3 border rounded-md bg-background text-sm"
+                                            placeholder="e.g., 'Run Deep Research first, then use the insights to write an Email Sequence, and finally create Social Media posts based on the emails'"
+                                            value={orchestratorInstruction}
+                                            onChange={(e) => setOrchestratorInstruction(e.target.value)}
+                                        />
                                     </div>
-                                )}
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setShowOrchestratorDialog(false)}>
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={generateWorkflowPlan}
-                                    disabled={isLoading || (!orchestratorInstruction.trim() && selectedAgents.length === 0)}
-                                >
-                                    {isLoading ? (
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
-                                        <Wand2 className="h-4 w-4 mr-2" />
+
+                                    <div className="space-y-2">
+                                        <Label>Or Select Agents Manually</Label>
+                                        <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
+                                            {agents.map(agent => (
+                                                <div
+                                                    key={agent.id}
+                                                    className={`p-3 border rounded-lg cursor-pointer transition-all ${selectedAgents.includes(agent.id)
+                                                        ? 'border-amber-500 bg-amber-500/10'
+                                                        : 'hover:border-warm-border'
+                                                        }`}
+                                                    onClick={() => toggleAgentSelection(agent.id)}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <Bot className="h-4 w-4 text-amber-500" />
+                                                        <span className="font-medium text-sm">{agent.name}</span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                                        {agent.capabilities.slice(0, 2).join(', ')}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {selectedAgents.length > 0 && !orchestratorInstruction && (
+                                        <div className="space-y-2">
+                                            <Label>Workflow Mode</Label>
+                                            <Select value={workflowMode} onValueChange={(v: any) => setWorkflowMode(v)}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="sequential">Sequential (one after another)</SelectItem>
+                                                    <SelectItem value="parallel">Parallel (run together)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     )}
-                                    Generate Workflow
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setShowOrchestratorDialog(false)}>
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        onClick={generateWorkflowPlan}
+                                        disabled={isLoading || (!orchestratorInstruction.trim() && selectedAgents.length === 0)}
+                                    >
+                                        {isLoading ? (
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                            <Wand2 className="h-4 w-4 mr-2" />
+                                        )}
+                                        Generate Workflow
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
 
                     {isCanvasExhausted ? (
                         <ExhaustedBanner

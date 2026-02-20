@@ -77,6 +77,19 @@ export class AIAgentService {
         return BYTEPLUS_IMAGE_MODELS.has(model)
     }
 
+    private cleanBase64(dataUrl: string): string {
+        if (!dataUrl || typeof dataUrl !== 'string') return ''
+        const match = dataUrl.match(/^data:image\/[a-zA-Z0-9.+-]+;base64,(.*)$/)
+        return match ? match[1] : dataUrl
+    }
+
+    private ensureDataUrl(img: string): string {
+        if (!img) return ''
+        if (img.startsWith('data:image/') || img.startsWith('http')) return img
+        // Default to jpeg if no prefix, though ideally we should know the type
+        return `data:image/jpeg;base64,${img}`
+    }
+
     private buildGeminiImageParts(images: string[]): Array<{ inlineData: { mimeType: string; data: string } }> {
         const parts: Array<{ inlineData: { mimeType: string; data: string } }> = []
         for (const image of images) {
@@ -271,28 +284,33 @@ CRITICAL REQUIREMENTS:
 
             const imageUrl = this.isBytePlusModel(imageModel)
                 ? await (async () => {
+                    const body = {
+                        model: imageModel,
+                        prompt: refinedPrompt,
+                        image: contextImages.length > 0
+                            ? contextImages.slice(0, 2).map(img => this.ensureDataUrl(img))
+                            : [
+                                this.ensureDataUrl(context.base_image),
+                                this.ensureDataUrl(context.reference_image)
+                            ].filter(Boolean),
+                        response_format: 'url',
+                        size: `${width}x${height}`
+                    }
+                    console.log('[BytePlus Request Body]:', JSON.stringify({ ...body, image: body.image.map(i => i.substring(0, 50) + '...') }))
+
                     const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${bytePlusKey}`,
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            model: imageModel,
-                            prompt: refinedPrompt,
-                            image: contextImages.length > 0 ? contextImages.slice(0, 2) : [
-                                context.base_image,
-                                context.reference_image
-                            ].filter(Boolean),
-                            response_format: 'url',
-                            size: `${width}x${height}`
-                        })
+                        body: JSON.stringify(body)
                     })
 
                     if (!bytePlusRes.ok) {
                         const text = await bytePlusRes.text()
                         console.error('BytePlus API Error:', text)
-                        throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
+                        throw new Error(`BytePlus API Error: ${bytePlusRes.status} - ${text.substring(0, 200)}`)
                     }
 
                     const bytePlusData = await bytePlusRes.json()
@@ -402,27 +420,30 @@ CRITICAL REQUIREMENTS:
 
             const imageUrl = this.isBytePlusModel(imageModel)
                 ? await (async () => {
+                    const body = {
+                        model: imageModel,
+                        prompt: refinedPrompt,
+                        image: contextImages.length > 0
+                            ? [this.ensureDataUrl(contextImages[0])]
+                            : [this.ensureDataUrl(context.user_image)].filter(Boolean),
+                        response_format: 'url',
+                        size: `${width}x${height}`
+                    }
+                    console.log('[BytePlus LinkedIn Request Body]:', JSON.stringify({ ...body, image: body.image.map(i => i.substring(0, 50) + '...') }))
+
                     const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${bytePlusKey}`,
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            model: imageModel,
-                            prompt: refinedPrompt,
-                            image: contextImages.length > 0 ? [contextImages[0]] : [
-                                context.user_image
-                            ].filter(Boolean),
-                            response_format: 'url',
-                            size: `${width}x${height}`
-                        })
+                        body: JSON.stringify(body)
                     })
 
                     if (!bytePlusRes.ok) {
                         const text = await bytePlusRes.text()
                         console.error('BytePlus API Error:', text)
-                        throw new Error(`BytePlus API Error: ${bytePlusRes.status}`)
+                        throw new Error(`BytePlus API Error: ${bytePlusRes.status} - ${text.substring(0, 200)}`)
                     }
 
                     const bytePlusData = await bytePlusRes.json()

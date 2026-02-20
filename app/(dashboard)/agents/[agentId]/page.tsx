@@ -311,11 +311,12 @@ export default function AgentPage() {
                 }),
             })
 
-            const data = await res.json()
-
             if (!res.ok) {
-                throw new Error(data.error || 'Failed to get response')
+                const errorData = await res.json().catch(() => ({ error: `Server Error (${res.status})` }))
+                throw new Error(errorData.error || `Request failed with status ${res.status}`)
             }
+
+            const data = await res.json()
 
             if (data.response) {
                 setResponse(data.response)
@@ -338,7 +339,8 @@ export default function AgentPage() {
                     } else {
                         // Fetch the image URL and convert to base64
                         try {
-                            const imgRes = await fetch(data.response)
+                            const imgRes = await fetch(`/api/download?url=${encodeURIComponent(data.response)}`)
+                            if (!imgRes.ok) throw new Error('Proxy fetch failed')
                             const blob = await imgRes.blob()
                             const reader = new FileReader()
                             reader.onloadend = () => {
@@ -346,7 +348,7 @@ export default function AgentPage() {
                             }
                             reader.readAsDataURL(blob)
                         } catch (error) {
-                            console.error('Failed to fetch generated image for chat analysis:', error)
+                            console.error('Failed to fetch generated image for chat analysis via proxy:', error)
                         }
                     }
                 }
@@ -723,7 +725,7 @@ export default function AgentPage() {
                                     <div className="space-y-6">
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="flex gap-1">
-                                                {Array.from({ length: agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3) }).map((_, i) => (
+                                                {Array.from({ length: agentId === 'linkedin_headshot' ? 3 : Math.ceil(agent.questions.length / 3) }).map((_, i) => (
                                                     <div
                                                         key={i}
                                                         className={`h-1 w-8 rounded-full transition-all duration-300 ${formStep >= i ? 'bg-amber-500' : 'bg-white/10'}`}
@@ -731,7 +733,7 @@ export default function AgentPage() {
                                                 ))}
                                             </div>
                                             <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
-                                                Step {formStep + 1} of {agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3)}
+                                                Step {formStep + 1} of {agentId === 'linkedin_headshot' ? 3 : Math.ceil(agent.questions.length / 3)}
                                             </span>
                                         </div>
 
@@ -814,7 +816,7 @@ export default function AgentPage() {
                                         })}
                                     </div>
 
-                                    {formStep === Math.ceil(agent.questions.length / 3) - 1 && (
+                                    {formStep === (agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3) - 1) && (
                                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                             {(agentId === 'linkedin_headshot' || agentId === 'image_generation') && (
                                                 <div className="space-y-6 pt-6 border-t border-white/5">
@@ -922,7 +924,7 @@ export default function AgentPage() {
                                                 </Button>
                                             )}
 
-                                            {formStep < (agentId === 'linkedin_headshot' ? 1 : Math.ceil(agent.questions.length / 3) - 1) ? (
+                                            {formStep < (agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3) - 1) ? (
                                                 <Button
                                                     type="button"
                                                     onClick={() => setFormStep(prev => prev + 1)}

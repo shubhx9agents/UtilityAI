@@ -65,7 +65,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
             .catch(err => console.error('Upgrade network error:', err))
     }, [plan, storageKey])
 
-    const closeUpgradeModal = useCallback(() => setShowUpgradeModal(false), [])
+    const closeUpgradeModal = useCallback(() => {
+        setShowUpgradeModal(false)
+        window.location.reload()
+    }, [])
 
     return (
         <SubscriptionContext.Provider value={{ plan, isPremium: plan === 'premium', upgrade, showUpgradeModal, closeUpgradeModal }}>
