@@ -29,6 +29,7 @@ const navigation = [
   { name: 'Onboarding', href: '/onboarding', icon: Rocket },
   { name: 'AI Agents', href: '/agents', icon: Bot },
   { name: 'Canvas', href: '/canvas', icon: Layers },
+  { name: 'Usage & Credits', href: '/usage', icon: Sparkles },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
