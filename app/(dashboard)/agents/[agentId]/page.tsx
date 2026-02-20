@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/table"
 import { ParticleCard, GlobalSpotlight } from '@/components/ui/MagicBento'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { DeepResearchRenderer } from '@/components/deep-research-renderer'
 
 const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
 const IMAGE_MODEL_OPTIONS = [
@@ -511,22 +512,71 @@ export default function AgentPage() {
 
         const exportStyles = document.createElement('style')
         exportStyles.textContent = `
+            /* ── Base reset for PDF ── */
             .pdf-export-container,
-            .pdf-export-container .pdf-export {
+            .pdf-export-container * {
                 font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
-                color: #000000 !important;
-                background: #ffffff !important;
-                line-height: 1.6 !important;
-                font-size: 12pt !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
-            .pdf-export h1 { font-size: 24pt !important; margin-bottom: 24px !important; font-weight: 700 !important; border-bottom: 2px solid #000000 !important; padding-bottom: 12px !important; color: #000000 !important; }
-            .pdf-export h2 { font-size: 18pt !important; margin-top: 32px !important; margin-bottom: 16px !important; font-weight: 700 !important; border-bottom: 1px solid #333333 !important; padding-bottom: 8px !important; color: #000000 !important; }
-            .pdf-export p { margin-bottom: 16px !important; text-align: justify !important; color: #000000 !important; }
-            .pdf-export table { width: 100% !important; border-collapse: collapse !important; margin: 24px 0 !important; }
-            .pdf-export th { background-color: #e5e7eb !important; padding: 12px !important; border: 1px solid #000000 !important; }
-            .pdf-export td { border: 1px solid #666666 !important; padding: 10px !important; }
+            .pdf-export-container,
+            .pdf-export-container .pdf-export {
+                color: #111111 !important;
+                background: #ffffff !important;
+                line-height: 1.6 !important;
+            }
+
+            /* ── Force all text visible ── */
+            .pdf-export-container [class*="text-white"] { color: #111111 !important; }
+            .pdf-export-container [class*="text-white/"] { color: #111111 !important; }
+            .pdf-export-container [class*="text-amber"] { color: #92400e !important; }
+            .pdf-export-container [class*="text-red"] { color: #991b1b !important; }
+            .pdf-export-container [class*="text-emerald"] { color: #065f46 !important; }
+            .pdf-export-container [class*="text-sky"] { color: #1e3a5f !important; }
+            .pdf-export-container [class*="text-blue"] { color: #1e40af !important; }
+            .pdf-export-container [class*="text-violet"] { color: #4c1d95 !important; }
+            .pdf-export-container [class*="text-orange"] { color: #7c2d12 !important; }
+
+            /* ── Force all backgrounds light ── */
+            .pdf-export-container [class*="bg-white"] { background-color: #f9fafb !important; }
+            .pdf-export-container [class*="bg-amber"] { background-color: #fef3c7 !important; }
+            .pdf-export-container [class*="bg-red"] { background-color: #fee2e2 !important; }
+            .pdf-export-container [class*="bg-emerald"] { background-color: #d1fae5 !important; }
+            .pdf-export-container [class*="bg-sky"] { background-color: #e0f2fe !important; }
+            .pdf-export-container [class*="bg-blue"] { background-color: #dbeafe !important; }
+            .pdf-export-container [class*="bg-violet"] { background-color: #ede9fe !important; }
+            .pdf-export-container [class*="bg-orange"] { background-color: #ffedd5 !important; }
+
+            /* ── Force borders visible ── */
+            .pdf-export-container [class*="border-white"] { border-color: #e5e7eb !important; }
+            .pdf-export-container [class*="border-amber"] { border-color: #d97706 !important; }
+            .pdf-export-container [class*="border-red"] { border-color: #ef4444 !important; }
+            .pdf-export-container [class*="border-emerald"] { border-color: #10b981 !important; }
+            .pdf-export-container [class*="border-sky"] { border-color: #0ea5e9 !important; }
+            .pdf-export-container [class*="border-blue"] { border-color: #3b82f6 !important; }
+            .pdf-export-container [class*="border-violet"] { border-color: #8b5cf6 !important; }
+
+            /* ── Dividers ── */
+            .pdf-export-container [class*="border-t"] { border-top-color: #e5e7eb !important; }
+            .pdf-export-container [class*="border-b"] { border-bottom-color: #e5e7eb !important; }
+            .pdf-export-container [class*="border-l"] { border-left-color: #d1d5db !important; }
+            .pdf-export-container [class*="divide-white"] > * + * { border-color: #e5e7eb !important; }
+
+            /* ── Standard elements ── */
+            .pdf-export-container h1, .pdf-export-container h2 { color: #111111 !important; }
+            .pdf-export-container h2 { font-size: 16pt !important; margin-top: 24px !important; margin-bottom: 12px !important; font-weight: 800 !important; }
+            .pdf-export-container p { margin-bottom: 8px !important; color: #111111 !important; }
+            .pdf-export-container table { width: 100% !important; border-collapse: collapse !important; margin: 16px 0 !important; }
+            .pdf-export-container th { background-color: #f3f4f6 !important; padding: 8px 12px !important; border: 1px solid #d1d5db !important; color: #111111 !important; text-align: left !important; }
+            .pdf-export-container td { border: 1px solid #e5e7eb !important; padding: 8px 12px !important; color: #111111 !important; }
+            .pdf-export-container a { color: #1d4ed8 !important; text-decoration: underline !important; }
+            .pdf-export-container span { color: inherit !important; }
+            .pdf-export-container li { color: #111111 !important; }
+
+            /* ── Gradient overrides ── */
+            .pdf-export-container [class*="from-"] { background-image: none !important; }
+            .pdf-export-container [class*="to-"] { background-image: none !important; }
+            .pdf-export-container [class*="bg-gradient"] { background-image: none !important; background-color: #fffbeb !important; }
         `
         document.head.appendChild(exportStyles)
 
@@ -1190,6 +1240,8 @@ export default function AgentPage() {
                                                 </div>
                                             ) : agentId === 'ad_copy' ? (
                                                 <CSVTable csvData={response} />
+                                            ) : agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:') ? (
+                                                <DeepResearchRenderer rawResponse={response} />
                                             ) : (
                                                 <div className="markdown-container prose prose-invert prose-amber max-w-none 
                                                     prose-h1:text-3xl prose-h1:font-black prose-h1:text-white prose-h1:mb-10 prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-6
@@ -1357,6 +1409,8 @@ export default function AgentPage() {
                                 </div>
                             ) : agentId === 'ad_copy' ? (
                                 <CSVTable csvData={response} />
+                            ) : agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:') ? (
+                                <DeepResearchRenderer rawResponse={response} />
                             ) : (
                                 <div className="markdown-container prose prose-invert prose-amber max-w-none">
                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>

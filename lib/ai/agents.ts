@@ -34,7 +34,41 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
         questions: ['Current funnel', 'Conversion goals', 'A/B test ideas'],
     },
     deep_research: {
-        system_message: 'Strategic market and competitor research.',
+        system_message: `You are a world-class marketing strategist and competitor research analyst.
+
+You specialize in:
+- Deep niche research (India + Global)
+- Competitive intelligence
+- Funnel deconstruction
+- Paid ads analysis (Meta-first)
+- Customer psychology & buying behavior
+- Positioning, messaging, and category creation
+
+You think in terms of:
+- Pains vs desires
+- Hormonal / psychological / behavioral triggers (when applicable)
+- Status, identity, and emotional drivers
+- Market sophistication levels
+- Offer-market fit
+
+Your outputs are:
+- Extremely detailed
+- Based on real-world marketing patterns
+- Structured, logical, and example-driven
+- Actionable for founders, coaches, consultants, and educators
+
+You NEVER assume the niche.
+You ONLY use information provided in the user prompt.
+
+When researching competitors, you:
+- Cover India + Global
+- Focus on leaders, challengers, and digital-first brands
+- Break down funnels, ads, and messaging patterns
+- Identify gaps and white-space opportunities
+
+Follow the structure EXACTLY as provided by the user.
+Do not skip sections.
+Do not compress detail.`,
         questions: [
             'niche',
             'Geography',
@@ -42,9 +76,10 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
             'Primary problem I solve',
             'Secondary problems',
             'My experience',
-            'Types of cases I’ve worked with',
+            'Types of cases I\u2019ve worked with',
             'My core philosophy or approach',
             'Primary promise',
+            'Important beliefs I hold',
         ],
     },
     image_generation: {
@@ -522,30 +557,118 @@ CRITICAL REQUIREMENTS:
             .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
 
         // Build a structured research prompt from user inputs
-        let researchPrompt = explicitUserContext || userInput
+        const geo = extractedInputs['Geography'] || extractedInputs['geography'] || 'India + Global'
+        let researchPrompt: string
 
-        // If we have extracted inputs, build a detailed prompt
-        if (Object.keys(extractedInputs).length > 0) {
-            researchPrompt = explicitUserContext
-                ? `PRIMARY REQUEST (HIGHEST PRIORITY):\n${explicitUserContext}\n\nSupporting profile context (use only if it does not conflict):\n`
-                : 'Conduct comprehensive market and competitor research based on the following information:\n\n'
+        if (Object.keys(extractedInputs).length > 0 || explicitUserContext) {
+            const niche = extractedInputs['niche'] || extractedInputs['Niche'] || ''
+            const geography = geo
+            const targetAudience = extractedInputs['Target audience'] || extractedInputs['target_audience'] || ''
+            const primaryProblem = extractedInputs['Primary problem I solve'] || extractedInputs['primary_problem_i_solve'] || ''
+            const secondaryProblems = extractedInputs['Secondary problems'] || extractedInputs['secondary_problems'] || ''
+            const experience = extractedInputs['My experience'] || extractedInputs['my_experience'] || ''
+            const caseTypes = extractedInputs['Types of cases I\u2019ve worked with'] || extractedInputs['types_of_cases_ive_worked_with'] || ''
+            const philosophy = extractedInputs['My core philosophy or approach'] || extractedInputs['my_core_philosophy_or_approach'] || ''
+            const primaryPromise = extractedInputs['Primary promise'] || extractedInputs['primary_promise'] || ''
+            const beliefs = extractedInputs['Important beliefs I hold'] || extractedInputs['important_beliefs_i_hold'] || ''
 
-            for (const [field, value] of Object.entries(extractedInputs)) {
-                researchPrompt += `${field}: ${value}\n`
-            }
+            researchPrompt = `My niche: ${niche || explicitUserContext || userInput}
 
-            researchPrompt += '\nIf any supporting profile detail conflicts with the PRIMARY REQUEST, follow the PRIMARY REQUEST.'
-            researchPrompt += '\nProvide detailed insights on market trends, competitors, target audience analysis, and strategic recommendations.'
+Geography: ${geography}
+
+Target audience: ${targetAudience}
+
+Primary problem I solve: ${primaryProblem}
+
+Secondary problems: ${secondaryProblems}
+
+My experience: ${experience}
+
+Types of cases I've worked with: ${caseTypes}
+
+My core philosophy or approach: ${philosophy}
+
+Primary promise: ${primaryPromise}
+
+Important beliefs I hold: ${beliefs}
+
+TASK:
+Act as a world-class marketing strategist + competitor research analyst.
+Do a full deep-dive on my niche (${geography}).
+
+Give very detailed answers using real examples.
+
+Follow this exact structure:
+
+1. Top Competitors (${geography})
+   For each competitor:
+   - Name, Website, Niche, Audience
+   - What they sell
+   - Funnel type
+   - Core promise & USP
+   - Pricing
+   - Lead magnet (if any)
+
+2. Ad Research
+   For each competitor:
+   - Meta Ads Library link
+   - Break down 3–5 top performing ads:
+     - Hook
+     - Message
+     - Offer
+     - Creative style
+     - CTA
+     - Angle (Pain / Desire / Status / Logic)
+
+3. Landing Page & Funnel Breakdown
+   - Page structure
+   - Headlines
+   - Emotional triggers
+   - Social proof
+   - Offer positioning
+   - Upsells / Downsell flow
+
+4. Messaging Patterns Working in the Market
+   - Repeated pains
+   - Repeated desires
+   - Repeated objections
+   - Common hooks
+   - Identity/messages they target
+   - Winning angles and promises
+
+5. Customer Insights (Avatar Research)
+   Give me:
+   - Top 10 pains
+   - Top 10 desires
+   - Top 10 objections
+   - Why people buy / don't buy
+   - Status + emotional triggers
+
+6. Gap & Opportunity Analysis for ME
+   - What the market is missing
+   - What competitors are not saying
+   - What USP I can own
+   - Category I should position myself as
+   - Big idea I can dominate
+   - Pricing recommendation
+
+7. My Funnel + Ad Direction
+   Based on all research, give me:
+   - My best hooks
+   - Winning angles
+   - Big promise
+   - Creative formats to use
+   - My funnel outline
+   - My key messages for launch`
 
             if (previousStepOutputs.length > 0) {
                 researchPrompt += `\n\nPrevious workflow step outputs:\n${previousStepOutputs.join('\n\n')}`
             }
-
-            if (!explicitUserContext && userInput?.trim()) {
-                researchPrompt += `\n\nExecution context:\n${userInput}`
+        } else {
+            researchPrompt = userInput
+            if (previousStepOutputs.length > 0 && !/previous step outputs/i.test(userInput)) {
+                researchPrompt += `\n\nPrevious workflow step outputs:\n${previousStepOutputs.join('\n\n')}`
             }
-        } else if (previousStepOutputs.length > 0 && !/previous step outputs/i.test(userInput)) {
-            researchPrompt += `\n\nPrevious workflow step outputs:\n${previousStepOutputs.join('\n\n')}`
         }
 
         console.log(`[Deep Research] Using prompt:\n${researchPrompt.substring(0, 300)}...`)
@@ -580,17 +703,112 @@ CRITICAL REQUIREMENTS:
 
             const perplexityData = await perplexityRes.json()
             const rawOutput = perplexityData.choices?.[0]?.message?.content
+            const citations: string[] = perplexityData.citations || []
+            const searchResults: any[] = perplexityData.search_results || []
+            const usageStats = perplexityData.usage || {}
+            const researchId = perplexityData.id || ''
 
             if (!rawOutput) {
                 throw new Error('Perplexity returned an empty response.')
             }
 
-            // 2. Groq Structuring
+            // 2. Groq Structuring — build a flat LLM input with meta + raw output
             const llmInput = `
-TASK: REPORT_GENERATION
-=== RAW_RESEARCH_DATA ===
+TASK:
+STRUCTURE_AND_EXTRACT
+
+STRICT INSTRUCTIONS:
+- Do NOT summarize
+- Do NOT add new data
+- Do NOT infer missing data
+- Preserve all text verbatim
+- Preserve all sources and citations
+- If data is missing, set value to null
+- Output ONLY valid JSON matching the schema
+
+=== META ===
+id: ${researchId}
+model: sonar
+
+usage:
+${JSON.stringify(usageStats, null, 2)}
+
+citations:
+${JSON.stringify(citations, null, 2)}
+
+search_results:
+${JSON.stringify(searchResults, null, 2)}
+
+=== RAW_ASSISTANT_OUTPUT ===
 ${rawOutput}
+
 === END_OF_INPUT ===`.trim()
+
+            const GROQ_STRUCTURING_SYSTEM = `You are an expert competitive intelligence analyst and market research formatter.
+
+Your task is to transform raw competitive analysis data into a structured JSON object.
+
+Parse EVERY piece of data from the input. Do NOT summarize. Do NOT omit. Preserve verbatim text.
+
+Output ONLY a single valid JSON object — no markdown, no code fences, no preamble — matching this exact schema:
+
+{
+  "meta_information": {
+    "research_id": string,
+    "model": string,
+    "timestamp": string,
+    "usage_stats": { "prompt_tokens": number, "completion_tokens": number, "total_tokens": number, "search_context_size": string, "total_cost": number },
+    "citations": string[]
+  },
+  "competitors": [{
+    "name": string, "website": string,
+    "profile": { "niche": string, "target_audience": string, "geography": string },
+    "offerings": { "what_they_sell": string, "key_features": string[], "core_promise": string, "usp": string },
+    "funnel": { "type": string, "stages": string[], "lead_magnet": string | null },
+    "pricing": { "model": string, "estimated_range": string | null, "publicly_listed": boolean },
+    "metrics": { "resolution_rate": string | null, "automation_level": string | null }
+  }],
+  "ad_research": [{
+    "competitor": string, "platform": string, "ad_library_url": string,
+    "ads": [{ "ad_number": number, "hook": string, "message": string, "offer": string, "creative_type": string, "cta": string, "angle": string }]
+  }],
+  "landing_pages": [{
+    "competitor": string, "url": string,
+    "structure": { "page_flow": string[], "headlines": string[] },
+    "conversion_elements": { "emotional_triggers": string[], "social_proof": string[], "offer_positioning": string, "funnel_path": string }
+  }],
+  "messaging_patterns": {
+    "repeated_pains": string[], "repeated_desires": string[], "repeated_objections": string[],
+    "common_hooks": string[], "target_identities": string[],
+    "winning_angles": { "pain_to_desire": string, "key_promises": string[] }
+  },
+  "customer_insights": {
+    "top_pains": [{ "rank": number, "pain": string }],
+    "top_desires": [{ "rank": number, "desire": string }],
+    "top_objections": [{ "rank": number, "objection": string }],
+    "buying_psychology": { "why_buy": string[], "why_not_buy": string[] },
+    "emotional_triggers": { "status": string, "emotions": string[] }
+  },
+  "gap_analysis": {
+    "market_gaps": string[], "competitor_blind_spots": string[],
+    "your_opportunity": {
+      "unique_positioning": string, "category_positioning": string, "big_idea": string,
+      "pricing_strategy": { "model": string, "tiers": [{ "name": string, "price": string, "features": string }], "competitive_advantage": string }
+    }
+  },
+  "funnel_strategy": {
+    "recommended_hooks": string[], "winning_angles": string[], "big_promise": string,
+    "creative_formats": string[],
+    "funnel_stages": {
+      "tofu": { "ad": string, "lead_magnet": string },
+      "mofu": { "content": string, "conversion": string },
+      "bofu": { "action": string, "offer": string },
+      "retention": { "nurture": string, "downsell": string }
+    },
+    "launch_messaging": string,
+    "target_channels": string[]
+  }
+}`
 
             const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
@@ -599,18 +817,14 @@ ${rawOutput}
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
+                    model: 'moonshotai/kimi-k2-instruct',
                     messages: [
-                        {
-                            role: 'system',
-                            content: `You are a world-class marketing strategist and researcher. 
-                            Your task is to take raw research data and transform it into a stunning, professional, and highly actionable research report.
-                            Use Markdown to format the output with clear headings, subheadings, bullet points, and tables.
-                            Make it look premium, like a high-end consulting firm's deliverable.
-                            Ensure all key insights, competitor details, and strategic recommendations are preserved and highlighted.`
-                        },
+                        { role: 'system', content: GROQ_STRUCTURING_SYSTEM },
                         { role: 'user', content: llmInput }
-                    ]
+                    ],
+                    temperature: 0.1,
+                    max_tokens: 8192,
+                    response_format: { type: 'json_object' }
                 })
             })
 
@@ -620,7 +834,19 @@ ${rawOutput}
             }
 
             const groqData = await groqRes.json()
-            return { response: groqData.choices?.[0]?.message?.content || rawOutput }
+            const structuredContent = groqData.choices?.[0]?.message?.content
+
+            if (!structuredContent) {
+                return { response: rawOutput }
+            }
+
+            // Validate it's real JSON before returning — prefix with DEEP_RESEARCH_JSON: so frontend can detect it
+            try {
+                JSON.parse(structuredContent)
+                return { response: `DEEP_RESEARCH_JSON:${structuredContent}` }
+            } catch {
+                return { response: rawOutput }
+            }
 
         } catch (error: any) {
             console.error('Deep Research multi-step error:', error)
