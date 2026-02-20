@@ -60,6 +60,7 @@ import remarkGfm from 'remark-gfm'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { useCredits } from '@/contexts/CreditsContext'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 import { ExhaustedBanner } from '@/components/credits/ExhaustedBanner'
 import ReactFlow, {
     addEdge,
@@ -103,7 +104,7 @@ interface OnboardingData {
     [key: string]: any
 }
 
-type ConfigInputSpec = { field: string, label: string, type: 'text' | 'image', group?: string }
+type ConfigInputSpec = { field: string, label: string, type: 'text' | 'image', group?: string, description?: string }
 
 const ensurePrimaryConfigInput = (inputs: ConfigInputSpec[]): ConfigInputSpec[] => {
     const seen = new Set<string>()
@@ -121,7 +122,8 @@ const ensurePrimaryConfigInput = (inputs: ConfigInputSpec[]): ConfigInputSpec[] 
             field,
             label: input.label || field,
             type: input.type === 'image' ? 'image' : 'text',
-            group: input.group
+            group: input.group,
+            description: input.description
         })
     }
 
@@ -336,6 +338,7 @@ const OutputNode = ({ data }: NodeProps<FlowNodeData>) => (
 
 export default function CanvasPage() {
     const { isCanvasExhausted, isAgentExhausted, refetchUsage } = useCredits()
+    const { isPremium } = useSubscription()
 
     // Workflows state
     const [workflows, setWorkflows] = useState<Workflow[]>([])
@@ -399,6 +402,7 @@ export default function CanvasPage() {
     const [stepStatuses, setStepStatuses] = useState<Record<string, StepStatus>>({})
     const [selectedResultStepId, setSelectedResultStepId] = useState<string | null>(null)
     const [showStepJsonDialog, setShowStepJsonDialog] = useState(false)
+    const [isOptimizingPrompt, setIsOptimizingPrompt] = useState(false)
 
     // Progress tracking state
     const [executionProgress, setExecutionProgress] = useState(0)
@@ -1252,6 +1256,7 @@ export default function CanvasPage() {
                     field: processedField,
                     label,
                     type,
+                    description: node.data.description
                 }
             })
 
@@ -1503,6 +1508,111 @@ export default function CanvasPage() {
         }
     }
 
+    const handleOptimizePrompt = async () => {
+        const requiredInputs = configInputs.length > 0 ? configInputs : getRequiredInputs()
+        const activeInput = requiredInputs[inputStepIndex]
+
+        if (!activeInput || activeInput.type === 'image') return
+
+        const currentText = userInputs[activeInput.field] || ''
+        if (!currentText.trim()) {
+            toast.error('Please enter some text to optimize')
+            return
+        }
+
+        try {
+            setIsOptimizingPrompt(true)
+            const res = await fetch('/api/canvas/optimize-prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: currentText,
+                    label: activeInput.label,
+                    description: activeInput.description || ''
+                })
+            })
+
+            if (!res.ok) throw new Error('Failed to optimize prompt')
+
+            const data = await res.json()
+            if (data.optimizedPrompt) {
+                setUserInputs(prev => ({
+                    ...prev,
+                    [activeInput.field]: data.optimizedPrompt
+                }))
+                toast.success('Prompt optimized!')
+            }
+        } catch (error) {
+            console.error('Optimization error:', error)
+            toast.error('Failed to optimize prompt')
+        } finally {
+            setIsOptimizingPrompt(false)
+        }
+    }
+
+    const handleOptimizeAllPrompts = async () => {
+        const requiredInputs = configInputs.length > 0 ? configInputs : getRequiredInputs()
+        const textInputs = requiredInputs.filter(req =>
+            req.type !== 'image' &&
+            !req.field.includes('image_model') &&
+            !req.label.toLowerCase().includes('image model')
+        )
+
+        const filledInputs = textInputs.filter(req => (userInputs[req.field] || '').trim().length > 0)
+
+        if (filledInputs.length === 0) {
+            toast.error('Please enter some text in the fields to optimize')
+            return
+        }
+
+        setIsOptimizingPrompt(true)
+        const toastId = toast.loading('Optimizing all workflow prompts...')
+        try {
+            const results = await Promise.all(filledInputs.map(async (req) => {
+                const prompt = userInputs[req.field]
+                try {
+                    const res = await fetch('/api/canvas/optimize-prompt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            prompt,
+                            label: req.label,
+                            description: req.description || ''
+                        })
+                    })
+                    if (!res.ok) return { field: req.field, optimized: null }
+                    const data = await res.json()
+                    return { field: req.field, optimized: data.optimizedPrompt }
+                } catch (e) {
+                    return { field: req.field, optimized: null }
+                }
+            }))
+
+            const newUserInputs = { ...userInputs }
+            let successCount = 0
+            results.forEach(res => {
+                if (res.optimized) {
+                    newUserInputs[res.field] = res.optimized
+                    successCount++
+                }
+            })
+
+            setUserInputs(newUserInputs)
+            if (successCount === filledInputs.length) {
+                toast.success('All workflow fields optimized!', { id: toastId })
+            } else if (successCount > 0) {
+                toast.success(`Optimized ${successCount} out of ${filledInputs.length} fields`, { id: toastId })
+            } else {
+                toast.error('Failed to optimize fields', { id: toastId })
+            }
+        } catch (error) {
+            console.error('Optimization error:', error)
+            toast.error('An error occurred during bulk optimization', { id: toastId })
+        } finally {
+            setIsOptimizingPrompt(false)
+        }
+    }
+
     // Fetch execution history for a workflow
     const fetchExecutionHistory = async () => {
         if (!selectedWorkflow) return
@@ -1627,11 +1737,11 @@ export default function CanvasPage() {
     }, [flowInstance, isCanvasFullscreen, flowNodes.length])
 
     // Get required user inputs from workflow
-    const getRequiredInputs = (): Array<{ field: string, label: string, type: 'text' | 'image', group?: string }> => {
+    const getRequiredInputs = (): ConfigInputSpec[] => {
         if (!selectedWorkflow?.workflow_plan?.steps) return []
 
         const seen = new Set<string>()
-        const inputs: Array<{ field: string, label: string, type: 'text' | 'image', group?: string }> = []
+        const inputs: ConfigInputSpec[] = []
 
         for (const step of selectedWorkflow.workflow_plan.steps) {
             if (step.input_mapping?.user_input_specs) {
@@ -2441,32 +2551,63 @@ export default function CanvasPage() {
                                                 </div>
                                                 <DialogFooter>
                                                     {executionMode && !isConfiguring && (
-                                                        <div className="flex w-full items-center justify-between">
-                                                            <Button
-                                                                variant="outline"
-                                                                onClick={() => {
-                                                                    if (inputStepIndex === 0) setExecutionMode(null)
-                                                                    else setInputStepIndex(prev => Math.max(prev - 1, 0))
-                                                                }}
-                                                            >
-                                                                {inputStepIndex === 0 ? 'Mode Select' : 'Back'}
-                                                            </Button>
-                                                            <div className="flex gap-2">
-                                                                <Button variant="outline" onClick={() => setShowExecuteDialog(false)}>
-                                                                    Cancel
+                                                        <div className="flex flex-col w-full gap-3">
+                                                            <div className="flex items-center justify-between w-full">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        if (inputStepIndex === 0) setExecutionMode(null)
+                                                                        else setInputStepIndex(prev => Math.max(prev - 1, 0))
+                                                                    }}
+                                                                >
+                                                                    {inputStepIndex === 0 ? 'Mode Select' : 'Back'}
                                                                 </Button>
-                                                                {(configInputs.length > 0 ? configInputs : getRequiredInputs()).length > 0 && inputStepIndex < (configInputs.length > 0 ? configInputs : getRequiredInputs()).length - 1 ? (
-                                                                    <Button onClick={() => setInputStepIndex(prev => prev + 1)}>
-                                                                        Next
-                                                                        <ArrowRight className="h-4 w-4 ml-1" />
+                                                                <div className="flex gap-2">
+                                                                    <Button variant="ghost" size="sm" onClick={() => setShowExecuteDialog(false)}>
+                                                                        Cancel
                                                                     </Button>
-                                                                ) : (
-                                                                    <Button onClick={executeWorkflow}>
-                                                                        <Play className="h-4 w-4 mr-1" />
+                                                                    {(() => {
+                                                                        const requiredInputs = configInputs.length > 0 ? configInputs : getRequiredInputs()
+                                                                        const activeInput = requiredInputs[inputStepIndex]
+                                                                        const isLastStep = inputStepIndex >= requiredInputs.length - 1
+
+                                                                        return isPremium && activeInput && activeInput.type !== 'image' && (
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={isLastStep ? handleOptimizeAllPrompts : handleOptimizePrompt}
+                                                                                disabled={isOptimizingPrompt || !(userInputs[activeInput.field] || '').trim()}
+                                                                                className="border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
+                                                                            >
+                                                                                {isOptimizingPrompt ? (
+                                                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                                                ) : (
+                                                                                    <Sparkles className="h-4 w-4 mr-2" />
+                                                                                )}
+                                                                                {isLastStep ? 'Optimize All' : 'Optimize'}
+                                                                            </Button>
+                                                                        )
+                                                                    })()}
+                                                                </div>
+                                                            </div>
+
+                                                            {(() => {
+                                                                const requiredInputs = configInputs.length > 0 ? configInputs : getRequiredInputs()
+                                                                const isLastStep = inputStepIndex >= requiredInputs.length - 1
+
+                                                                return isLastStep ? (
+                                                                    <Button onClick={executeWorkflow} className="w-full bg-amber-500 text-black hover:bg-amber-400 font-bold h-11">
+                                                                        <Play className="h-4 w-4 mr-2" />
                                                                         Run Workflow
                                                                     </Button>
-                                                                )}
-                                                            </div>
+                                                                ) : (
+                                                                    <Button onClick={() => setInputStepIndex(prev => prev + 1)} className="w-full h-11">
+                                                                        Next
+                                                                        <ArrowRight className="h-4 w-4 ml-2" />
+                                                                    </Button>
+                                                                )
+                                                            })()}
                                                         </div>
                                                     )}
                                                     {!executionMode && !isConfiguring && (
@@ -2533,109 +2674,111 @@ export default function CanvasPage() {
                 </div>
             </div>
 
-            {isCanvasFullscreen && (
-                <div className="fixed inset-0 z-50 bg-background">
-                    <div className="flex h-full flex-col">
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warm-border bg-warm-surface px-4 py-3">
-                            <div className="text-sm font-semibold text-foreground">
-                                Full Screen Canvas
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {selectedWorkflow && (
-                                    <>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setShowAddNodeDialog(true)}
-                                        >
-                                            <Plus className="h-4 w-4 mr-1" />
-                                            Add Node
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={syncWorkflowPlanFromCanvas}
-                                            disabled={!isCanvasDirty || isSavingCanvas}
-                                        >
-                                            {isSavingCanvas ? (
-                                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                            ) : (
-                                                <Save className="h-4 w-4 mr-1" />
-                                            )}
-                                            Save
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setShowOrchestratorDialog(true)}
-                                        >
-                                            <Settings className="h-4 w-4 mr-1" />
-                                            Edit
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                fetchExecutionHistory()
-                                                setShowHistoryDialog(true)
-                                            }}
-                                        >
-                                            <History className="h-4 w-4 mr-1" />
-                                            History
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            onClick={openExecuteDialog}
-                                            disabled={(!selectedWorkflow?.workflow_plan?.steps?.length && flowNodes.length === 0) || isExecuting}
-                                        >
-                                            {isExecuting ? (
-                                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                            ) : (
-                                                <Play className="h-4 w-4 mr-1" />
-                                            )}
-                                            Execute
-                                        </Button>
-                                        {isExecuting && (
+            {
+                isCanvasFullscreen && (
+                    <div className="fixed inset-0 z-50 bg-background">
+                        <div className="flex h-full flex-col">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warm-border bg-warm-surface px-4 py-3">
+                                <div className="text-sm font-semibold text-foreground">
+                                    Full Screen Canvas
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {selectedWorkflow && (
+                                        <>
                                             <Button
-                                                variant="destructive"
+                                                variant="outline"
                                                 size="sm"
-                                                onClick={stopCurrentExecution}
-                                                disabled={isStoppingExecution}
+                                                onClick={() => setShowAddNodeDialog(true)}
                                             >
-                                                {isStoppingExecution ? (
+                                                <Plus className="h-4 w-4 mr-1" />
+                                                Add Node
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={syncWorkflowPlanFromCanvas}
+                                                disabled={!isCanvasDirty || isSavingCanvas}
+                                            >
+                                                {isSavingCanvas ? (
                                                     <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                                                 ) : (
-                                                    <Square className="h-4 w-4 mr-1" />
+                                                    <Save className="h-4 w-4 mr-1" />
                                                 )}
-                                                Stop
+                                                Save
                                             </Button>
-                                        )}
-                                    </>
-                                )}
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setIsCanvasFullscreen(false)}
-                                >
-                                    <Minimize2 className="h-4 w-4 mr-1" />
-                                    Exit
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    onClick={() => setIsCanvasFullscreen(false)}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setShowOrchestratorDialog(true)}
+                                            >
+                                                <Settings className="h-4 w-4 mr-1" />
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    fetchExecutionHistory()
+                                                    setShowHistoryDialog(true)
+                                                }}
+                                            >
+                                                <History className="h-4 w-4 mr-1" />
+                                                History
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                onClick={openExecuteDialog}
+                                                disabled={(!selectedWorkflow?.workflow_plan?.steps?.length && flowNodes.length === 0) || isExecuting}
+                                            >
+                                                {isExecuting ? (
+                                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                ) : (
+                                                    <Play className="h-4 w-4 mr-1" />
+                                                )}
+                                                Execute
+                                            </Button>
+                                            {isExecuting && (
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={stopCurrentExecution}
+                                                    disabled={isStoppingExecution}
+                                                >
+                                                    {isStoppingExecution ? (
+                                                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                    ) : (
+                                                        <Square className="h-4 w-4 mr-1" />
+                                                    )}
+                                                    Stop
+                                                </Button>
+                                            )}
+                                        </>
+                                    )}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsCanvasFullscreen(false)}
+                                    >
+                                        <Minimize2 className="h-4 w-4 mr-1" />
+                                        Exit
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0"
+                                        onClick={() => setIsCanvasFullscreen(false)}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="flex-1">
+                                {renderCanvasFlow('h-full w-full bg-gradient-to-br from-amber-50/40 via-white to-amber-100/40 dark:from-amber-950/20 dark:via-background dark:to-amber-900/30')}
                             </div>
                         </div>
-                        <div className="flex-1">
-                            {renderCanvasFlow('h-full w-full bg-gradient-to-br from-amber-50/40 via-white to-amber-100/40 dark:from-amber-950/20 dark:via-background dark:to-amber-900/30')}
-                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Results Dialog */}
             <Dialog open={showResultsDialog} onOpenChange={setShowResultsDialog}>
@@ -3007,91 +3150,95 @@ export default function CanvasPage() {
             </Dialog>
 
             {/* Execution Progress Overlay */}
-            {isExecuting && !isExecutionOverlayHidden && (
-                <div className="fixed bottom-6 right-0 left-0 px-6 sm:left-auto sm:px-0 sm:right-6 z-50 w-full sm:w-80">
-                    <Card className="border-amber-500/50 border-warm-border bg-warm-surface shadow-lg">
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                    <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
-                                    <span className="font-medium">Executing Workflow...</span>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    onClick={() => setIsExecutionOverlayHidden(true)}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span>Progress</span>
-                                    <span>{Math.round(executionProgress)}%</span>
-                                </div>
-                                {(() => {
-                                    const activeStepId = Object.keys(stepStatuses).find(stepId => stepStatuses[stepId] === 'running')
-                                    if (!activeStepId) return null
-                                    return (
-                                        <div className="text-xs text-muted-foreground">
-                                            Now running: {getReadableStepLabel(activeStepId, stepDisplayMetaById[activeStepId]?.agentLabel, currentStepIndex)}
-                                        </div>
-                                    )
-                                })()}
-                                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-amber-500 transition-all duration-300"
-                                        style={{ width: `${executionProgress}%` }}
-                                    />
-                                </div>
-                                <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                                    <div className="flex items-center gap-1">
-                                        <Timer className="h-3 w-3" />
-                                        Elapsed: {elapsedTime}
+            {
+                isExecuting && !isExecutionOverlayHidden && (
+                    <div className="fixed bottom-6 right-0 left-0 px-6 sm:left-auto sm:px-0 sm:right-6 z-50 w-full sm:w-80">
+                        <Card className="border-amber-500/50 border-warm-border bg-warm-surface shadow-lg">
+                            <CardContent className="p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
+                                        <span className="font-medium">Executing Workflow...</span>
                                     </div>
-                                    {estimatedTimeRemaining && (
-                                        <div>Est. remaining: {estimatedTimeRemaining}</div>
-                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0"
+                                        onClick={() => setIsExecutionOverlayHidden(true)}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
                                 </div>
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    className="w-full mt-2"
-                                    onClick={stopCurrentExecution}
-                                    disabled={isStoppingExecution}
-                                >
-                                    {isStoppingExecution ? (
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
-                                        <Square className="h-4 w-4 mr-2" />
-                                    )}
-                                    Stop Execution
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-            {isExecuting && isExecutionOverlayHidden && (
-                <div className="fixed bottom-6 right-6 z-50 flex gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsExecutionOverlayHidden(false)}
-                    >
-                        Show progress
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={stopCurrentExecution}
-                        disabled={isStoppingExecution}
-                    >
-                        Stop
-                    </Button>
-                </div>
-            )}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span>Progress</span>
+                                        <span>{Math.round(executionProgress)}%</span>
+                                    </div>
+                                    {(() => {
+                                        const activeStepId = Object.keys(stepStatuses).find(stepId => stepStatuses[stepId] === 'running')
+                                        if (!activeStepId) return null
+                                        return (
+                                            <div className="text-xs text-muted-foreground">
+                                                Now running: {getReadableStepLabel(activeStepId, stepDisplayMetaById[activeStepId]?.agentLabel, currentStepIndex)}
+                                            </div>
+                                        )
+                                    })()}
+                                    <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-amber-500 transition-all duration-300"
+                                            style={{ width: `${executionProgress}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                        <div className="flex items-center gap-1">
+                                            <Timer className="h-3 w-3" />
+                                            Elapsed: {elapsedTime}
+                                        </div>
+                                        {estimatedTimeRemaining && (
+                                            <div>Est. remaining: {estimatedTimeRemaining}</div>
+                                        )}
+                                    </div>
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        className="w-full mt-2"
+                                        onClick={stopCurrentExecution}
+                                        disabled={isStoppingExecution}
+                                    >
+                                        {isStoppingExecution ? (
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                            <Square className="h-4 w-4 mr-2" />
+                                        )}
+                                        Stop Execution
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )
+            }
+            {
+                isExecuting && isExecutionOverlayHidden && (
+                    <div className="fixed bottom-6 right-6 z-50 flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsExecutionOverlayHidden(false)}
+                        >
+                            Show progress
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={stopCurrentExecution}
+                            disabled={isStoppingExecution}
+                        >
+                            Stop
+                        </Button>
+                    </div>
+                )
+            }
             {/* Rename Workflow Dialog */}
             <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
                 <DialogContent>
@@ -3121,7 +3268,7 @@ export default function CanvasPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     )
 }
 

@@ -27,6 +27,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { AgentSessionHistory } from '@/components/agent-session-history'
 import { useCredits } from '@/contexts/CreditsContext'
+import { useSubscription } from '@/contexts/SubscriptionContext'
 import { ExhaustedBanner } from '@/components/credits/ExhaustedBanner'
 import {
     Table,
@@ -50,6 +51,7 @@ export default function AgentPage() {
     const agentId = params.agentId as AgentType
     const agent = AGENT_CONFIGS[agentId]
     const { isAgentExhausted, refetchUsage } = useCredits()
+    const { isPremium } = useSubscription()
     const isExhausted = isAgentExhausted(agentId)
 
     const [formData, setFormData] = useState<Record<string, string>>({})
@@ -71,6 +73,7 @@ export default function AgentPage() {
     const [showHistory, setShowHistory] = useState(false)
     const [formStep, setFormStep] = useState(0)
     const [showFullscreenOutput, setShowFullscreenOutput] = useState(false)
+    const [isOptimizingPrompt, setIsOptimizingPrompt] = useState(false)
     const supabase = createClient()
     const containerRef = useRef<HTMLDivElement>(null)
 
@@ -363,6 +366,73 @@ export default function AgentPage() {
             setError(error.message || 'Failed to get response from AI agent')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleOptimizePrompts = async () => {
+        const questionsToOptimize = agent.questions.filter(q => {
+            const question = q.toLowerCase()
+            return question.includes('prompt') ||
+                question.includes('beliefs') ||
+                question.includes('philosophy') ||
+                question.includes('experience') ||
+                question.includes('audience') ||
+                question.includes('problem') ||
+                question.includes('description') ||
+                question.includes('mission') ||
+                question.includes('vision') ||
+                question.includes('promise') ||
+                question.includes('niche');
+        });
+
+        const filledQuestions = questionsToOptimize.filter(q => (formData[q] || '').trim().length > 0);
+
+        if (filledQuestions.length === 0) {
+            toast.error('Please enter some text in the fields to optimize')
+            return
+        }
+
+        setIsOptimizingPrompt(true)
+        const toastId = toast.loading('Optimizing all prompts...')
+        try {
+            const results = await Promise.all(filledQuestions.map(async (q) => {
+                const prompt = formData[q]
+                try {
+                    const res = await fetch('/api/canvas/optimize-prompt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt, label: q })
+                    })
+                    if (!res.ok) return { question: q, optimized: null }
+                    const data = await res.json()
+                    return { question: q, optimized: data.optimizedPrompt }
+                } catch (e) {
+                    return { question: q, optimized: null }
+                }
+            }))
+
+            const newFormData = { ...formData }
+            let successCount = 0
+            results.forEach(res => {
+                if (res.optimized) {
+                    newFormData[res.question] = res.optimized
+                    successCount++
+                }
+            })
+
+            setFormData(newFormData)
+            if (successCount === filledQuestions.length) {
+                toast.success('All fields optimized successfully!', { id: toastId })
+            } else if (successCount > 0) {
+                toast.success(`Optimized ${successCount} out of ${filledQuestions.length} fields`, { id: toastId })
+            } else {
+                toast.error('Failed to optimize fields', { id: toastId })
+            }
+        } catch (error) {
+            console.error('Optimization error:', error)
+            toast.error('An error occurred during optimization', { id: toastId })
+        } finally {
+            setIsOptimizingPrompt(false)
         }
     }
 
@@ -910,35 +980,58 @@ export default function AgentPage() {
                                             <ExhaustedBanner message="Credits exhausted for this agent. Please upgrade your plan." />
                                         )}
 
-                                        <div className="flex gap-4">
-                                            {formStep > 0 && (
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    onClick={() => setFormStep(prev => prev - 1)}
-                                                    className="h-12 border border-white/10 text-white hover:bg-white/5 rounded-xl px-4"
-                                                    disabled={loading}
-                                                >
-                                                    <ChevronLeft className="h-5 w-5 mr-2" />
-                                                    Back
-                                                </Button>
-                                            )}
+                                        <div className="flex flex-col gap-3">
+                                            {/* Top row of buttons */}
+                                            <div className="flex gap-3">
+                                                {formStep > 0 && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        onClick={() => setFormStep(prev => prev - 1)}
+                                                        className={`h-12 border border-white/10 text-white hover:bg-white/5 rounded-xl px-4 ${formStep === (agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3) - 1) ? 'flex-1' : ''}`}
+                                                        disabled={loading}
+                                                    >
+                                                        <ChevronLeft className="h-5 w-5 mr-2" />
+                                                        Back
+                                                    </Button>
+                                                )}
 
-                                            {formStep < (agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3) - 1) ? (
-                                                <Button
-                                                    type="button"
-                                                    onClick={() => setFormStep(prev => prev + 1)}
-                                                    className="flex-1 h-12 bg-white/10 text-white hover:bg-white/20 font-bold rounded-xl"
-                                                    disabled={loading}
-                                                >
-                                                    Continue
-                                                    <ChevronRight className="h-5 w-5 ml-2" />
-                                                </Button>
-                                            ) : (
+                                                {formStep < (agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3) - 1) ? (
+                                                    <Button
+                                                        type="button"
+                                                        onClick={() => setFormStep(prev => prev + 1)}
+                                                        className="flex-1 h-12 bg-white/10 text-white hover:bg-white/20 font-bold rounded-xl"
+                                                        disabled={loading}
+                                                    >
+                                                        Continue
+                                                        <ChevronRight className="h-5 w-5 ml-2" />
+                                                    </Button>
+                                                ) : (
+                                                    isPremium && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={handleOptimizePrompts}
+                                                            disabled={loading || isOptimizingPrompt || isExhausted}
+                                                            className="flex-1 h-12 border-amber-500/30 text-amber-500 hover:bg-amber-500/10 rounded-xl px-4 flex items-center justify-center gap-2"
+                                                        >
+                                                            {isOptimizingPrompt ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <Sparkles className="h-4 w-4" />
+                                                            )}
+                                                            <span className="text-[10px] uppercase tracking-widest font-black">Optimize</span>
+                                                        </Button>
+                                                    )
+                                                )}
+                                            </div>
+
+                                            {/* Final Run button row (only on last step) */}
+                                            {formStep === (agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3) - 1) && (
                                                 <Button
                                                     type="button"
                                                     onClick={handleSubmit}
-                                                    className="flex-1 h-12 bg-amber-500 text-black hover:bg-amber-400 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] active:scale-[0.98] flex items-center justify-center gap-2 border border-amber-400/20 group relative overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
+                                                    className="w-full h-12 bg-amber-500 text-black hover:bg-amber-400 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] active:scale-[0.98] flex items-center justify-center gap-2 border border-amber-400/20 group relative overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
                                                     disabled={loading || isExhausted}
                                                 >
                                                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
@@ -950,7 +1043,7 @@ export default function AgentPage() {
                                                     ) : (
                                                         <>
                                                             <Sparkles className="h-5 w-5 group-hover:rotate-12 transition-transform" />
-                                                            <span className="text-[10px] whitespace-nowrap uppercase tracking-widest">
+                                                            <span className="text-[10px] whitespace-nowrap uppercase tracking-widest font-bold">
                                                                 {agentId === 'deep_research' ? 'Run Deep Research' : 'Ignite Intelligence'}
                                                             </span>
                                                         </>
