@@ -57,6 +57,17 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
         questions: ['User Image', 'Instructional Prompt', 'Image Model'],
         image_fields: ['User Image'],
     },
+    course_generator: {
+        system_message: 'Expert curriculum designer and program architect specializing in execution-ready educational systems.',
+        questions: [
+            'Program Title (Desired)',
+            'Core Subject/Expertise Area',
+            'Target Audience Details',
+            'Learning Objectives',
+            'Program Duration (e.g., 4 weeks, 8 modules)',
+            'Teaching Style/Tone',
+        ],
+    },
 }
 
 const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
@@ -202,6 +213,10 @@ export class AIAgentService {
 
             if (agentType === 'linkedin_headshot') {
                 return await this.runLinkedInHeadshot(userInput, context)
+            }
+
+            if (agentType === 'course_generator') {
+                return await this.runCourseGenerator(userInput, context)
             }
 
             // Default to Groq for all other agents as requested (stick to groq api key only)
@@ -869,6 +884,89 @@ ${adRequest}`
             console.error('Ad Copy Agent Error:', error)
             throw error
         }
+    }
+
+    private async runCourseGenerator(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
+        const groqApiKey = process.env.GROQ_API_KEY
+        if (!groqApiKey) throw new Error('GROQ_API_KEY is missing in .env.local')
+
+        const config = AGENT_CONFIGS['course_generator']
+        const upstreamInsight = Object.entries(context)
+            .filter(([key, value]) => {
+                const isStepOutput = key.includes('_output') || key.includes('_response')
+                const isImage = typeof value === 'string' && value.startsWith('data:image/')
+                return isStepOutput && !isImage && value !== undefined && value !== null && `${value}`.trim() !== ''
+            })
+            .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
+            .join('\n\n')
+
+        const systemPrompt = `You are a high-tier curriculum designer, educational strategist, and program architect.
+Primary Responsibility: Generate complete, execution-ready educational programs, courses, and modular learning systems.
+
+DELIVERY STYLE:
+- Output MUST be in beautiful, professional, and HIGHLY ELABORATIVE Markdown format.
+- Use distinct headings (H1, H2, H3), bold text, tables where relevant, and clear bullet points.
+- The report must look "Deep Research" style—comprehensive, authoritative, and ready for a client.
+
+CRITICAL CONSTRAINTS:
+1. DO NOT output JSON. Use Markdown ONLY.
+2. DO NOT write marketing copy. Focus on SUBSTANCE and EDUCATION.
+3. DO NOT produce vague brainstorming content. Be specific and tactical.
+4. Ensure every module and lesson has depth. Don't just list them; describe the transformation.
+
+PROGRAM STRUCTURE TO ELABORATE ON:
+# [Program Title]
+## 1. Executive Summary & Philosophy
+## 2. Target Audience & Transformation Map
+## 3. High-Level Program Roadmap (Timeline)
+## 4. Module Breakdown (Iterate through all modules)
+   ### Module [N]: [Title]
+   - Objective & Outcome
+   - Lesson [X]: [Title] (Deep description, what is taught, key concepts)
+   - Practical Exercise / Action Item
+   - Deliverable/Assessment
+## 5. Delivery Strategy & Tools
+## 6. Resources & Suggested Enhancements
+
+UTILITYAI ALIGNMENT:
+- Produce modular components.
+- Ensure Canvas workflow compatibility.
+- Use predictable formatting.
+- Be authoritative and non-verbose but EXTREMELY detailed.
+
+Generate the complete course/program structure now.`
+
+        const userPrompt = `AUTHORITATIVE CONTEXT FROM CANVAS/WORKFLOW:
+${upstreamInsight}
+
+USER INPUT/INSTRUCTIONS:
+${userInput}
+
+ADDITIONAL PARAMETERS FROM FORM:
+${Object.entries(context)
+                .filter(([k]) => !k.includes('_output') && !k.includes('_response') && k !== 'user_input')
+                .map(([k, v]) => `${k}: ${v}`)
+                .join('\n')}
+
+Generate the complete masterpiece program structure now.`.trim()
+
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+                temperature: 0.6
+            })
+        })
+
+        if (!res.ok) {
+            const text = await res.text()
+            throw new Error(`Groq API Error: ${res.status} - ${text.substring(0, 200)}`)
+        }
+
+        const data = await res.json()
+        return { response: data.choices?.[0]?.message?.content || '' }
     }
 
     private async runGroqAgent(agentType: AgentType, userInput: string): Promise<{ response: string }> {

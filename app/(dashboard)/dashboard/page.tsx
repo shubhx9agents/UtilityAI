@@ -45,7 +45,7 @@ const quickActions = [
 ]
 
 const stats = [
-  { name: 'AI Agents', value: '4', icon: Box, label: 'Resources', color: 'text-blue-400' },
+  { name: 'AI Agents', value: '5', icon: Box, label: 'Resources', color: 'text-blue-400' },
   { name: 'Active Sessions', value: '12', icon: Activity, label: 'Activity', color: 'text-emerald-400' },
 ]
 
@@ -86,6 +86,15 @@ const agentsList = [
     color: 'from-amber-500 to-orange-600',
     bgGlow: 'bg-amber-500/10'
   },
+  {
+    name: 'Course/Coaching Generator',
+    href: '/agents/course_generator',
+    desc: 'Structured curricula',
+    label: 'Program',
+    svgSrc: '/landing_page_deep_research.svg',
+    color: 'from-emerald-500 to-teal-600',
+    bgGlow: 'bg-emerald-500/10'
+  }
 ]
 
 const gettingStartedSteps = [
