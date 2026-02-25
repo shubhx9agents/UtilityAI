@@ -513,20 +513,33 @@ export default function AgentPage() {
         exportStyles.textContent = `
             .pdf-export-container,
             .pdf-export-container .pdf-export {
-                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
-                color: #000000 !important;
+                font-family: 'Georgia', 'Times New Roman', serif !important;
+                color: #1a1a1a !important;
                 background: #ffffff !important;
-                line-height: 1.6 !important;
+                line-height: 1.8 !important;
                 font-size: 12pt !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
-            .pdf-export h1 { font-size: 24pt !important; margin-bottom: 24px !important; font-weight: 700 !important; border-bottom: 2px solid #000000 !important; padding-bottom: 12px !important; color: #000000 !important; }
-            .pdf-export h2 { font-size: 18pt !important; margin-top: 32px !important; margin-bottom: 16px !important; font-weight: 700 !important; border-bottom: 1px solid #333333 !important; padding-bottom: 8px !important; color: #000000 !important; }
-            .pdf-export p { margin-bottom: 16px !important; text-align: justify !important; color: #000000 !important; }
+            .pdf-export h1 { font-size: 28pt !important; margin-bottom: 8px !important; font-weight: 700 !important; text-align: center !important; color: #000000 !important; letter-spacing: 0.04em !important; }
+            .pdf-export h2 { font-size: 18pt !important; margin-top: 32px !important; margin-bottom: 16px !important; font-weight: 700 !important; color: #1a1a1a !important; }
+            .pdf-export h3 { font-size: 14pt !important; margin-top: 24px !important; margin-bottom: 12px !important; font-weight: 600 !important; color: #2a2a2a !important; }
+            .pdf-export p { margin-bottom: 14px !important; text-align: justify !important; color: #1a1a1a !important; }
             .pdf-export table { width: 100% !important; border-collapse: collapse !important; margin: 24px 0 !important; }
             .pdf-export th { background-color: #e5e7eb !important; padding: 12px !important; border: 1px solid #000000 !important; }
             .pdf-export td { border: 1px solid #666666 !important; padding: 10px !important; }
+            /* BOOK CHAPTER PAGE BREAKS */
+            [data-page-break] {
+                page-break-before: always !important;
+                break-before: page !important;
+                display: block !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                visibility: hidden !important;
+            }
+            [data-page-break] * { display: none !important; }
         `
         document.head.appendChild(exportStyles)
 
@@ -1200,10 +1213,27 @@ export default function AgentPage() {
                                                     prose-strong:text-white prose-strong:font-bold
                                                     prose-code:bg-white/5 prose-code:px-2 prose-code:py-1 prose-code:rounded-lg prose-code:text-amber-400
                                                 ">
-                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                    <ReactMarkdown
+                                                        remarkPlugins={[remarkGfm]}
+                                                        components={agentId === 'book_writing' ? {
+                                                            hr: () => (
+                                                                <div
+                                                                    data-page-break="true"
+                                                                    className="my-16 flex flex-col items-center gap-4 not-prose"
+                                                                >
+                                                                    <div className="w-full border-t-2 border-dashed border-white/10" />
+                                                                    <span className="px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[10px] font-black uppercase tracking-[0.25em] text-purple-400/70">
+                                                                        ✦ New Chapter ✦
+                                                                    </span>
+                                                                    <div className="w-full border-t-2 border-dashed border-white/10" />
+                                                                </div>
+                                                            )
+                                                        } : undefined}
+                                                    >
                                                         {response}
                                                     </ReactMarkdown>
                                                 </div>
+
                                             )}
                                         </ScrollArea>
                                     </div>

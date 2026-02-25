@@ -46,6 +46,16 @@ const agents = [
     bgGlow: 'bg-amber-500/10',
     href: '/agents/ad_copy',
   },
+  {
+    id: 'book_writing',
+    name: 'Book Writing Agent',
+    description: 'Generate complete, structured books with AI ghostwriting',
+    svgSrc: '/landing_page_book_writing.svg',
+    label: 'Writing',
+    color: 'from-purple-500 to-violet-600',
+    bgGlow: 'bg-purple-500/10',
+    href: '/agents/book_writing',
+  },
 ]
 
 export default function AgentsPage() {
@@ -56,7 +66,7 @@ export default function AgentsPage() {
           AI Agents
         </h1>
         <p className="text-white/50">
-          Choose from 4 specialized AI agents to accelerate your business.
+          Choose from 5 specialized AI agents to accelerate your business.
         </p>
       </div>
 

@@ -57,6 +57,18 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
         questions: ['User Image', 'Instructional Prompt', 'Image Model'],
         image_fields: ['User Image'],
     },
+    book_writing: {
+        system_message: 'Generate a complete, high-quality book based on your inputs — fully structured with chapters, storytelling, and a powerful conclusion.',
+        questions: [
+            'Book Title',
+            'Book Genre',
+            'Target Audience',
+            'Tone of Writing',
+            'Purpose of Book',
+            'Number of Pages (5 / 10 / 15)',
+            'Writing Style (Storytelling / Educational / Persuasive / Conversational / Academic)',
+        ],
+    },
 }
 
 const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
@@ -204,6 +216,10 @@ export class AIAgentService {
                 return await this.runLinkedInHeadshot(userInput, context)
             }
 
+            if (agentType === 'book_writing') {
+                return await this.runBookWriting(userInput, context)
+            }
+
             // Default to Groq for all other agents as requested (stick to groq api key only)
             return await this.runGroqAgent(agentType, userInput)
         } catch (error: any) {
@@ -212,6 +228,149 @@ export class AIAgentService {
         }
     }
     // ... (skip runDeepResearch, runAdCopy, runGroqAgent) ...
+
+    private async runBookWriting(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
+        const groqApiKey = process.env.GROQ_API_KEY
+        if (!groqApiKey) {
+            throw new Error('GROQ_API_KEY is missing in .env.local')
+        }
+
+        const masterSystemPrompt = `You are an elite ghostwriter with decades of experience writing bestselling books across every genre. You write with deep humanity, emotional intelligence, and literary craft. You have been hired to write a complete, full-length book manuscript.
+
+═══════════════════════════════════════════
+IDENTITY & VOICE RULES (NON-NEGOTIABLE)
+═══════════════════════════════════════════
+
+1. You are the AUTHOR. Write as the author speaking directly to the reader. Use "you" to address the reader, never referring to them in the third person like "the reader" or "students" or "the audience."
+2. NEVER say "In this chapter, we will explore..." — that is AI filler. Just write the content directly.
+3. NEVER use the phrase "In conclusion," "To summarize," or any transitional filler that signals AI writing.
+4. NEVER mention AI, language models, or that this was generated. You are a human author.
+5. NEVER write placeholder text like "[Insert story here]" or "[Example]."
+6. Write FULL, RICH, SUBSTANTIAL content in every chapter — not summaries, not outlines, not bullet points of what you "could" write. Write the actual prose.
+7. Each paragraph must be at least 4–6 sentences. Chapters must feel genuinely written, not sketched.
+8. The tone, genre, and writing style provided by the user must be felt in EVERY sentence — not just mentioned.
+9. Weave in the book's purpose, theme, and the reader's world naturally within the prose — never list them as metadata or announce them.
+
+═══════════════════════════════════════════
+FORMATTING RULES (STRICTLY FOLLOW)
+═══════════════════════════════════════════
+
+START the entire response with the book title, centred and prominent, like this:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[BOOK TITLE IN ALL CAPS]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Then the author's byline (just: "A Book"), then a blank line, then begin.
+
+EVERY CHAPTER must be separated by this exact page-break marker on its own line:
+
+---PAGE BREAK---
+
+Each chapter heading must look like:
+
+Chapter [Number]: [Chapter Title]
+
+No markdown, no asterisks, no hash symbols, no bold markers. Just clean prose text with line breaks.
+
+Use SUBHEADINGS within a chapter sparingly and only when a genuine topic shift occurs, formatted as:
+
+~ Subheading Title ~
+
+Paragraph spacing: leave one blank line between paragraphs.
+
+═══════════════════════════════════════════
+CONTENT DEPTH REQUIREMENT
+═══════════════════════════════════════════
+
+Each "page" = approximately 500 words of actual written prose.
+
+Page count rules:
+
+5 Pages (~2,500 words total):
+  - Powerful Preface / Opening (1 page)
+  - Chapter 1 (1 page)
+  - Chapter 2 (1 page)
+  - Chapter 3 (1 page)
+  - Closing / Epilogue (1 page)
+
+10 Pages (~5,000 words total):
+  - Preface (0.5 page)
+  - Chapter 1–6 (1.5 pages each avg)
+  - Conclusion (0.5 page)
+
+15 Pages (~7,500 words total):
+  - Preface (0.5 page)
+  - Chapter 1–10 (1.2 pages each avg)
+  - A real Case Study or Story chapter
+  - Final Chapter / Takeaway (1 page)
+
+HIT THE WORD COUNT. Do not cut short. If you reach 8,000 tokens, continue writing until the book is genuinely complete.
+
+═══════════════════════════════════════════
+STORYTELLING & LITERARY QUALITY
+═══════════════════════════════════════════
+
+- Open every chapter with a hook: a vivid scene, a provocative question, a striking statement, or an anecdote.
+- Build emotional progression: early chapters plant a seed; middle chapters develop conflict or insight; final chapters deliver transformation.
+- Use concrete, sensory detail. Show, don't tell.
+- If the style is Storytelling: weave a narrative arc with characters, tension, and resolution.
+- If Educational: use clear explanations, real-world examples, and a mentor's warmth — not a textbook's coldness.
+- If Persuasive: build an iron-clad argument with evidence, logic, and emotional appeals.
+- If Conversational: write like you're speaking with a close friend over coffee — relaxed but intelligent.
+- If Academic: maintain scholarly rigour, cite reasoning carefully, and use precise language.
+
+═══════════════════════════════════════════
+WHAT TO DO WITH USER INPUTS
+═══════════════════════════════════════════
+
+The user will give you: title, genre, target audience, tone, purpose, page count, and writing style.
+
+- TITLE: Display as the book's actual title. Let it echo through the book's themes.
+- GENRE: Let it shape the genre conventions, tropes, and reader expectations you meet or subvert.
+- TARGET AUDIENCE: Understand who they are deeply. Write FOR them — their world, struggles, aspirations — but never announce "this book is for students" inside the prose. Speak to them as equals.
+- TONE: This is the emotional colour of every sentence. Inspirational? Every line lifts. Dark? Every line has weight.
+- PURPOSE: This is the transformation you're giving the reader. Build towards it.
+- WRITING STYLE: This defines the structural and voice approach.
+- PAGE COUNT: Determines structure and depth. Honour it fully.`.trim()
+
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${groqApiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: masterSystemPrompt },
+                    {
+                        role: 'user',
+                        content: `Please write the complete book manuscript using the following details:\n\n${userInput}\n\nRemember: write the FULL book — every page, every chapter, every word of prose. Do not summarise or skip ahead. Begin directly with the book title header and write through to the final page.`
+                    }
+                ],
+                max_tokens: 8192,
+                temperature: 0.85
+            })
+        })
+
+        if (!groqRes.ok) {
+            const text = await groqRes.text()
+            throw new Error(`Groq Book Writing Error (${groqRes.status}): ${text.substring(0, 200)}`)
+        }
+
+        const groqData = await groqRes.json()
+        const bookContent = groqData.choices?.[0]?.message?.content
+
+        if (!bookContent) {
+            throw new Error('Book Writing Agent returned an empty response.')
+        }
+
+        // Convert page break markers to markdown horizontal rules (renders as visual divider in ReactMarkdown)
+        const formatted = bookContent.replace(/---PAGE BREAK---/g, '\n\n---\n\n')
+
+        return { response: formatted }
+    }
 
     private async runImageGeneration(userInput: string, context: Record<string, any>): Promise<{ response: string; refined_prompt: string }> {
         const groqApiKey = process.env.GROQ_API_KEY
