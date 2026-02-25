@@ -1068,9 +1068,11 @@ ${adRequest}`
 
     private async runCourseGenerator(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
         const groqApiKey = process.env.GROQ_API_KEY
-        if (!groqApiKey) throw new Error('GROQ_API_KEY is missing in .env.local')
+        const perplexityApiKey = process.env.PERPLEXITY_API_KEY
 
-        const config = AGENT_CONFIGS['course_generator']
+        if (!groqApiKey) throw new Error('GROQ_API_KEY is missing in .env.local')
+        if (!perplexityApiKey) throw new Error('PERPLEXITY_API_KEY is missing in .env.local')
+
         const upstreamInsight = Object.entries(context)
             .filter(([key, value]) => {
                 const isStepOutput = key.includes('_output') || key.includes('_response')
@@ -1080,12 +1082,43 @@ ${adRequest}`
             .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
             .join('\n\n')
 
+        console.log(`[Course Generator] Starting research for specific resources...`)
+
+        // 1. Research Step: Use Perplexity to find specific, verified links
+        const researchPrompt = `Find specific, direct, and high-quality web links for educational resources, tools, projects, and case studies related to: "${userInput}".
+        For platforms like Kaggle, GitHub, or Coursera, do NOT provide generic homepage links. Find specific datasets, repositories, or course syllabus pages.
+        Ensure all links are safe, specialized, and highly relevant to the subject matter.
+        Structure the output with clear categories: Platforms, Specific Projects/Datasets, Recommended Tools, and Case Studies.`
+
+        const perplexityRes = await fetch('https://api.perplexity.ai/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${perplexityApiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'sonar',
+                messages: [
+                    { role: 'system', content: 'You are a specialized academic researcher finding precise, verified educational resources and specific project links.' },
+                    { role: 'user', content: researchPrompt }
+                ]
+            })
+        })
+
+        const researchData = perplexityRes.ok
+            ? (await perplexityRes.json()).choices?.[0]?.message?.content
+            : 'No real-time supplemental research available.'
+
+        // 2. Generation Step: Use Groq to build the curriculum with researched data
         const systemPrompt = `You are a high-tier curriculum designer, educational strategist, and program architect.
 Primary Responsibility: Generate complete, execution-ready educational programs, courses, and modular learning systems.
 
 DELIVERY STYLE:
 - Output MUST be in beautiful, professional, and HIGHLY ELABORATIVE Markdown format.
-- Use distinct headings (H1, H2, H3), bold text, tables where relevant, and clear bullet points.
+- Use distinct headings (H1, H2, H3), bold text, and clear bullet points.
+- **PRIORITIZE TABLES**: Use tables extensively to organize information. This makes the content 10/10 in terms of readability.
+- **SPECIFIC WEB LINKS**: You MUST provide direct, specific, and deep links (e.g., kaggle.com/datasets/namespace/slug instead of kaggle.com). Use the provided research data to ensure accuracy. 
+- **NO VAGUE LINKS**: Never point to a homepage. Point to the specific resource.
 - The report must look "Deep Research" style—comprehensive, authoritative, and ready for a client.
 
 CRITICAL CONSTRAINTS:
@@ -1093,31 +1126,34 @@ CRITICAL CONSTRAINTS:
 2. DO NOT write marketing copy. Focus on SUBSTANCE and EDUCATION.
 3. DO NOT produce vague brainstorming content. Be specific and tactical.
 4. Ensure every module and lesson has depth. Don't just list them; describe the transformation.
+5. **No Loss of Content**: Capture all pedagogical nuances within the structured format.
 
 PROGRAM STRUCTURE TO ELABORATE ON:
 # [Program Title]
 ## 1. Executive Summary & Philosophy
-## 2. Target Audience & Transformation Map
-## 3. High-Level Program Roadmap (Timeline)
+## 2. Target Audience & Transformation Map (Use tables)
+## 3. High-Level Program Roadmap (Timeline table)
 ## 4. Module Breakdown (Iterate through all modules)
    ### Module [N]: [Title]
    - Objective & Outcome
-   - Lesson [X]: [Title] (Deep description, what is taught, key concepts)
-   - Practical Exercise / Action Item
-   - Deliverable/Assessment
-## 5. Delivery Strategy & Tools
-## 6. Resources & Suggested Enhancements
+   - Lesson Breakdown (TABLE: Lesson Title | Core Concepts | Practical Task | Specific Deep Links)
+   - Exercise Details & Project Links
+   - Assessment Criteria
+## 5. Delivery Strategy & Tools (TABLE: Tool Name | Function | Direct Download/Access Link)
+## 6. Resources & Suggested Enhancements (Include deep links to relevant books, papers, or case studies)
 
 UTILITYAI ALIGNMENT:
 - Produce modular components.
 - Ensure Canvas workflow compatibility.
-- Use predictable formatting.
-- Be authoritative and non-verbose but EXTREMELY detailed.
+- Be authoritative and EXTREMELY detailed.
 
-Generate the complete course/program structure now.`
+Generate the complete masterpiece program structure now.`
 
         const userPrompt = `AUTHORITATIVE CONTEXT FROM CANVAS/WORKFLOW:
 ${upstreamInsight}
+
+RESEARCHED SPECIFIC LINKS & RESOURCES:
+${researchData}
 
 USER INPUT/INSTRUCTIONS:
 ${userInput}
@@ -1128,7 +1164,7 @@ ${Object.entries(context)
                 .map(([k, v]) => `${k}: ${v}`)
                 .join('\n')}
 
-Generate the complete masterpiece program structure now.`.trim()
+Generate the complete masterpiece program structure now using the researched deep links.`.trim()
 
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',

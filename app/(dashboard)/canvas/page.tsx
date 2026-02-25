@@ -3063,7 +3063,12 @@ export default function CanvasPage() {
                                                                     </p>
                                                                 </div>
                                                             )}
-                                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                            <ReactMarkdown
+                                                                remarkPlugins={[remarkGfm]}
+                                                                components={{
+                                                                    a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline" />
+                                                                }}
+                                                            >
                                                                 {content}
                                                             </ReactMarkdown>
                                                         </div>

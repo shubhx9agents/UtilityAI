@@ -1256,20 +1256,23 @@ export default function AgentPage() {
                                                 ">
                                                     <ReactMarkdown
                                                         remarkPlugins={[remarkGfm]}
-                                                        components={agentId === 'book_writing' ? {
-                                                            hr: () => (
-                                                                <div
-                                                                    data-page-break="true"
-                                                                    className="my-16 flex flex-col items-center gap-4 not-prose"
-                                                                >
-                                                                    <div className="w-full border-t-2 border-dashed border-white/10" />
-                                                                    <span className="px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[10px] font-black uppercase tracking-[0.25em] text-purple-400/70">
-                                                                        ✦ New Chapter ✦
-                                                                    </span>
-                                                                    <div className="w-full border-t-2 border-dashed border-white/10" />
-                                                                </div>
-                                                            )
-                                                        } : undefined}
+                                                        components={{
+                                                            a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline" />,
+                                                            ...(agentId === 'book_writing' ? {
+                                                                hr: () => (
+                                                                    <div
+                                                                        data-page-break="true"
+                                                                        className="my-16 flex flex-col items-center gap-4 not-prose"
+                                                                    >
+                                                                        <div className="w-full border-t-2 border-dashed border-white/10" />
+                                                                        <span className="px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[10px] font-black uppercase tracking-[0.25em] text-purple-400/70">
+                                                                            ✦ New Chapter ✦
+                                                                        </span>
+                                                                        <div className="w-full border-t-2 border-dashed border-white/10" />
+                                                                    </div>
+                                                                )
+                                                            } : {})
+                                                        }}
                                                     >
                                                         {response}
                                                     </ReactMarkdown>
@@ -1338,7 +1341,12 @@ export default function AgentPage() {
                                                             <div className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-6 py-4 shadow-xl ${msg.role === 'user' ? 'bg-amber-500 text-black font-bold' : 'bg-white/5 border border-white/10 text-white/90'}`}>
                                                                 {msg.role === 'assistant' ? (
                                                                     <div className="prose prose-invert prose-sm max-w-none prose-p:text-white/70">
-                                                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                                        <ReactMarkdown
+                                                                            remarkPlugins={[remarkGfm]}
+                                                                            components={{
+                                                                                a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline" />
+                                                                            }}
+                                                                        >
                                                                             {msg.content}
                                                                         </ReactMarkdown>
                                                                     </div>
@@ -1381,7 +1389,7 @@ export default function AgentPage() {
                 </div>
             )}
 
-            {!['deep_research', 'ad_copy', 'image_generation', 'linkedin_headshot', 'course_generator'].includes(agentId) && (
+            {!['deep_research', 'ad_copy', 'image_generation', 'linkedin_headshot', 'course_generator', 'book_writing'].includes(agentId) && (
                 <div className="pt-20 border-t border-white/5">
                     <Footer />
                 </div>
@@ -1430,7 +1438,12 @@ export default function AgentPage() {
                                 <CSVTable csvData={response} />
                             ) : (
                                 <div className="markdown-container prose prose-invert prose-amber max-w-none">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                        components={{
+                                            a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline" />
+                                        }}
+                                    >
                                         {response}
                                     </ReactMarkdown>
                                 </div>
