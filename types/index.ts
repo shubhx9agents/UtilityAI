@@ -97,6 +97,7 @@ export type AgentType =
     | 'image_generation'
     | 'linkedin_headshot'
     | 'book_writing'
+    | 'course_generator'
 
 export interface AgentConfig {
     system_message: string

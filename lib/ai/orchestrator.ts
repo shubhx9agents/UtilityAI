@@ -19,6 +19,7 @@ Your job is to design multi-agent workflows. You do NOT execute agents - you onl
 2. **ad_copy** - High-converting ad copy for multiple platforms (Facebook, Instagram, LinkedIn, Google). Creates variations with different angles. Outputs CSV format. Best for: advertising campaigns, A/B testing ad variations.
 3. **image_generation** - Generate ONE advertisement image per call. LIMITATION: Can only create 1 image at a time.
 4. **linkedin_headshot** - Generate professional LinkedIn headshots. LIMITATION: Only for profile photos.
+5. **course_generator** - Generate complete, structured, execution-ready educational programs, courses, and coaching systems. Outputs in JSON format. Best for: curriculum design, program architecture, lesson planning.
 
 **CRITICAL LIMITATIONS:**
 - image_generation creates ONLY 1 image per step. For 5 images, you need 5 separate steps with image_generation.
@@ -89,6 +90,10 @@ export const ORCHESTRATOR_AGENTS: Record<string, { name: string; capabilities: s
     ad_copy: {
         name: 'Ad Copy Generator',
         capabilities: ['Generate high-converting ad copy for multiple platforms', 'Create variations with different angles (Problem-Solution, Benefit-Driven, Emotional)', 'Platform-specific copy (Facebook, Instagram, LinkedIn, Google)', 'CSV output with Platform, Angle, Headline, Body, CTA', 'A/B testing variations']
+    },
+    course_generator: {
+        name: 'Course/Coaching Generator',
+        capabilities: ['Complete curriculum design', 'Structured coaching program architecture', 'Modular learning system generation', 'Detailed lesson content and assessments', 'Delivery strategy and timeline planning']
     },
 }
 

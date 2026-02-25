@@ -43,7 +43,7 @@ export const agentTypeSchema = z.enum([
     'deep_research',
     'image_generation',
     'linkedin_headshot',
-
+    'course_generator',
 ])
 
 export const chatMessageSchema = z.object({

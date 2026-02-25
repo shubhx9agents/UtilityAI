@@ -57,6 +57,17 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
         questions: ['User Image', 'Instructional Prompt', 'Image Model'],
         image_fields: ['User Image'],
     },
+    course_generator: {
+        system_message: 'Expert curriculum designer and program architect specializing in execution-ready educational systems.',
+        questions: [
+            'Program Title (Desired)',
+            'Core Subject/Expertise Area',
+            'Target Audience Details',
+            'Learning Objectives',
+            'Program Duration (e.g., 4 weeks, 8 modules)',
+            'Teaching Style/Tone',
+        ],
+    },
     book_writing: {
         system_message: 'Generate a complete, high-quality book based on your inputs — fully structured with chapters, storytelling, and a powerful conclusion.',
         questions: [
@@ -216,6 +227,10 @@ export class AIAgentService {
                 return await this.runLinkedInHeadshot(userInput, context)
             }
 
+            if (agentType === 'course_generator') {
+                return await this.runCourseGenerator(userInput, context)
+            }
+
             if (agentType === 'book_writing') {
                 return await this.runBookWriting(userInput, context)
             }
@@ -267,15 +282,23 @@ EVERY CHAPTER must be separated by this exact page-break marker on its own line:
 
 ---PAGE BREAK---
 
-Each chapter heading must look like:
+Each chapter/section heading must be on its own line, formatted EXACTLY like this (with ## prefix):
 
-Chapter [Number]: [Chapter Title]
+## Chapter [Number]: [Chapter Title]
 
-No markdown, no asterisks, no hash symbols, no bold markers. Just clean prose text with line breaks.
+For the opening preface/foreword, use:
+
+## Preface
+
+For the closing section, use:
+
+## Epilogue
+
+The ## heading and the first paragraph MUST be separated by a blank line. NEVER run the heading into the paragraph on the same line.
 
 Use SUBHEADINGS within a chapter sparingly and only when a genuine topic shift occurs, formatted as:
 
-~ Subheading Title ~
+### Subheading Title
 
 Paragraph spacing: leave one blank line between paragraphs.
 
@@ -297,13 +320,13 @@ Page count rules:
 10 Pages (~5,000 words total):
   - Preface (0.5 page)
   - Chapter 1–6 (1.5 pages each avg)
-  - Conclusion (0.5 page)
+  - Epilogue (0.5 page)
 
 15 Pages (~7,500 words total):
   - Preface (0.5 page)
   - Chapter 1–10 (1.2 pages each avg)
   - A real Case Study or Story chapter
-  - Final Chapter / Takeaway (1 page)
+  - Epilogue / Final Reflection (1 page)
 
 HIT THE WORD COUNT. Do not cut short. If you reach 8,000 tokens, continue writing until the book is genuinely complete.
 
@@ -366,8 +389,21 @@ The user will give you: title, genre, target audience, tone, purpose, page count
             throw new Error('Book Writing Agent returned an empty response.')
         }
 
-        // Convert page break markers to markdown horizontal rules (renders as visual divider in ReactMarkdown)
-        const formatted = bookContent.replace(/---PAGE BREAK---/g, '\n\n---\n\n')
+        // 1. Convert page break markers to markdown horizontal rules
+        let formatted = bookContent.replace(/---PAGE BREAK---/g, '\n\n---\n\n')
+
+        // 2. Ensure lines that look like chapter/section headings but lack ## get promoted
+        //    Matches lines like: "Chapter 1: Title" or "Preface" or "Epilogue" at the start of a line
+        formatted = formatted.replace(
+            /^(Chapter\s+\d+\s*:.*|Preface|Foreword|Epilogue|Final Reflection|Closing Thoughts?)\s*$/gim,
+            (match: string) => `## ${match.replace(/^#+\s*/, '').trim()}`
+        )
+
+        // 3. Convert ~ Subheading ~ style to ### Subheading
+        formatted = formatted.replace(/^~+\s*(.+?)\s*~+\s*$/gim, '### $1')
+
+        // 4. Remove any stray "Conclusion" headings the LLM might still emit and replace with Epilogue
+        formatted = formatted.replace(/^(##?\s*)Conclusion\s*$/gim, '$1Epilogue')
 
         return { response: formatted }
     }
@@ -1028,6 +1064,89 @@ ${adRequest}`
             console.error('Ad Copy Agent Error:', error)
             throw error
         }
+    }
+
+    private async runCourseGenerator(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
+        const groqApiKey = process.env.GROQ_API_KEY
+        if (!groqApiKey) throw new Error('GROQ_API_KEY is missing in .env.local')
+
+        const config = AGENT_CONFIGS['course_generator']
+        const upstreamInsight = Object.entries(context)
+            .filter(([key, value]) => {
+                const isStepOutput = key.includes('_output') || key.includes('_response')
+                const isImage = typeof value === 'string' && value.startsWith('data:image/')
+                return isStepOutput && !isImage && value !== undefined && value !== null && `${value}`.trim() !== ''
+            })
+            .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
+            .join('\n\n')
+
+        const systemPrompt = `You are a high-tier curriculum designer, educational strategist, and program architect.
+Primary Responsibility: Generate complete, execution-ready educational programs, courses, and modular learning systems.
+
+DELIVERY STYLE:
+- Output MUST be in beautiful, professional, and HIGHLY ELABORATIVE Markdown format.
+- Use distinct headings (H1, H2, H3), bold text, tables where relevant, and clear bullet points.
+- The report must look "Deep Research" style—comprehensive, authoritative, and ready for a client.
+
+CRITICAL CONSTRAINTS:
+1. DO NOT output JSON. Use Markdown ONLY.
+2. DO NOT write marketing copy. Focus on SUBSTANCE and EDUCATION.
+3. DO NOT produce vague brainstorming content. Be specific and tactical.
+4. Ensure every module and lesson has depth. Don't just list them; describe the transformation.
+
+PROGRAM STRUCTURE TO ELABORATE ON:
+# [Program Title]
+## 1. Executive Summary & Philosophy
+## 2. Target Audience & Transformation Map
+## 3. High-Level Program Roadmap (Timeline)
+## 4. Module Breakdown (Iterate through all modules)
+   ### Module [N]: [Title]
+   - Objective & Outcome
+   - Lesson [X]: [Title] (Deep description, what is taught, key concepts)
+   - Practical Exercise / Action Item
+   - Deliverable/Assessment
+## 5. Delivery Strategy & Tools
+## 6. Resources & Suggested Enhancements
+
+UTILITYAI ALIGNMENT:
+- Produce modular components.
+- Ensure Canvas workflow compatibility.
+- Use predictable formatting.
+- Be authoritative and non-verbose but EXTREMELY detailed.
+
+Generate the complete course/program structure now.`
+
+        const userPrompt = `AUTHORITATIVE CONTEXT FROM CANVAS/WORKFLOW:
+${upstreamInsight}
+
+USER INPUT/INSTRUCTIONS:
+${userInput}
+
+ADDITIONAL PARAMETERS FROM FORM:
+${Object.entries(context)
+                .filter(([k]) => !k.includes('_output') && !k.includes('_response') && k !== 'user_input')
+                .map(([k, v]) => `${k}: ${v}`)
+                .join('\n')}
+
+Generate the complete masterpiece program structure now.`.trim()
+
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+                temperature: 0.6
+            })
+        })
+
+        if (!res.ok) {
+            const text = await res.text()
+            throw new Error(`Groq API Error: ${res.status} - ${text.substring(0, 200)}`)
+        }
+
+        const data = await res.json()
+        return { response: data.choices?.[0]?.message?.content || '' }
     }
 
     private async runGroqAgent(agentType: AgentType, userInput: string): Promise<{ response: string }> {

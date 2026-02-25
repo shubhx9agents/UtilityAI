@@ -491,7 +491,31 @@ export default function AgentPage() {
 
         const contentClone = reportContent.cloneNode(true) as HTMLElement
 
+        // Remove dark mode and layout classes from the clone
         contentClone.classList.remove('h-[600px]', 'max-h-[80vh]', 'overflow-y-auto', 'border', 'rounded-md', 'bg-background')
+
+        // Remove prose-invert and other dark-mode specific classes from children
+        if (contentClone.classList.contains('prose-invert')) {
+            contentClone.classList.remove('prose-invert')
+        }
+        const darkElements = contentClone.querySelectorAll('.prose-invert')
+        darkElements.forEach(el => {
+            el.classList.remove('prose-invert')
+        })
+
+        // Force all elements in clone to have black text and clean up dark mode classes
+        const allCloneElements = contentClone.querySelectorAll('*')
+        allCloneElements.forEach(el => {
+            if (el instanceof HTMLElement) {
+                el.style.color = '#000000'
+                // Remove specific background and text classes that might interfere in PDF
+                const classesToRemove = Array.from(el.classList).filter(cls =>
+                    cls.startsWith('bg-') || cls.startsWith('text-') || cls.startsWith('border-') || cls === 'prose-invert'
+                )
+                classesToRemove.forEach(cls => el.classList.remove(cls))
+            }
+        })
+
         contentClone.style.height = 'auto'
         contentClone.style.maxHeight = 'none'
         contentClone.style.overflow = 'visible'
@@ -511,24 +535,34 @@ export default function AgentPage() {
 
         const exportStyles = document.createElement('style')
         exportStyles.textContent = `
-            .pdf-export-container,
-            .pdf-export-container .pdf-export {
+            .pdf-export-container {
                 font-family: 'Georgia', 'Times New Roman', serif !important;
                 color: #1a1a1a !important;
                 background: #ffffff !important;
+            }
+            .pdf-export-container .pdf-export {
+                font-family: 'Georgia', 'Times New Roman', serif !important;
+                color: #1a1a1a !important;
+                background-color: #ffffff !important;
                 line-height: 1.8 !important;
                 font-size: 12pt !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
-            .pdf-export h1 { font-size: 28pt !important; margin-bottom: 8px !important; font-weight: 700 !important; text-align: center !important; color: #000000 !important; letter-spacing: 0.04em !important; }
-            .pdf-export h2 { font-size: 18pt !important; margin-top: 32px !important; margin-bottom: 16px !important; font-weight: 700 !important; color: #1a1a1a !important; }
-            .pdf-export h3 { font-size: 14pt !important; margin-top: 24px !important; margin-bottom: 12px !important; font-weight: 600 !important; color: #2a2a2a !important; }
-            .pdf-export p { margin-bottom: 14px !important; text-align: justify !important; color: #1a1a1a !important; }
-            .pdf-export table { width: 100% !important; border-collapse: collapse !important; margin: 24px 0 !important; }
-            .pdf-export th { background-color: #e5e7eb !important; padding: 12px !important; border: 1px solid #000000 !important; }
-            .pdf-export td { border: 1px solid #666666 !important; padding: 10px !important; }
-            /* BOOK CHAPTER PAGE BREAKS */
+            .pdf-export-container .pdf-export * {
+                color: #1a1a1a !important;
+                background-color: transparent !important;
+            }
+            .pdf-export h1 { font-size: 24pt !important; margin-bottom: 24px !important; font-weight: 700 !important; text-align: center !important; letter-spacing: 0.04em !important; border-bottom: 2px solid #000000 !important; padding-bottom: 12px !important; color: #000000 !important; }
+            .pdf-export h2 { font-size: 18pt !important; margin-top: 32px !important; margin-bottom: 16px !important; font-weight: 700 !important; border-bottom: 1px solid #333333 !important; padding-bottom: 8px !important; color: #1a1a1a !important; }
+            .pdf-export h3 { font-size: 14pt !important; margin-top: 24px !important; margin-bottom: 12px !important; font-weight: 700 !important; color: #2a2a2a !important; }
+            .pdf-export p, .pdf-export li { margin-bottom: 12px !important; text-align: justify !important; font-size: 11pt !important; line-height: 1.8 !important; }
+            .pdf-export strong { font-weight: bold !important; }
+            .pdf-export ul, .pdf-export ol { margin-bottom: 16px !important; padding-left: 20px !important; }
+            .pdf-export table { width: 100% !important; border-collapse: collapse !important; margin: 24px 0 !important; page-break-inside: avoid !important; }
+            .pdf-export th { background-color: #f3f4f6 !important; padding: 12px !important; border: 1px solid #000000 !important; font-weight: bold !important; text-align: left !important; }
+            .pdf-export td { border: 1px solid #666666 !important; padding: 10px !important; vertical-align: top !important; }
+            /* BOOK CHAPTER PAGE BREAKS — each chapter starts on a fresh page */
             [data-page-break] {
                 page-break-before: always !important;
                 break-before: page !important;
@@ -549,7 +583,12 @@ export default function AgentPage() {
                     margin: [15, 15, 15, 15],
                     filename: customFilename ? `${customFilename}.pdf` : `${agentId}-report.pdf`,
                     image: { type: 'jpeg', quality: 1.0 },
-                    html2canvas: { scale: 3, useCORS: true, backgroundColor: '#ffffff' },
+                    html2canvas: {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        logging: false
+                    },
                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
                 })
                 .from(contentClone)
@@ -722,9 +761,11 @@ export default function AgentPage() {
                             {agentId.replace(/_/g, ' ')}
                         </h1>
                     </div>
-                    <p className="text-sm sm:text-base text-white/40 max-w-2xl leading-relaxed font-light">
-                        {agent.system_message}
-                    </p>
+                    {agentId !== 'course_generator' && (
+                        <p className="text-sm sm:text-base text-white/40 max-w-2xl leading-relaxed font-light">
+                            {agent.system_message}
+                        </p>
+                    )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                     <Button
@@ -1340,7 +1381,7 @@ export default function AgentPage() {
                 </div>
             )}
 
-            {!['deep_research', 'ad_copy', 'image_generation', 'linkedin_headshot'].includes(agentId) && (
+            {!['deep_research', 'ad_copy', 'image_generation', 'linkedin_headshot', 'course_generator'].includes(agentId) && (
                 <div className="pt-20 border-t border-white/5">
                     <Footer />
                 </div>

@@ -276,6 +276,10 @@ const AGENT_NODE_LIBRARY: Record<string, { inputs: string[]; outputs: string[] }
         inputs: ['user_image', 'instructional_prompt', 'image_model'],
         outputs: ['headshot_url'],
     },
+    course_generator: {
+        inputs: ['user_input', 'program_title', 'target_audience', 'duration'],
+        outputs: ['program_json'],
+    },
 }
 
 const getStatusClassName = (status: StepStatus) => {

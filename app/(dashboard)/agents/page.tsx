@@ -47,6 +47,16 @@ const agents = [
     href: '/agents/ad_copy',
   },
   {
+    id: 'course_generator',
+    name: 'Course/Coaching Generator',
+    description: 'Create high-end courses and coaching programs',
+    svgSrc: '/landing_page_course_generation.svg',
+    label: 'Program',
+    color: 'from-emerald-500 to-teal-600',
+    bgGlow: 'bg-emerald-500/10',
+    href: '/agents/course_generator',
+  },
+  {
     id: 'book_writing',
     name: 'Book Writing Agent',
     description: 'Generate complete, structured books with AI ghostwriting',
@@ -66,6 +76,7 @@ export default function AgentsPage() {
           AI Agents
         </h1>
         <p className="text-white/50">
+          Choose from 5 specialized AI agents to accelerate your business.
           Choose from 5 specialized AI agents to accelerate your business.
         </p>
       </div>
