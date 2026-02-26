@@ -45,6 +45,7 @@ export const agentTypeSchema = z.enum([
     'linkedin_headshot',
     'course_generator',
     'webinar_script',
+    'book_writing',
 ])
 
 

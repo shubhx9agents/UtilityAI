@@ -45,7 +45,7 @@ const quickActions = [
 ]
 
 const stats = [
-  { name: 'AI Agents', value: '5', icon: Box, label: 'Resources', color: 'text-blue-400' },
+  { name: 'AI Agents', value: '7', icon: Box, label: 'Resources', color: 'text-blue-400' },
   { name: 'Active Sessions', value: '12', icon: Activity, label: 'Activity', color: 'text-emerald-400' },
 ]
 
@@ -94,6 +94,24 @@ const agentsList = [
     svgSrc: '/landing_page_deep_research.svg',
     color: 'from-emerald-500 to-teal-600',
     bgGlow: 'bg-emerald-500/10'
+  },
+  {
+    name: 'Book Writing Agent',
+    href: '/agents/book_writing',
+    desc: 'AI ghostwriting',
+    label: 'Writing',
+    svgSrc: '/landing_page_deep_research.svg',
+    color: 'from-purple-500 to-violet-600',
+    bgGlow: 'bg-purple-500/10'
+  },
+  {
+    name: 'Webinar Script Generator',
+    href: '/agents/webinar_script',
+    desc: 'Engagement scripts',
+    label: 'Presenting',
+    svgSrc: '/landing_page_deep_research.svg',
+    color: 'from-indigo-500 to-blue-600',
+    bgGlow: 'bg-indigo-500/10'
   }
 ]
 
