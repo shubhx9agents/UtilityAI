@@ -80,7 +80,20 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
             'Writing Style (Storytelling / Educational / Persuasive / Conversational / Academic)',
         ],
     },
+    webinar_script: {
+        system_message: 'Master webinar architect and scriptwriter specializing in high-engagement, professionally paced host scripts.',
+        questions: [
+            'Webinar Topic/Subject',
+            'Target Audience',
+            'Goal of the Webinar (e.g., educational, sales, training)',
+            'Desired Tone (e.g., conversational, authoritative, energetic)',
+            'Key Themes/Talking Points',
+            'Call-to-Action (CTA)',
+            'How long is the webinar? (15 minutes / 30 minutes / 1 hour)',
+        ],
+    },
 }
+
 
 const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
 const BYTEPLUS_IMAGE_MODELS = new Set(['seedream-4-0-250828'])
@@ -231,7 +244,12 @@ export class AIAgentService {
                 return await this.runCourseGenerator(userInput, context)
             }
 
+            if (agentType === 'webinar_script') {
+                return await this.runWebinarScriptGenerator(userInput, context)
+            }
+
             if (agentType === 'book_writing') {
+
                 return await this.runBookWriting(userInput, context)
             }
 
@@ -242,9 +260,138 @@ export class AIAgentService {
             throw new Error(`${agentType.replace('_', ' ')} Agent failed: ${error.message || 'Unknown error'}`)
         }
     }
-    // ... (skip runDeepResearch, runAdCopy, runGroqAgent) ...
+
+    private async runWebinarScriptGenerator(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
+        const groqApiKey = process.env.GROQ_API_KEY
+        const perplexityApiKey = process.env.PERPLEXITY_API_KEY
+
+        if (!groqApiKey) throw new Error('GROQ_API_KEY is missing in .env.local')
+        if (!perplexityApiKey) throw new Error('PERPLEXITY_API_KEY is missing in .env.local')
+
+        const durationKey = Object.keys(context).find(k => k.toLowerCase().includes('how long') || k.toLowerCase().includes('duration'))
+        const duration = (durationKey ? context[durationKey] : null) || context.duration || '30 minutes'
+
+        console.log(`[Webinar Script] Starting research for stats and examples for a ${duration} session...`)
+
+        // 1. Research Step: Use Perplexity to find real-world stats, case studies, and examples
+        const researchPrompt = `Find specific, documented real-world statistics, quantitative data points, and concrete case studies/examples related to the following webinar topic and details:
+        "${userInput}"
+        
+        Focus on providing:
+        - Recent industry statistics (with numbers).
+        - Specific company or individual success stories.
+        - Proven frameworks or data-backed trends.
+        - Common pain points backed by recent surveys or reports.
+        
+        The research must support a ${duration} webinar, so provide enough depth for a comprehensive session.`
+
+        const perplexityRes = await fetch('https://api.perplexity.ai/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${perplexityApiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'sonar',
+                messages: [
+                    { role: 'system', content: 'You are a high-level research analyst for professional speakers and brand architects. Provide high-accuracy, data-dense research including specific numbers and real-world case studies.' },
+                    { role: 'user', content: researchPrompt }
+                ]
+            })
+        })
+
+        const researchData = perplexityRes.ok
+            ? (await perplexityRes.json()).choices?.[0]?.message?.content
+            : 'No real-time supplemental research available. Please use generic professional examples and plausible industry stats.'
+
+        // 2. Generation Step: Use Groq to build the script with researched data
+        const masterSystemPrompt = `You are a World-Class Webinar Architect and Elite Scriptwriter with over 15 years of experience crafting multi-million dollar webinar funnels. You write for top-tier industry leaders who demand perfection, authority, and high-conversion storytelling.
+
+IDENTITY & PHILOSOPHY:
+- STYLE: You write with the gravitas of a high-level consultant and the engagement of a master storyteller.
+- VOICE: Natural, authoritative, energetic, and perfectly paced.
+- GOAL: To keep the audience glued to their seats for the ENTIRE duration while delivering massive value.
+- DATA-DRIVEN: Use the provided research data (stats and examples) to build an ironclad case.
+
+STRICT DURATION & PACING (MANDATORY):
+You MUST calculate the word count based on a normal speaking rate of exactly 140 words per minute (WPM).
+- For a 15-minute webinar: You MUST write ~2,100 words.
+- For a 30-minute webinar: You MUST write ~4,200 words.
+- For a 60-minute (1 hour) webinar: You MUST write ~8,400 words.
+- For a 120-minute (2 hour) webinar: You MUST write ~16,800 words.
+
+**IMPORTANT**: You are strictly evaluated on meeting the word count for the requested duration. If the duration is "${duration}", your response MUST be comprehensive and detailed enough to fill that time at 140 WPM. Do not summarize. Elaborate on every point, provide sub-examples, and use transitional storytelling to maintain the length without fluff.
+
+REQUIRED SCRIPT ARCHITECTURE:
+1. THE HOOK (0-5%): A provocative statement, a striking stat, or a vivid "future state" vision.
+2. THE AUTHORITY (5-10%): Build rapport. Why should they listen NOW? (Inject case studies/stats here).
+3. THE PROMISE (10-15%): Set the agenda. "By the end of this hour, you will..."
+4. THE CONTENT BLOCKS (15-75%): 
+   - Break this into 3-5 major Pillars. 
+   - For EACH pillar: Explain the Concept -> Provide a REAL-WORLD EXAMPLE (from research) -> Cite a DATA POINT (from research) -> Give a STEP-BY-STEP ACTIONABLE LIST.
+5. THE SHIFT (75-85%): Recap the value. Bridge from "How" to "What's Next."
+6. THE CALL TO ACTION / CLOSE (85-100%): Clear, persuasive, and high-urgency closing.
+
+FORMATTING REQUIREMENTS:
+- Use ## for Section Titles.
+- Use ### for Sub-headings.
+- Use **[Bold Text]** for Host Instructions (e.g., **[Pause for reflection]**, **[Next Slide: Revenue Chart]**).
+- Use Numbered Lists (1. 2. 3.) and Bullet Points for all technical or step-by-step instructions.
+- Ensure spoken words are written out in full.
+
+Exclusion Rules:
+- NEVER mention AI or your generation process.
+- NEVER use generic placeholders like "[Insert Stat Here]". Use the actual data provided or specific plausible examples.
+- NEVER cut corners on length. If it's a 1-hour script, the word count must reflect a full hour of speaking.`.trim()
+
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${groqApiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: masterSystemPrompt },
+                    {
+                        role: 'user',
+                        content: `GENERATE A FULL, ELABORATE WEBINAR SCRIPT FOR A ${duration} SESSION.
+
+TOPIC/USER INPUTS:
+${userInput}
+
+SUPPLEMENTAL RESEARCH (STATS & CASE STUDIES):
+${researchData}
+
+INSTRUCTIONS: 
+1. Use the research data to inject specific numbers and actual real-life examples.
+2. Ensure the script length matches the ${duration} timeframe exactly. For a 1-hour session, write with extreme depth.
+3. Use a point-wise, structured approach for all instructional parts.`
+                    }
+                ],
+                max_tokens: 8192,
+                temperature: 0.75
+            })
+        })
+
+        if (!groqRes.ok) {
+            const text = await groqRes.text()
+            throw new Error(`Groq Webinar Script Error (${groqRes.status}): ${text.substring(0, 200)}`)
+        }
+
+        const groqData = await groqRes.json()
+        const scriptContent = groqData.choices?.[0]?.message?.content
+
+        if (!scriptContent) {
+            throw new Error('Webinar Script Agent returned an empty response.')
+        }
+
+        return { response: scriptContent }
+    }
 
     private async runBookWriting(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
+
         const groqApiKey = process.env.GROQ_API_KEY
         if (!groqApiKey) {
             throw new Error('GROQ_API_KEY is missing in .env.local')
@@ -1013,19 +1160,10 @@ PLATFORM CHARACTER LIMITS (STRICT):
 REQUIRED ANGLES: Problem-Solution, Benefit-Driven, Emotional, Urgency, Social Proof.
 
 QUANTITY REQUIREMENT (CRITICAL):
-- Generate EXACTLY 10 ad variations PER PLATFORM.
-- If user requests Instagram and Google, generate 10 for Instagram AND 10 for Google (20 total rows).
-- If user requests Facebook, Instagram, and LinkedIn, generate 10 for each (30 total rows).
-- DO NOT split 10 ads across multiple platforms. Each platform gets its own 10 ads.
-- Mix different angles across the 10 variations for each platform.
-- Ensure diversity in messaging, hooks, and CTAs for each platform.
+- Generate at least 3 distinct variations per platform.
+- Each variation must use a different hook and psychological angle.
 
-OUTPUT FORMAT RULES:
-1. Output ONLY a valid CSV. No preamble, no post-text.
-2. Headers MUST be: Platform,Angle,Headline,Body,CTA
-3. NO line breaks inside fields. Replace any newlines with spaces.
-4. Ensure all fields are properly escaped if they contain commas (use double quotes).
-5. Generate 10 unique variations for each requested platform.`
+Output Format: Use Markdown with clear headings for each platform and variation.`
 
             const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
@@ -1037,31 +1175,22 @@ OUTPUT FORMAT RULES:
                     model: 'llama-3.3-70b-versatile',
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        {
-                            role: 'user',
-                            content: `MARKET RESEARCH DATA:
-${researchData}
-
-USER INPUT:
-${adRequest}`
-                        }
+                        { role: 'user', content: `REQUEST:\n${adRequest}\n\nRESEARCH DATA:\n${researchData}` }
                     ],
-                    temperature: 0.7
+                    temperature: 0.8
                 })
             })
 
-            if (!groqRes.ok) throw new Error('Groq generation failed')
+            if (!groqRes.ok) {
+                console.warn('Groq ad generation failed, returning research only.')
+                return { response: researchData }
+            }
 
             const groqData = await groqRes.json()
-            let csvOutput = groqData.choices?.[0]?.message?.content || ''
-
-            // Clean up possible markdown code block wrappers
-            csvOutput = csvOutput.replace(/^```csv\n?/, '').replace(/\n?```$/, '').trim()
-
-            return { response: csvOutput }
+            return { response: groqData.choices?.[0]?.message?.content || researchData }
 
         } catch (error: any) {
-            console.error('Ad Copy Agent Error:', error)
+            console.error('Ad Copy multi-step error:', error)
             throw error
         }
     }
@@ -1074,19 +1203,22 @@ ${adRequest}`
         if (!perplexityApiKey) throw new Error('PERPLEXITY_API_KEY is missing in .env.local')
 
         const upstreamInsight = Object.entries(context)
-            .filter(([key, value]) => {
-                const isStepOutput = key.includes('_output') || key.includes('_response')
-                const isImage = typeof value === 'string' && value.startsWith('data:image/')
-                return isStepOutput && !isImage && value !== undefined && value !== null && `${value}`.trim() !== ''
-            })
-            .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
+            .filter(([k, v]) => k.includes('_output') || k.includes('_response'))
+            .map(([k, v]) => `${k.replace('_output', '').replace('_response', '').toUpperCase()}:\n${v}`)
             .join('\n\n')
 
-        console.log(`[Course Generator] Starting research for specific resources...`)
+        console.log(`[Course Generator] Starting research for specific links and resources...`)
 
-        // 1. Research Step: Use Perplexity to find specific, verified links
-        const researchPrompt = `Find specific, direct, and high-quality web links for educational resources, tools, projects, and case studies related to: "${userInput}".
-        For platforms like Kaggle, GitHub, or Coursera, do NOT provide generic homepage links. Find specific datasets, repositories, or course syllabus pages.
+        // 1. Research Step: Use Perplexity to find specific deep links and resources
+        const researchPrompt = `Find specific, direct, and high-quality web links and resources for the following course topic/details:
+        "${userInput}"
+        
+        Search for:
+        - Specific datasets (e.g., on Kaggle, UCI, or GitHub)
+        - Specific academic papers or case studies (direct PDF/page links)
+        - Specialized software tools or libraries (official documentation links)
+        - High-quality open-source projects or repositories
+        
         Ensure all links are safe, specialized, and highly relevant to the subject matter.
         Structure the output with clear categories: Platforms, Specific Projects/Datasets, Recommended Tools, and Case Studies.`
 
@@ -1116,7 +1248,8 @@ Primary Responsibility: Generate complete, execution-ready educational programs,
 DELIVERY STYLE:
 - Output MUST be in beautiful, professional, and HIGHLY ELABORATIVE Markdown format.
 - Use distinct headings (H1, H2, H3), bold text, and clear bullet points.
-- **PRIORITIZE TABLES**: Use tables extensively to organize information. This makes the content 10/10 in terms of readability.
+- **PRIORITIZE TABLES & LISTS**: Use tables and numbered lists extensively to organize information. This makes the content 10/10 in terms of readability.
+- **POINT-WISE DETAIL**: Every module, lesson, and strategy must be broken down into specific, actionable points.
 - **SPECIFIC WEB LINKS**: You MUST provide direct, specific, and deep links (e.g., kaggle.com/datasets/namespace/slug instead of kaggle.com). Use the provided research data to ensure accuracy. 
 - **NO VAGUE LINKS**: Never point to a homepage. Point to the specific resource.
 - The report must look "Deep Research" style—comprehensive, authoritative, and ready for a client.
@@ -1194,8 +1327,6 @@ Generate the complete masterpiece program structure now using the researched dee
         const config = AGENT_CONFIGS[agentType]
         let systemPrompt = config.system_message
 
-        // Detailed internal prompts for specific agents to ensure quality regardless of UI minimalistic text
-
         try {
             const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
@@ -1232,8 +1363,6 @@ Generate the complete masterpiece program structure now using the researched dee
             throw error
         }
     }
-
-
 
     getAgentQuestions(agentType: AgentType): string[] {
         if (AGENT_CONFIGS[agentType]) {

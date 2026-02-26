@@ -44,7 +44,9 @@ export const agentTypeSchema = z.enum([
     'image_generation',
     'linkedin_headshot',
     'course_generator',
+    'webinar_script',
 ])
+
 
 export const chatMessageSchema = z.object({
     role: z.enum(['user', 'assistant', 'system']),

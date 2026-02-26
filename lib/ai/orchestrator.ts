@@ -19,6 +19,7 @@ Your job is to design multi-agent workflows. You do NOT execute agents - you onl
 3. **image_generation** - Generate ONE advertisement image per call. LIMITATION: Can only create 1 image at a time.
 4. **linkedin_headshot** - Generate professional LinkedIn headshots. LIMITATION: Only for profile photos.
 5. **course_generator** - Generate complete, structured, execution-ready educational programs, courses, and coaching systems. Outputs in beautiful, professional, and HIGHLY ELABORATIVE Markdown format (Deep Research style) with tables and web links. Best for: curriculum design, program architecture, lesson planning.
+6. **webinar_script** - Generate natural, structured, and professionally paced webinar scripts. Duration-aware (15m, 30m, 1h). Best for: webinar hosting, presentation scripts, public speaking engagements.
 
 **CRITICAL LIMITATIONS:**
 - image_generation creates ONLY 1 image per step. For 5 images, you need 5 separate steps with image_generation.
@@ -71,6 +72,7 @@ Note: Users can manually create branching workflows in the canvas, but orchestra
 
 Return only the JSON plan, no explanations.`
 
+
 // Available agent definitions for orchestrator (only active agents)
 export const ORCHESTRATOR_AGENTS: Record<string, { name: string; capabilities: string[] }> = {
     deep_research: {
@@ -93,6 +95,10 @@ export const ORCHESTRATOR_AGENTS: Record<string, { name: string; capabilities: s
     course_generator: {
         name: 'Course/Coaching Generator',
         capabilities: ['Complete curriculum design', 'Structured coaching program architecture', 'Modular learning system generation', 'Detailed lesson content with tables and assessments', 'Delivery strategy, tool stack with web links, and timeline planning', 'Professional Markdown reporting']
+    },
+    webinar_script: {
+        name: 'Webinar Script Generator',
+        capabilities: ['Natural speech scriptwriting', 'Professional webinar pacing', 'Duration-aware content (15m/30m/1h)', 'Engagement beat integration', 'Natural transitions', 'Host delivery cues']
     },
 }
 

@@ -98,6 +98,7 @@ export type AgentType =
     | 'linkedin_headshot'
     | 'book_writing'
     | 'course_generator'
+    | 'webinar_script'
 
 export interface AgentConfig {
     system_message: string

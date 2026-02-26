@@ -301,6 +301,8 @@ export default function AgentPage() {
             }).join('\n')
 
             fullInput = `${questionAnswers}\n\nAdditional Details: ${additionalDetails}`
+            // Pass the structured form data in the context as well
+            context = { ...formData }
         }
 
         try {
@@ -1389,7 +1391,7 @@ export default function AgentPage() {
                 </div>
             )}
 
-            {!['deep_research', 'ad_copy', 'image_generation', 'linkedin_headshot', 'course_generator', 'book_writing'].includes(agentId) && (
+            {!response && !['deep_research', 'ad_copy', 'image_generation', 'linkedin_headshot', 'course_generator', 'book_writing'].includes(agentId) && (
                 <div className="pt-20 border-t border-white/5">
                     <Footer />
                 </div>

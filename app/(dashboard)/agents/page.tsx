@@ -66,7 +66,18 @@ const agents = [
     bgGlow: 'bg-purple-500/10',
     href: '/agents/book_writing',
   },
+  {
+    id: 'webinar_script',
+    name: 'Webinar Script Generator',
+    description: 'Generate high-engagement, natural, and professionally paced webinar scripts',
+    svgSrc: '/landing_page_webinar.svg',
+    label: 'Presenting',
+    color: 'from-indigo-500 to-blue-600',
+    bgGlow: 'bg-indigo-500/10',
+    href: '/agents/webinar_script',
+  },
 ]
+
 
 export default function AgentsPage() {
   return (
@@ -76,8 +87,7 @@ export default function AgentsPage() {
           AI Agents
         </h1>
         <p className="text-white/50">
-          Choose from 5 specialized AI agents to accelerate your business.
-          Choose from 5 specialized AI agents to accelerate your business.
+          Choose from 7 specialized AI agents to accelerate your business.
         </p>
       </div>
 
