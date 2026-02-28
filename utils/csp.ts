@@ -30,7 +30,6 @@ export const DEFAULT_CSP_DIRECTIVES: CSPDirectives = {
     'script-src': [
         "'self'",
         "'unsafe-inline'", // Required for Next.js
-        "'unsafe-eval'",   // Required for development
         'https://accounts.google.com',
         'https://*.supabase.co',
     ],

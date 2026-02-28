@@ -3,9 +3,20 @@ import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 import { registerSchema, validateInput, validationErrorResponse } from '@/lib/validations'
 import { sanitizeEmail, sanitizeText } from '@/utils/sanitize'
+import { rateLimit, AUTH_RATE_LIMIT, getClientIp, isIpBlocked } from '@/lib/security'
 
 export async function POST(request: NextRequest) {
     try {
+        const ip = getClientIp(request)
+        if (isIpBlocked(ip)) {
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+        }
+
+        const rateLimitResult = rateLimit(request, AUTH_RATE_LIMIT)
+        if (!rateLimitResult.allowed) {
+            return rateLimitResult.response!
+        }
+
         const body = await request.json()
 
         // Validate input with Zod (rejects extra fields)
