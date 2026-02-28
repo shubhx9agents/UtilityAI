@@ -26,6 +26,7 @@ import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { AgentSessionHistory } from '@/components/agent-session-history'
+import KindleBookReader from '@/components/KindleBookReader'
 import { useCredits } from '@/contexts/CreditsContext'
 import { useSubscription } from '@/contexts/SubscriptionContext'
 import { ExhaustedBanner } from '@/components/credits/ExhaustedBanner'
@@ -483,118 +484,158 @@ export default function AgentPage() {
     const downloadAsCSV = (customFilename?: string) => downloadAsFile('csv', customFilename)
 
     const downloadAsPDF = async (customFilename?: string) => {
+        const { default: html2pdf } = await import('html2pdf.js')
+        const filename = customFilename ? `${customFilename}.pdf` : `${agentId}-report.pdf`
+        const pdfSettings = {
+            margin: [15, 15, 15, 15],
+            filename,
+            image: { type: 'jpeg', quality: 1.0 },
+            html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }
+
+        /* ── Book Writing: build fresh HTML from full markdown ── */
+        if (agentId === 'book_writing') {
+            const mdToHtml = (md: string) => {
+                // Split on chapter separators (--- or ## headings)
+                const parts = md.split(/\n---+\n/)
+                const chapters = parts.length > 1 ? parts : md.split(/(?=^## )/m)
+
+                return chapters
+                    .map((chapter, i) => {
+                        const html = chapter
+                            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                            .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                            .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+                            .split(/\n\n+/)
+                            .map(block => block.startsWith('<') ? block : `<p>${block.replace(/\n/g, ' ')}</p>`)
+                            .join('\n')
+                        return i === 0 ? html : `<div style="page-break-before:always;padding-top:32px">${html}</div>`
+                    })
+                    .join('\n')
+            }
+
+            // Render a VISIBLE overlay so html2canvas can capture it
+            const overlay = document.createElement('div')
+            overlay.style.cssText = `
+                position:fixed;top:0;left:0;width:750px;height:auto;min-height:100vh;
+                z-index:99999;background:#fff;overflow:visible;
+                font-family:Georgia,'Times New Roman',serif;
+                color:#1a1a1a;font-size:12pt;line-height:1.8;
+            `
+            overlay.innerHTML = `
+                <div style="padding:48px 56px;background:#fff;width:750px;box-sizing:border-box;">
+                    ${mdToHtml(response)}
+                </div>
+                <style>
+                    h1 {
+                        font-size:24pt;
+                        font-weight:800;
+                        text-align:center;
+                        color:#111;
+                        margin:40px 0 32px;
+                        line-height:1.4;
+                        word-break:break-word;
+                        page-break-after:avoid;
+                    }
+                    h2 {
+                        font-size:16pt;
+                        font-weight:700;
+                        color:#222;
+                        margin-top:30px;
+                        margin-bottom:12px;
+                        page-break-after:avoid;
+                    }
+                    h3 {
+                        font-size:13pt;
+                        font-weight:700;
+                        color:#333;
+                        margin-top:20px;
+                        margin-bottom:8px;
+                        page-break-after:avoid;
+                    }
+                    p, li {
+                        font-size:11pt;
+                        margin-bottom:14px;
+                        line-height:1.85;
+                        color:#1a1a1a;
+                        text-align:left;
+                    }
+                    ul, ol { padding-left:22px; margin-bottom:14px; }
+                    strong { font-weight:bold; }
+                    em { font-style:italic; }
+                </style>
+            `
+            document.body.appendChild(overlay)
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+            try {
+                await html2pdf()
+                    .set({
+                        ...pdfSettings,
+                        pagebreak: {
+                            mode: ['avoid-all', 'css'],
+                            avoid: ['p', 'li', 'h1', 'h2', 'h3'],
+                        },
+                        html2canvas: {
+                            scale: 2,
+                            useCORS: true,
+                            backgroundColor: '#ffffff',
+                            logging: false,
+                            windowWidth: 750,
+                        },
+                    })
+                    .from(overlay.querySelector('div') as HTMLElement)
+                    .save()
+            } finally {
+                document.body.removeChild(overlay)
+            }
+            return
+        }
+
+        /* ── All other agents: original clone-based approach ── */
         const reportContent = document.getElementById('report-content')
         if (!reportContent) return
-
-        const { default: html2pdf } = await import('html2pdf.js')
 
         const pdfContainer = document.createElement('div')
         pdfContainer.className = 'pdf-export-container'
 
         const contentClone = reportContent.cloneNode(true) as HTMLElement
-
-        // Remove dark mode and layout classes from the clone
         contentClone.classList.remove('h-[600px]', 'max-h-[80vh]', 'overflow-y-auto', 'border', 'rounded-md', 'bg-background')
+        contentClone.classList.remove('prose-invert')
+        contentClone.querySelectorAll('.prose-invert').forEach(el => el.classList.remove('prose-invert'))
 
-        // Remove prose-invert and other dark-mode specific classes from children
-        if (contentClone.classList.contains('prose-invert')) {
-            contentClone.classList.remove('prose-invert')
-        }
-        const darkElements = contentClone.querySelectorAll('.prose-invert')
-        darkElements.forEach(el => {
-            el.classList.remove('prose-invert')
-        })
-
-        // Force all elements in clone to have black text and clean up dark mode classes
-        const allCloneElements = contentClone.querySelectorAll('*')
-        allCloneElements.forEach(el => {
+        contentClone.querySelectorAll('*').forEach(el => {
             if (el instanceof HTMLElement) {
                 el.style.color = '#000000'
-                // Remove specific background and text classes that might interfere in PDF
-                const classesToRemove = Array.from(el.classList).filter(cls =>
-                    cls.startsWith('bg-') || cls.startsWith('text-') || cls.startsWith('border-') || cls === 'prose-invert'
-                )
-                classesToRemove.forEach(cls => el.classList.remove(cls))
+                Array.from(el.classList).filter(c => c.startsWith('bg-') || c.startsWith('text-') || c.startsWith('border-') || c === 'prose-invert').forEach(c => el.classList.remove(c))
             }
         })
 
-        contentClone.style.height = 'auto'
-        contentClone.style.maxHeight = 'none'
-        contentClone.style.overflow = 'visible'
-        contentClone.style.border = 'none'
-        contentClone.style.background = '#ffffff'
-        contentClone.style.padding = '40px'
-        contentClone.style.width = '100%'
-
+        Object.assign(contentClone.style, { height: 'auto', maxHeight: 'none', overflow: 'visible', border: 'none', background: '#ffffff', padding: '40px', width: '100%' })
         contentClone.className += ' pdf-export'
 
         pdfContainer.appendChild(contentClone)
-        pdfContainer.style.position = 'absolute'
-        pdfContainer.style.top = '-9999px'
-        pdfContainer.style.left = '0'
-        pdfContainer.style.width = '800px'
+        Object.assign(pdfContainer.style, { position: 'absolute', top: '-9999px', left: '0', width: '800px' })
         document.body.appendChild(pdfContainer)
 
         const exportStyles = document.createElement('style')
         exportStyles.textContent = `
-            .pdf-export-container {
-                font-family: 'Georgia', 'Times New Roman', serif !important;
-                color: #1a1a1a !important;
-                background: #ffffff !important;
-            }
-            .pdf-export-container .pdf-export {
-                font-family: 'Georgia', 'Times New Roman', serif !important;
-                color: #1a1a1a !important;
-                background-color: #ffffff !important;
-                line-height: 1.8 !important;
-                font-size: 12pt !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-            .pdf-export-container .pdf-export * {
-                color: #1a1a1a !important;
-                background-color: transparent !important;
-            }
-            .pdf-export h1 { font-size: 24pt !important; margin-bottom: 24px !important; font-weight: 700 !important; text-align: center !important; letter-spacing: 0.04em !important; border-bottom: 2px solid #000000 !important; padding-bottom: 12px !important; color: #000000 !important; }
-            .pdf-export h2 { font-size: 18pt !important; margin-top: 32px !important; margin-bottom: 16px !important; font-weight: 700 !important; border-bottom: 1px solid #333333 !important; padding-bottom: 8px !important; color: #1a1a1a !important; }
-            .pdf-export h3 { font-size: 14pt !important; margin-top: 24px !important; margin-bottom: 12px !important; font-weight: 700 !important; color: #2a2a2a !important; }
-            .pdf-export p, .pdf-export li { margin-bottom: 12px !important; text-align: justify !important; font-size: 11pt !important; line-height: 1.8 !important; }
-            .pdf-export strong { font-weight: bold !important; }
-            .pdf-export ul, .pdf-export ol { margin-bottom: 16px !important; padding-left: 20px !important; }
-            .pdf-export table { width: 100% !important; border-collapse: collapse !important; margin: 24px 0 !important; page-break-inside: avoid !important; }
-            .pdf-export th { background-color: #f3f4f6 !important; padding: 12px !important; border: 1px solid #000000 !important; font-weight: bold !important; text-align: left !important; }
-            .pdf-export td { border: 1px solid #666666 !important; padding: 10px !important; vertical-align: top !important; }
-            /* BOOK CHAPTER PAGE BREAKS — each chapter starts on a fresh page */
-            [data-page-break] {
-                page-break-before: always !important;
-                break-before: page !important;
-                display: block !important;
-                height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                border: none !important;
-                visibility: hidden !important;
-            }
-            [data-page-break] * { display: none !important; }
+            .pdf-export-container{font-family:'Georgia','Times New Roman',serif!important;color:#1a1a1a!important;background:#fff!important}
+            .pdf-export-container .pdf-export{font-family:'Georgia','Times New Roman',serif!important;color:#1a1a1a!important;background:#fff!important;line-height:1.8!important;font-size:12pt!important}
+            .pdf-export-container .pdf-export *{color:#1a1a1a!important;background-color:transparent!important}
+            .pdf-export h1{font-size:24pt!important;margin-bottom:24px!important;font-weight:700!important;text-align:center!important;border-bottom:2px solid #000!important;padding-bottom:12px!important}
+            .pdf-export h2{font-size:18pt!important;margin-top:32px!important;margin-bottom:16px!important;font-weight:700!important;border-bottom:1px solid #333!important;padding-bottom:8px!important}
+            .pdf-export h3{font-size:14pt!important;margin-top:24px!important;margin-bottom:12px!important;font-weight:700!important}
+            .pdf-export p,.pdf-export li{margin-bottom:12px!important;text-align:justify!important;font-size:11pt!important;line-height:1.8!important}
+            .pdf-export strong{font-weight:bold!important}
+            .pdf-export ul,.pdf-export ol{margin-bottom:16px!important;padding-left:20px!important}
         `
         document.head.appendChild(exportStyles)
-
         try {
-            await html2pdf()
-                .set({
-                    margin: [15, 15, 15, 15],
-                    filename: customFilename ? `${customFilename}.pdf` : `${agentId}-report.pdf`,
-                    image: { type: 'jpeg', quality: 1.0 },
-                    html2canvas: {
-                        scale: 2,
-                        useCORS: true,
-                        backgroundColor: '#ffffff',
-                        logging: false
-                    },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                })
-                .from(contentClone)
-                .save()
+            await html2pdf().set(pdfSettings).from(contentClone).save()
         } finally {
             document.body.removeChild(pdfContainer)
             document.head.removeChild(exportStyles)
@@ -1232,56 +1273,48 @@ export default function AgentPage() {
                                     </div>
                                 ) : response ? (
                                     <div className="h-full flex flex-col min-h-0">
-                                        <ScrollArea id="report-content" className="flex-1 rounded-3xl border border-white/5 bg-white/[0.01] p-6 sm:p-10">
-                                            {(agentId === 'image_generation' || agentId === 'linkedin_headshot') && (response.startsWith('http') || response.startsWith('data:image/')) ? (
-                                                <div className="flex justify-center h-full items-center py-10">
-                                                    <div className="relative group">
-                                                        <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-                                                        <img
-                                                            src={response}
-                                                            alt="Generated Asset"
-                                                            className="relative max-w-full rounded-2xl shadow-2xl border border-white/10"
-                                                        />
+                                        {agentId === 'book_writing' ? (
+                                            <div className="flex-1 min-h-0 h-full">
+                                                <KindleBookReader content={response} />
+                                            </div>
+                                        ) : (
+                                            <ScrollArea id="report-content" className="flex-1 rounded-3xl border border-white/5 bg-white/[0.01] p-6 sm:p-10">
+                                                {(agentId === 'image_generation' || agentId === 'linkedin_headshot') && (response.startsWith('http') || response.startsWith('data:image/')) ? (
+                                                    <div className="flex justify-center h-full items-center py-10">
+                                                        <div className="relative group">
+                                                            <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                                                            <img
+                                                                src={response}
+                                                                alt="Generated Asset"
+                                                                className="relative max-w-full rounded-2xl shadow-2xl border border-white/10"
+                                                            />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ) : agentId === 'ad_copy' ? (
-                                                <CSVTable csvData={response} />
-                                            ) : (
-                                                <div className="markdown-container prose prose-invert prose-amber max-w-none 
-                                                    prose-h1:text-3xl prose-h1:font-black prose-h1:text-white prose-h1:mb-10 prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-6
-                                                    prose-h2:text-2xl prose-h2:font-bold prose-h2:text-amber-500 prose-h2:mt-16 prose-h2:mb-6
-                                                    prose-h3:text-xl prose-h3:font-bold prose-h3:text-white/90 prose-h3:mt-12
-                                                    prose-p:text-white/60 prose-p:leading-8 prose-p:text-[15px] prose-p:mb-6
-                                                    prose-li:text-white/60 prose-li:mb-4 prose-li:leading-7
-                                                    prose-strong:text-white prose-strong:font-bold
-                                                    prose-code:bg-white/5 prose-code:px-2 prose-code:py-1 prose-code:rounded-lg prose-code:text-amber-400
-                                                ">
-                                                    <ReactMarkdown
-                                                        remarkPlugins={[remarkGfm]}
-                                                        components={{
-                                                            a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline" />,
-                                                            ...(agentId === 'book_writing' ? {
-                                                                hr: () => (
-                                                                    <div
-                                                                        data-page-break="true"
-                                                                        className="my-16 flex flex-col items-center gap-4 not-prose"
-                                                                    >
-                                                                        <div className="w-full border-t-2 border-dashed border-white/10" />
-                                                                        <span className="px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[10px] font-black uppercase tracking-[0.25em] text-purple-400/70">
-                                                                            ✦ New Chapter ✦
-                                                                        </span>
-                                                                        <div className="w-full border-t-2 border-dashed border-white/10" />
-                                                                    </div>
-                                                                )
-                                                            } : {})
-                                                        }}
-                                                    >
-                                                        {response}
-                                                    </ReactMarkdown>
-                                                </div>
+                                                ) : agentId === 'ad_copy' ? (
+                                                    <CSVTable csvData={response} />
+                                                ) : (
+                                                    <div className="markdown-container prose prose-invert prose-amber max-w-none 
+                                                        prose-h1:text-3xl prose-h1:font-black prose-h1:text-white prose-h1:mb-10 prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-6
+                                                        prose-h2:text-2xl prose-h2:font-bold prose-h2:text-amber-500 prose-h2:mt-16 prose-h2:mb-6
+                                                        prose-h3:text-xl prose-h3:font-bold prose-h3:text-white/90 prose-h3:mt-12
+                                                        prose-p:text-white/60 prose-p:leading-8 prose-p:text-[15px] prose-p:mb-6
+                                                        prose-li:text-white/60 prose-li:mb-4 prose-li:leading-7
+                                                        prose-strong:text-white prose-strong:font-bold
+                                                        prose-code:bg-white/5 prose-code:px-2 prose-code:py-1 prose-code:rounded-lg prose-code:text-amber-400
+                                                    ">
+                                                        <ReactMarkdown
+                                                            remarkPlugins={[remarkGfm]}
+                                                            components={{
+                                                                a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline" />,
+                                                            }}
+                                                        >
+                                                            {response}
+                                                        </ReactMarkdown>
+                                                    </div>
 
-                                            )}
-                                        </ScrollArea>
+                                                )}
+                                            </ScrollArea>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="h-full flex flex-col items-center justify-center text-center bg-white/[0.01] border border-white/5 rounded-3xl px-10 py-20">
@@ -1438,6 +1471,8 @@ export default function AgentPage() {
                                 </div>
                             ) : agentId === 'ad_copy' ? (
                                 <CSVTable csvData={response} />
+                            ) : agentId === 'book_writing' ? (
+                                <KindleBookReader content={response} />
                             ) : (
                                 <div className="markdown-container prose prose-invert prose-amber max-w-none">
                                     <ReactMarkdown
