@@ -88,6 +88,7 @@ const IMAGE_MODEL_OPTIONS = [
 ]
 const PRIMARY_USER_INPUT_FIELD = 'user_input'
 const PRIMARY_USER_INPUT_LABEL = 'Current business/product context'
+const INPUTS_PER_SECTION = 3
 
 interface OrchestratorAgent {
     id: string
@@ -385,6 +386,7 @@ export default function CanvasPage() {
     const [workflowMode, setWorkflowMode] = useState<'sequential' | 'parallel'>('sequential')
     const [userInputs, setUserInputs] = useState<Record<string, string>>({})
     const [inputStepIndex, setInputStepIndex] = useState(0)
+    const [editorInputSectionIndex, setEditorInputSectionIndex] = useState(0)
     const [newNodeAgentId, setNewNodeAgentId] = useState<AgentType | ''>('')
     const [newNodeDescription, setNewNodeDescription] = useState('')
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
@@ -701,6 +703,70 @@ export default function CanvasPage() {
         return AGENT_NODE_LIBRARY[agentId] || { inputs: ['user_input'], outputs: ['output'] }
     }, [])
 
+    const initializeNewWorkflowCanvas = useCallback(() => {
+        const startId = `start_${Date.now()}`
+        const endId = `end_${Date.now()}`
+        setFlowNodes([
+            {
+                id: startId,
+                type: 'input',
+                position: { x: 100, y: 260 },
+                data: {
+                    label: 'Start',
+                    nodeType: 'input',
+                    status: 'pending',
+                },
+            },
+            {
+                id: endId,
+                type: 'output',
+                position: { x: 860, y: 260 },
+                data: {
+                    label: 'End',
+                    nodeType: 'output',
+                    status: 'pending',
+                },
+            },
+        ])
+        setFlowEdges([{
+            id: `edge_${startId}_${endId}`,
+            source: startId,
+            target: endId,
+            type: 'smoothstep',
+            markerEnd: { type: MarkerType.ArrowClosed },
+        }])
+        nextNodeIndexRef.current = 1
+        setIsCanvasDirty(true)
+    }, [setFlowEdges, setFlowNodes])
+
+    const addAgentNodeToCanvas = useCallback((agentId: AgentType, description?: string) => {
+        const agentName = agents.find(agent => agent.id === agentId)?.name || agentId
+        const io = getAgentIo(agentId)
+        const index = nextNodeIndexRef.current
+        const position = {
+            x: 320 + (index % 2) * 280,
+            y: 120 + Math.floor(index / 2) * 180,
+        }
+        nextNodeIndexRef.current += 1
+
+        const id = `step_${Date.now()}_${agentId}`
+        setFlowNodes(nodes => nodes.concat({
+            id,
+            type: 'agent',
+            position,
+            data: {
+                label: agentName,
+                nodeType: 'agent',
+                agentType: agentId,
+                description: description?.trim() || `Run ${agentName} agent`,
+                inputs: io.inputs,
+                outputs: io.outputs,
+                status: 'pending',
+            },
+        }))
+        setIsCanvasDirty(true)
+    }, [agents, getAgentIo, setFlowNodes])
+
     const mapCanvasNodeToFlowNode = useCallback((node: CanvasNode): Node<FlowNodeData> => {
         const agentType = node.data.agent_type as AgentType | undefined
         const io = getAgentIo(agentType)
@@ -768,6 +834,8 @@ export default function CanvasPage() {
             if (data.workflow) {
                 setWorkflows([data.workflow, ...workflows])
                 setSelectedWorkflow(data.workflow)
+                initializeNewWorkflowCanvas()
+                setIsCanvasFullscreen(true)
                 setNewWorkflowName('')
                 setShowNewWorkflowDialog(false)
                 refetchUsage()
@@ -779,6 +847,7 @@ export default function CanvasPage() {
 
     const selectWorkflow = async (workflow: Workflow) => {
         setSelectedWorkflow(workflow)
+        setIsCanvasFullscreen(true)
 
         // Convert workflow plan to canvas nodes/edges
         if (workflow.workflow_plan?.steps?.length > 0) {
@@ -904,6 +973,7 @@ export default function CanvasPage() {
             setWorkflows(workflows.filter(w => w.id !== workflowId))
             if (selectedWorkflow?.id === workflowId) {
                 setSelectedWorkflow(null)
+                setIsCanvasFullscreen(false)
                 setFlowNodes([])
                 setFlowEdges([])
                 setIsCanvasDirty(false)
@@ -1124,31 +1194,7 @@ export default function CanvasPage() {
             toast.error('Select an agent to add')
             return
         }
-        const agentName = agents.find(agent => agent.id === newNodeAgentId)?.name || newNodeAgentId
-        const io = getAgentIo(newNodeAgentId)
-        const index = nextNodeIndexRef.current
-        const position = {
-            x: (index % 3) * 280,
-            y: Math.floor(index / 3) * 200,
-        }
-        nextNodeIndexRef.current += 1
-
-        const id = `step_${Date.now()}_${newNodeAgentId}`
-        setFlowNodes(nodes => nodes.concat({
-            id,
-            type: 'agent',
-            position,
-            data: {
-                label: agentName,
-                nodeType: 'agent',
-                agentType: newNodeAgentId,
-                description: newNodeDescription.trim() || `Run ${agentName} agent`,
-                inputs: io.inputs,
-                outputs: io.outputs,
-                status: 'pending',
-            },
-        }))
-        setIsCanvasDirty(true)
+        addAgentNodeToCanvas(newNodeAgentId, newNodeDescription)
         setShowAddNodeDialog(false)
         setNewNodeAgentId('')
         setNewNodeDescription('')
@@ -1740,14 +1786,13 @@ export default function CanvasPage() {
         })
     }, [flowInstance, isCanvasFullscreen, flowNodes.length])
 
-    // Get required user inputs from workflow
-    const getRequiredInputs = (): ConfigInputSpec[] => {
-        if (!selectedWorkflow?.workflow_plan?.steps) return []
+    const getRequiredInputsFromPlan = useCallback((plan?: WorkflowPlan | null): Array<{ field: string, label: string, type: 'text' | 'image', group?: string, description?: string }> => {
+        if (!plan?.steps) return []
 
         const seen = new Set<string>()
         const inputs: ConfigInputSpec[] = []
 
-        for (const step of selectedWorkflow.workflow_plan.steps) {
+        for (const step of plan.steps) {
             if (step.input_mapping?.user_input_specs) {
                 step.input_mapping.user_input_specs.forEach(spec => {
                     if (!seen.has(spec.field)) {
@@ -1769,7 +1814,31 @@ export default function CanvasPage() {
             }
         }
         return inputs
-    }
+    }, [])
+
+    // Get required user inputs from persisted workflow plan
+    const getRequiredInputs = useCallback(() => {
+        return getRequiredInputsFromPlan(selectedWorkflow?.workflow_plan)
+    }, [getRequiredInputsFromPlan, selectedWorkflow?.workflow_plan])
+
+    const hasAgentNodes = useMemo(() => {
+        return flowNodes.some(node => node.data.nodeType === 'agent')
+    }, [flowNodes])
+
+    const editorInputSpecs = useMemo(() => {
+        const activePlan = buildWorkflowPlanFromCanvas() || selectedWorkflow?.workflow_plan
+        const required = getRequiredInputsFromPlan(activePlan)
+        return ensurePrimaryConfigInput(required)
+    }, [buildWorkflowPlanFromCanvas, getRequiredInputsFromPlan, selectedWorkflow?.workflow_plan])
+
+    const editorInputSections = useMemo(() => {
+        if (editorInputSpecs.length === 0) return []
+        const sections: ConfigInputSpec[][] = []
+        for (let i = 0; i < editorInputSpecs.length; i += INPUTS_PER_SECTION) {
+            sections.push(editorInputSpecs.slice(i, i + INPUTS_PER_SECTION))
+        }
+        return sections
+    }, [editorInputSpecs])
 
     const handleImageUpload = (field: string, file: File) => {
         const reader = new FileReader()
@@ -1782,7 +1851,15 @@ export default function CanvasPage() {
         reader.readAsDataURL(file)
     }
 
-    const renderCanvasFlow = (containerClassName: string) => (
+    const renderCanvasFlow = (
+        containerClassName: string,
+        options?: {
+            backgroundDotColor?: string
+            panelClassName?: string
+            panelTitleClassName?: string
+            panelTextClassName?: string
+        }
+    ) => (
         <div className={containerClassName}>
             <ReactFlow
                 nodes={flowNodes}
@@ -1802,11 +1879,14 @@ export default function CanvasPage() {
                 snapGrid={[20, 20]}
                 deleteKeyCode={['Backspace', 'Delete']}
             >
-                <Panel position="top-left" className="m-3 rounded-lg border border-warm-border bg-background/90 px-3 py-2 text-xs shadow-sm">
-                    <div className="font-semibold text-foreground">Canvas Controls</div>
-                    <div className="text-[11px] text-muted-foreground">Drag nodes, connect handles, double-click to edit.</div>
+                <Panel
+                    position="top-left"
+                    className={options?.panelClassName || 'm-3 rounded-lg border border-warm-border bg-background/90 px-3 py-2 text-xs shadow-sm'}
+                >
+                    <div className={options?.panelTitleClassName || 'font-semibold text-foreground'}>Canvas Controls</div>
+                    <div className={options?.panelTextClassName || 'text-[11px] text-muted-foreground'}>Drag nodes, connect handles, double-click to edit.</div>
                 </Panel>
-                <Background gap={18} size={1} color="#e5e7eb" />
+                <Background gap={18} size={1} color={options?.backgroundDotColor || '#e5e7eb'} />
                 <MiniMap
                     pannable
                     zoomable
@@ -1915,6 +1995,10 @@ export default function CanvasPage() {
             }
         }
     }, [showExecuteDialog, selectedWorkflow?.id, onboardingData])
+
+    useEffect(() => {
+        setEditorInputSectionIndex(0)
+    }, [selectedWorkflow?.id, editorInputSections.length])
 
     if (isLoading && workflows.length === 0) {
         return (
@@ -2245,13 +2329,13 @@ export default function CanvasPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Workflows Sidebar */}
-                <div className="lg:col-span-4">
+                <div className="lg:col-span-12">
                     <Card className="border-warm-border bg-warm-surface">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-lg text-foreground">Workflows</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="relative mb-3">
+                            <div className="relative mb-4 max-w-sm">
                                 <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                                 <Input
                                     value={workflowSearchQuery}
@@ -2260,72 +2344,70 @@ export default function CanvasPage() {
                                     className="pl-9"
                                 />
                             </div>
-                            <ScrollArea className="h-[500px]">
-                                <div className="space-y-2">
-                                    {workflows.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground text-center py-8">
-                                            No workflows yet. Create one to get started!
-                                        </p>
-                                    ) : filteredWorkflows.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground text-center py-8">
-                                            No workflows match your search.
-                                        </p>
-                                    ) : (
-                                        filteredWorkflows.map(workflow => (
-                                            <div
-                                                key={workflow.id}
-                                                className={`p-3 border rounded-lg cursor-pointer transition-all group ${selectedWorkflow?.id === workflow.id
-                                                    ? 'border-amber-500 bg-amber-500/10'
-                                                    : 'hover:border-warm-border'
-                                                    }`}
-                                                onClick={() => selectWorkflow(workflow)}
-                                            >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                        <GitBranch className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                                                        <span className="font-medium text-sm truncate">{workflow.name}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 w-6 p-0 flex-shrink-0"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation()
-                                                                openRenameWorkflowDialog(workflow)
-                                                            }}
-                                                            title="Rename workflow"
-                                                        >
-                                                            <Pencil className="h-3 w-3 text-blue-500" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 w-6 p-0 flex-shrink-0"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation()
-                                                                deleteWorkflow(workflow.id)
-                                                            }}
-                                                            title="Delete workflow"
-                                                        >
-                                                            <Trash2 className="h-3 w-3 text-red-500" />
-                                                        </Button>
-                                                    </div>
+                            {workflows.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-8">
+                                    No workflows yet. Create one to get started!
+                                </p>
+                            ) : filteredWorkflows.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-8">
+                                    No workflows match your search.
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                                    {filteredWorkflows.map(workflow => (
+                                        <div
+                                            key={workflow.id}
+                                            className={`p-3 border rounded-lg cursor-pointer transition-all group ${selectedWorkflow?.id === workflow.id
+                                                ? 'border-amber-500 bg-amber-500/10'
+                                                : 'hover:border-warm-border'
+                                                }`}
+                                            onClick={() => selectWorkflow(workflow)}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <GitBranch className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                                                    <span className="font-medium text-sm truncate">{workflow.name}</span>
                                                 </div>
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {workflow.workflow_plan?.steps?.length || 0} steps
-                                                </p>
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 w-6 p-0 flex-shrink-0"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            openRenameWorkflowDialog(workflow)
+                                                        }}
+                                                        title="Rename workflow"
+                                                    >
+                                                        <Pencil className="h-3 w-3 text-blue-500" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 w-6 p-0 flex-shrink-0"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            deleteWorkflow(workflow.id)
+                                                        }}
+                                                        title="Delete workflow"
+                                                    >
+                                                        <Trash2 className="h-3 w-3 text-red-500" />
+                                                    </Button>
+                                                </div>
                                             </div>
-                                        ))
-                                    )}
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {workflow.workflow_plan?.steps?.length || 0} steps
+                                            </p>
+                                        </div>
+                                    ))}
                                 </div>
-                            </ScrollArea>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
 
                 {/* Canvas Area */}
-                <div className="lg:col-span-8">
+                <div className="hidden">
                     <Card className="min-h-[600px] border-warm-border bg-warm-surface">
                         <CardHeader className="pb-3 border-b border-warm-border">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0">
@@ -2391,7 +2473,7 @@ export default function CanvasPage() {
                                             <Button
                                                 size="sm"
                                                 onClick={openExecuteDialog}
-                                                disabled={(!selectedWorkflow?.workflow_plan?.steps?.length && flowNodes.length === 0) || isExecuting}
+                                                disabled={!hasAgentNodes || isExecuting}
                                             >
                                                 {isExecuting ? (
                                                     <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -2678,111 +2760,268 @@ export default function CanvasPage() {
                 </div>
             </div>
 
-            {
-                isCanvasFullscreen && (
-                    <div className="fixed inset-0 z-50 bg-background">
-                        <div className="flex h-full flex-col">
-                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warm-border bg-warm-surface px-4 py-3">
-                                <div className="text-sm font-semibold text-foreground">
-                                    Full Screen Canvas
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {selectedWorkflow && (
-                                        <>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setShowAddNodeDialog(true)}
-                                            >
-                                                <Plus className="h-4 w-4 mr-1" />
-                                                Add Node
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={syncWorkflowPlanFromCanvas}
-                                                disabled={!isCanvasDirty || isSavingCanvas}
-                                            >
-                                                {isSavingCanvas ? (
-                                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                                ) : (
-                                                    <Save className="h-4 w-4 mr-1" />
-                                                )}
-                                                Save
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setShowOrchestratorDialog(true)}
-                                            >
-                                                <Settings className="h-4 w-4 mr-1" />
-                                                Edit
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => {
-                                                    fetchExecutionHistory()
-                                                    setShowHistoryDialog(true)
-                                                }}
-                                            >
-                                                <History className="h-4 w-4 mr-1" />
-                                                History
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                onClick={openExecuteDialog}
-                                                disabled={(!selectedWorkflow?.workflow_plan?.steps?.length && flowNodes.length === 0) || isExecuting}
-                                            >
-                                                {isExecuting ? (
-                                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                                ) : (
-                                                    <Play className="h-4 w-4 mr-1" />
-                                                )}
-                                                Execute
-                                            </Button>
-                                            {isExecuting && (
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    onClick={stopCurrentExecution}
-                                                    disabled={isStoppingExecution}
-                                                >
-                                                    {isStoppingExecution ? (
-                                                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                                    ) : (
-                                                        <Square className="h-4 w-4 mr-1" />
-                                                    )}
-                                                    Stop
-                                                </Button>
-                                            )}
-                                        </>
+            {isCanvasFullscreen && (
+                <div className="fixed inset-0 z-50 bg-background">
+                    <div className="flex h-full flex-col">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warm-border bg-warm-surface px-4 py-3">
+                            <div>
+                                <div className="text-sm font-semibold text-foreground">{selectedWorkflow?.name || 'Workflow Editor'}</div>
+                                <div className="text-xs text-muted-foreground">Full screen workflow editor</div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowAddNodeDialog(true)}
+                                >
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    Add Node
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={syncWorkflowPlanFromCanvas}
+                                    disabled={!isCanvasDirty || isSavingCanvas}
+                                >
+                                    {isSavingCanvas ? (
+                                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                    ) : (
+                                        <Save className="h-4 w-4 mr-1" />
                                     )}
+                                    Save
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowOrchestratorDialog(true)}
+                                >
+                                    <Settings className="h-4 w-4 mr-1" />
+                                    Edit
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        fetchExecutionHistory()
+                                        setShowHistoryDialog(true)
+                                    }}
+                                >
+                                    <History className="h-4 w-4 mr-1" />
+                                    History
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={openExecuteDialog}
+                                    disabled={!hasAgentNodes || isExecuting}
+                                >
+                                    {isExecuting ? (
+                                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                    ) : (
+                                        <Play className="h-4 w-4 mr-1" />
+                                    )}
+                                    Execute
+                                </Button>
+                                {isExecuting && (
                                     <Button
-                                        variant="outline"
+                                        variant="destructive"
                                         size="sm"
-                                        onClick={() => setIsCanvasFullscreen(false)}
+                                        onClick={stopCurrentExecution}
+                                        disabled={isStoppingExecution}
                                     >
-                                        <Minimize2 className="h-4 w-4 mr-1" />
-                                        Exit
+                                        {isStoppingExecution ? (
+                                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                        ) : (
+                                            <Square className="h-4 w-4 mr-1" />
+                                        )}
+                                        Stop
                                     </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0"
-                                        onClick={() => setIsCanvasFullscreen(false)}
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
+                                )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsCanvasFullscreen(false)}
+                                >
+                                    <Minimize2 className="h-4 w-4 mr-1" />
+                                    Workflows
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="grid flex-1 min-h-0 grid-cols-1 xl:grid-cols-12">
+                            <div className="xl:col-span-3 border-r border-warm-border bg-[#050505] text-white min-h-0">
+                                <div className="h-full flex flex-col p-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-semibold">Workflow Inputs</h3>
+                                        <span className="text-[11px] text-white/50">{editorInputSpecs.length} questions</span>
+                                    </div>
+                                    {editorInputSections.length > 0 && (
+                                        <div className="mt-3 flex items-center justify-between">
+                                            <div className="flex gap-1">
+                                                {editorInputSections.map((_, i) => (
+                                                    <div
+                                                        key={`section-${i}`}
+                                                        className={`h-1.5 w-7 rounded-full ${editorInputSectionIndex >= i ? 'bg-amber-500' : 'bg-white/15'}`}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <span className="text-[10px] uppercase tracking-wider text-white/40">
+                                                Section {editorInputSectionIndex + 1} of {editorInputSections.length}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-h-0 mt-4">
+                                        <ScrollArea className="h-full pr-2">
+                                            {editorInputSections.length === 0 ? (
+                                                <div className="h-full flex items-center justify-center text-center px-4">
+                                                    <p className="text-sm text-white/50">Add agent nodes to generate workflow input questions.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-5 pb-4">
+                                                    {(editorInputSections[editorInputSectionIndex] || []).map((inputSpec) => {
+                                                        const isImageModel = inputSpec.field.includes('image_model') || inputSpec.label.toLowerCase().includes('image model')
+                                                        return (
+                                                            <div key={inputSpec.field} className="space-y-2">
+                                                                <Label className="text-[11px] uppercase tracking-wider text-white/70">{inputSpec.label}</Label>
+                                                                {inputSpec.type === 'image' ? (
+                                                                    <div
+                                                                        className="border border-dashed border-white/25 rounded-lg p-4 flex flex-col items-center justify-center gap-2 hover:border-amber-500/60 transition-colors cursor-pointer bg-white/5"
+                                                                        onClick={() => document.getElementById(`editor-upload-${inputSpec.field}`)?.click()}
+                                                                    >
+                                                                        <input
+                                                                            type="file"
+                                                                            id={`editor-upload-${inputSpec.field}`}
+                                                                            className="hidden"
+                                                                            accept="image/*"
+                                                                            onChange={(e) => {
+                                                                                const file = e.target.files?.[0]
+                                                                                if (file) handleImageUpload(inputSpec.field, file)
+                                                                            }}
+                                                                        />
+                                                                        {userInputs[inputSpec.field] ? (
+                                                                            <img
+                                                                                src={userInputs[inputSpec.field]}
+                                                                                alt={inputSpec.label}
+                                                                                className="max-h-[160px] rounded-md"
+                                                                            />
+                                                                        ) : (
+                                                                            <>
+                                                                                <Upload className="h-6 w-6 text-white/60" />
+                                                                                <p className="text-xs text-white/60">Upload image</p>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                ) : isImageModel ? (
+                                                                    <Select
+                                                                        value={userInputs[inputSpec.field] || DEFAULT_IMAGE_MODEL}
+                                                                        onValueChange={(value) => setUserInputs(prev => ({
+                                                                            ...prev,
+                                                                            [inputSpec.field]: value,
+                                                                        }))}
+                                                                    >
+                                                                        <SelectTrigger className="bg-white/5 border-white/20 text-white">
+                                                                            <SelectValue placeholder="Select model" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {IMAGE_MODEL_OPTIONS.map(option => (
+                                                                                <SelectItem key={option.value} value={option.value}>
+                                                                                    {option.label}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                ) : (
+                                                                    <textarea
+                                                                        className="w-full min-h-[120px] rounded-lg border border-white/20 bg-white/5 p-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-500/60"
+                                                                        value={userInputs[inputSpec.field] || ''}
+                                                                        onChange={(e) => setUserInputs(prev => ({
+                                                                            ...prev,
+                                                                            [inputSpec.field]: e.target.value,
+                                                                        }))}
+                                                                        placeholder={`Enter ${inputSpec.label.toLowerCase()}...`}
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            )}
+                                        </ScrollArea>
+                                    </div>
+                                    {editorInputSections.length > 1 && (
+                                        <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+                                                onClick={() => setEditorInputSectionIndex(prev => Math.max(prev - 1, 0))}
+                                                disabled={editorInputSectionIndex === 0}
+                                            >
+                                                Previous
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                className="bg-amber-500 text-black hover:bg-amber-400"
+                                                onClick={() => setEditorInputSectionIndex(prev => Math.min(prev + 1, editorInputSections.length - 1))}
+                                                disabled={editorInputSectionIndex === editorInputSections.length - 1}
+                                            >
+                                                Next Section
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                            <div className="flex-1">
-                                {renderCanvasFlow('h-full w-full bg-gradient-to-br from-amber-50/40 via-white to-amber-100/40 dark:from-amber-950/20 dark:via-background dark:to-amber-900/30')}
+
+                            <div className="xl:col-span-6 min-h-0">
+                                {renderCanvasFlow(
+                                    'h-full w-full bg-black',
+                                    {
+                                        backgroundDotColor: 'rgba(255,255,255,0.35)',
+                                        panelClassName: 'm-3 rounded-lg border border-white/20 bg-black/70 px-3 py-2 text-xs shadow-sm',
+                                        panelTitleClassName: 'font-semibold text-white',
+                                        panelTextClassName: 'text-[11px] text-white/60',
+                                    }
+                                )}
+                            </div>
+
+                            <div className="xl:col-span-3 border-l border-warm-border bg-warm-surface min-h-0">
+                                <div className="h-full flex flex-col p-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-foreground">Agent Nodes</h3>
+                                            <p className="text-xs text-muted-foreground">Click + to add agent to canvas</p>
+                                        </div>
+                                    </div>
+                                    <ScrollArea className="flex-1 min-h-0 pr-1">
+                                        <div className="space-y-3">
+                                            {agents.map(agent => (
+                                                <Card key={agent.id} className="border-warm-border bg-background/70">
+                                                    <CardContent className="p-3">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-medium truncate">{agent.name}</p>
+                                                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                                                    {agent.capabilities.join(', ')}
+                                                                </p>
+                                                            </div>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="outline"
+                                                                className="h-8 w-8"
+                                                                onClick={() => addAgentNodeToCanvas(agent.id as AgentType)}
+                                                            >
+                                                                <Plus className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    </ScrollArea>
+                                </div>
                             </div>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )}
 
             {/* Results Dialog */}
             <Dialog open={showResultsDialog} onOpenChange={setShowResultsDialog}>
