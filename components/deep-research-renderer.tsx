@@ -2,11 +2,20 @@
 
 import React from 'react'
 
-// --- Helpers: safe array coercion ---
+// --- Helpers: safe type coercion for LLM output ---
 function toArr(v: unknown): string[] {
-    if (Array.isArray(v)) return v
+    if (Array.isArray(v)) return v.map(x => toStr(x))
     if (typeof v === 'string' && v.trim()) return [v]
+    if (v && typeof v === 'object') {
+        try { return Object.values(v).map(x => toStr(x)) } catch { return [] }
+    }
     return []
+}
+function toStr(v: unknown): string {
+    if (typeof v === 'string') return v
+    if (v === null || v === undefined) return '—'
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+    try { return JSON.stringify(v) } catch { return '—' }
 }
 
 // --- Types ---
@@ -231,16 +240,16 @@ function CompetitorsSection({ data }: { data: Competitor[] }) {
                             <div className="px-5 py-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2.5">Key Features</p>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {(c.offerings?.key_features ?? []).map((f, fi) => <Pill key={fi}>{f}</Pill>)}
+                                    {toArr(c.offerings?.key_features).map((f, fi) => <Pill key={fi}>{f}</Pill>)}
                                 </div>
                                 {c.funnel?.stages && c.funnel.stages.length > 0 && (
                                     <>
                                         <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mt-4 mb-2">Funnel</p>
                                         <div className="flex flex-wrap items-center gap-1">
-                                            {c.funnel.stages.map((s, si) => (
+                                            {toArr(c.funnel.stages).map((s, si) => (
                                                 <React.Fragment key={si}>
                                                     <span className="text-[10px] text-white/40 font-medium">{s}</span>
-                                                    {si < c.funnel.stages.length - 1 && <span className="text-white/15 text-[10px]">›</span>}
+                                                    {si < toArr(c.funnel.stages).length - 1 && <span className="text-white/15 text-[10px]">›</span>}
                                                 </React.Fragment>
                                             ))}
                                         </div>
@@ -345,7 +354,7 @@ function LandingPagesSection({ data }: { data: LandingPage[] }) {
                             <div className="px-5 py-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Page Flow</p>
                                 <ol className="space-y-2">
-                                    {(page.structure?.page_flow ?? []).map((step, si) => (
+                                    {toArr(page.structure?.page_flow).map((step, si) => (
                                         <li key={si} className="flex items-start gap-2.5 text-xs text-white/45 leading-relaxed">
                                             <span className="shrink-0 w-4 h-4 rounded-full bg-white/5 border border-white/10 text-white/30 text-[9px] font-black flex items-center justify-center mt-0.5">{si + 1}</span>
                                             {step}
@@ -356,7 +365,7 @@ function LandingPagesSection({ data }: { data: LandingPage[] }) {
                             <div className="px-5 py-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Headlines</p>
                                 <div className="space-y-2">
-                                    {(page.structure?.headlines ?? []).map((h, hi) => (
+                                    {toArr(page.structure?.headlines).map((h, hi) => (
                                         <p key={hi} className="text-xs text-white/60 font-semibold leading-relaxed border-l-2 border-amber-500/30 pl-3 italic">{h}</p>
                                     ))}
                                 </div>
@@ -364,11 +373,11 @@ function LandingPagesSection({ data }: { data: LandingPage[] }) {
                             <div className="px-5 py-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2.5">Emotional Triggers</p>
                                 <div className="flex flex-wrap gap-1.5 mb-4">
-                                    {(page.conversion_elements?.emotional_triggers ?? []).map((t, ti) => <Pill key={ti} variant="red">{t}</Pill>)}
+                                    {toArr(page.conversion_elements?.emotional_triggers).map((t, ti) => <Pill key={ti} variant="red">{t}</Pill>)}
                                 </div>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2.5">Social Proof</p>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {(page.conversion_elements?.social_proof ?? []).map((s, si) => <Pill key={si} variant="green">{s}</Pill>)}
+                                    {toArr(page.conversion_elements?.social_proof).map((s, si) => <Pill key={si} variant="green">{s}</Pill>)}
                                 </div>
                             </div>
                             <div className="px-5 py-4">
@@ -395,7 +404,7 @@ function MessagingSection({ data }: { data: MessagingPatterns }) {
                 <div className="border border-red-500/10 bg-red-500/[0.03] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-red-400/50 mb-4">Repeated Pains</p>
                     <ul className="space-y-2.5">
-                        {(data.repeated_pains ?? []).map((item, i) => (
+                        {toArr(data.repeated_pains).map((item, i) => (
                             <li key={i} className="text-xs text-white/55 flex items-start gap-2 leading-relaxed">
                                 <span className="w-1 h-1 rounded-full bg-red-400/40 shrink-0 mt-1.5" />{item}
                             </li>
@@ -405,7 +414,7 @@ function MessagingSection({ data }: { data: MessagingPatterns }) {
                 <div className="border border-emerald-500/10 bg-emerald-500/[0.03] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400/50 mb-4">Repeated Desires</p>
                     <ul className="space-y-2.5">
-                        {(data.repeated_desires ?? []).map((item, i) => (
+                        {toArr(data.repeated_desires).map((item, i) => (
                             <li key={i} className="text-xs text-white/55 flex items-start gap-2 leading-relaxed">
                                 <span className="w-1 h-1 rounded-full bg-emerald-400/40 shrink-0 mt-1.5" />{item}
                             </li>
@@ -415,7 +424,7 @@ function MessagingSection({ data }: { data: MessagingPatterns }) {
                 <div className="border border-amber-500/10 bg-amber-500/[0.02] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-amber-400/50 mb-4">Repeated Objections</p>
                     <ul className="space-y-2.5">
-                        {(data.repeated_objections ?? []).map((item, i) => (
+                        {toArr(data.repeated_objections).map((item, i) => (
                             <li key={i} className="text-xs text-white/55 flex items-start gap-2 leading-relaxed">
                                 <span className="w-1 h-1 rounded-full bg-amber-400/40 shrink-0 mt-1.5" />{item}
                             </li>
@@ -423,22 +432,22 @@ function MessagingSection({ data }: { data: MessagingPatterns }) {
                     </ul>
                 </div>
             </div>
-            {(data.common_hooks ?? []).length > 0 && (
+            {toArr(data.common_hooks).length > 0 && (
                 <div className="mb-6">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Common Hooks</p>
                     <div className="flex flex-wrap gap-2">
-                        {data.common_hooks.map((h, i) => (
+                        {toArr(data.common_hooks).map((h, i) => (
                             <span key={i} className="bg-white/[0.03] border border-white/10 text-white/55 text-xs font-medium px-3 py-1.5 rounded-xl italic">"{h}"</span>
                         ))}
                     </div>
                 </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {(data.target_identities ?? []).length > 0 && (
+                {toArr(data.target_identities).length > 0 && (
                     <div className="border border-white/[0.06] rounded-2xl p-5">
                         <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Target Identities</p>
                         <div className="flex flex-wrap gap-2">
-                            {data.target_identities.map((id, i) => <Pill key={i} variant="violet">{id}</Pill>)}
+                            {toArr(data.target_identities).map((id, i) => <Pill key={i} variant="violet">{id}</Pill>)}
                         </div>
                     </div>
                 )}
@@ -447,7 +456,7 @@ function MessagingSection({ data }: { data: MessagingPatterns }) {
                         <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Winning Angle</p>
                         <p className="text-white/60 text-sm font-semibold mb-3 leading-relaxed">{data.winning_angles.pain_to_desire}</p>
                         <div className="flex flex-wrap gap-1.5">
-                            {(data.winning_angles.key_promises ?? []).map((p, i) => <Pill key={i} variant="amber">{p}</Pill>)}
+                            {toArr(data.winning_angles?.key_promises).map((p, i) => <Pill key={i} variant="amber">{p}</Pill>)}
                         </div>
                     </div>
                 )}
@@ -466,10 +475,10 @@ function CustomerInsightsSection({ data }: { data: CustomerInsights }) {
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-red-400/50 mb-3">Top 10 Pains</p>
                     <ol className="space-y-1.5">
-                        {(data.top_pains ?? []).map((item) => (
-                            <li key={item.rank} className="flex items-start gap-2.5 bg-red-500/[0.03] border border-red-500/[0.07] rounded-xl px-3 py-2.5">
-                                <span className="shrink-0 w-5 h-5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400/80 text-[9px] font-black flex items-center justify-center tabular-nums">{item.rank}</span>
-                                <p className="text-white/55 text-xs leading-relaxed">{item.pain}</p>
+                        {(Array.isArray(data.top_pains) ? data.top_pains : []).map((item: any) => (
+                            <li key={item?.rank ?? 0} className="flex items-start gap-2.5 bg-red-500/[0.03] border border-red-500/[0.07] rounded-xl px-3 py-2.5">
+                                <span className="shrink-0 w-5 h-5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400/80 text-[9px] font-black flex items-center justify-center tabular-nums">{toStr(item?.rank)}</span>
+                                <p className="text-white/55 text-xs leading-relaxed">{toStr(item?.pain)}</p>
                             </li>
                         ))}
                     </ol>
@@ -477,10 +486,10 @@ function CustomerInsightsSection({ data }: { data: CustomerInsights }) {
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400/50 mb-3">Top 10 Desires</p>
                     <ol className="space-y-1.5">
-                        {(data.top_desires ?? []).map((item) => (
-                            <li key={item.rank} className="flex items-start gap-2.5 bg-emerald-500/[0.03] border border-emerald-500/[0.07] rounded-xl px-3 py-2.5">
-                                <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400/80 text-[9px] font-black flex items-center justify-center tabular-nums">{item.rank}</span>
-                                <p className="text-white/55 text-xs leading-relaxed">{item.desire}</p>
+                        {(Array.isArray(data.top_desires) ? data.top_desires : []).map((item: any) => (
+                            <li key={item?.rank ?? 0} className="flex items-start gap-2.5 bg-emerald-500/[0.03] border border-emerald-500/[0.07] rounded-xl px-3 py-2.5">
+                                <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400/80 text-[9px] font-black flex items-center justify-center tabular-nums">{toStr(item?.rank)}</span>
+                                <p className="text-white/55 text-xs leading-relaxed">{toStr(item?.desire)}</p>
                             </li>
                         ))}
                     </ol>
@@ -488,10 +497,10 @@ function CustomerInsightsSection({ data }: { data: CustomerInsights }) {
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-amber-400/50 mb-3">Top 10 Objections</p>
                     <ol className="space-y-1.5">
-                        {(data.top_objections ?? []).map((item) => (
-                            <li key={item.rank} className="flex items-start gap-2.5 bg-amber-500/[0.02] border border-amber-500/[0.07] rounded-xl px-3 py-2.5">
-                                <span className="shrink-0 w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[9px] font-black flex items-center justify-center tabular-nums">{item.rank}</span>
-                                <p className="text-white/55 text-xs leading-relaxed">{item.objection}</p>
+                        {(Array.isArray(data.top_objections) ? data.top_objections : []).map((item: any) => (
+                            <li key={item?.rank ?? 0} className="flex items-start gap-2.5 bg-amber-500/[0.02] border border-amber-500/[0.07] rounded-xl px-3 py-2.5">
+                                <span className="shrink-0 w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[9px] font-black flex items-center justify-center tabular-nums">{toStr(item?.rank)}</span>
+                                <p className="text-white/55 text-xs leading-relaxed">{toStr(item?.objection)}</p>
                             </li>
                         ))}
                     </ol>
@@ -502,7 +511,7 @@ function CustomerInsightsSection({ data }: { data: CustomerInsights }) {
                     <div className="border border-emerald-500/10 bg-emerald-500/[0.02] rounded-2xl p-5">
                         <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400/50 mb-3">Why They Buy</p>
                         <ul className="space-y-2">
-                            {(data.buying_psychology.why_buy ?? []).map((r, i) => (
+                            {toArr(data.buying_psychology?.why_buy).map((r, i) => (
                                 <li key={i} className="text-xs text-white/55 flex items-start gap-2 leading-relaxed">
                                     <span className="w-1 h-1 rounded-full bg-emerald-400/40 shrink-0 mt-1.5" />{r}
                                 </li>
@@ -512,7 +521,7 @@ function CustomerInsightsSection({ data }: { data: CustomerInsights }) {
                     <div className="border border-red-500/10 bg-red-500/[0.02] rounded-2xl p-5">
                         <p className="text-[10px] font-black uppercase tracking-widest text-red-400/50 mb-3">Why They Don't Buy</p>
                         <ul className="space-y-2">
-                            {(data.buying_psychology.why_not_buy ?? []).map((r, i) => (
+                            {toArr(data.buying_psychology?.why_not_buy).map((r, i) => (
                                 <li key={i} className="text-xs text-white/55 flex items-start gap-2 leading-relaxed">
                                     <span className="w-1 h-1 rounded-full bg-red-400/40 shrink-0 mt-1.5" />{r}
                                 </li>
@@ -526,7 +535,7 @@ function CustomerInsightsSection({ data }: { data: CustomerInsights }) {
                     <p className="text-[10px] font-black uppercase tracking-widest text-violet-400/50 mb-2">Emotional and Status Triggers</p>
                     <p className="text-violet-300/70 font-semibold text-sm mb-3">Status Identity: {data.emotional_triggers.status}</p>
                     <div className="flex flex-wrap gap-2">
-                        {(data.emotional_triggers.emotions ?? []).map((e, i) => <Pill key={i} variant="violet">{e}</Pill>)}
+                        {toArr(data.emotional_triggers?.emotions).map((e, i) => <Pill key={i} variant="violet">{e}</Pill>)}
                     </div>
                 </div>
             )}
@@ -545,7 +554,7 @@ function GapAnalysisSection({ data }: { data: GapAnalysis }) {
                 <div className="border border-white/[0.06] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-sky-400/50 mb-4">Market Gaps</p>
                     <ul className="space-y-3">
-                        {(data.market_gaps ?? []).map((g, i) => (
+                        {toArr(data.market_gaps).map((g, i) => (
                             <li key={i} className="text-xs text-white/55 flex items-start gap-2.5 leading-relaxed">
                                 <span className="w-1 h-1 rounded-full bg-sky-400/40 shrink-0 mt-1.5" />{g}
                             </li>
@@ -555,7 +564,7 @@ function GapAnalysisSection({ data }: { data: GapAnalysis }) {
                 <div className="border border-white/[0.06] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-red-400/50 mb-4">Competitor Blind Spots</p>
                     <ul className="space-y-3">
-                        {(data.competitor_blind_spots ?? []).map((g, i) => (
+                        {toArr(data.competitor_blind_spots).map((g, i) => (
                             <li key={i} className="text-xs text-white/55 flex items-start gap-2.5 leading-relaxed">
                                 <span className="w-1 h-1 rounded-full bg-red-400/40 shrink-0 mt-1.5" />{g}
                             </li>
@@ -641,7 +650,7 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
                         <div className={`border ${stage.borderColor} ${stage.bgColor} rounded-2xl p-5`}>
                             <p className={`text-[10px] font-black uppercase tracking-widest ${stage.labelColor} mb-2`}>{stage.label}</p>
                             {stage.content.filter(Boolean).map((line, li) => (
-                                <p key={li} className="text-white/50 text-xs leading-relaxed">{line}</p>
+                                <p key={li} className="text-white/50 text-xs leading-relaxed">{toStr(line)}</p>
                             ))}
                         </div>
                         {i < stages.length - 1 && (
