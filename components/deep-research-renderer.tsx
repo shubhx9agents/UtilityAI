@@ -2,6 +2,13 @@
 
 import React from 'react'
 
+// --- Helpers: safe array coercion ---
+function toArr(v: unknown): string[] {
+    if (Array.isArray(v)) return v
+    if (typeof v === 'string' && v.trim()) return [v]
+    return []
+}
+
 // --- Types ---
 
 interface Competitor {
@@ -649,7 +656,7 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
                 <div className="border border-white/[0.06] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Best Hooks</p>
                     <ul className="space-y-2">
-                        {(data.recommended_hooks ?? []).map((h, i) => (
+                        {toArr(data.recommended_hooks).map((h, i) => (
                             <li key={i} className="text-xs text-white/60 font-semibold leading-relaxed border-l-2 border-amber-500/30 pl-3 italic">{h}</li>
                         ))}
                     </ul>
@@ -657,7 +664,7 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
                 <div className="border border-white/[0.06] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Winning Angles</p>
                     <ul className="space-y-2">
-                        {(data.winning_angles ?? []).map((a, i) => (
+                        {toArr(data.winning_angles).map((a, i) => (
                             <li key={i} className="text-xs text-white/50 flex items-start gap-2 leading-relaxed">
                                 <span className="text-amber-400/30 shrink-0 font-bold">›</span>{a}
                             </li>
@@ -667,13 +674,13 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
                 <div className="border border-white/[0.06] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Creative Formats</p>
                     <div className="flex flex-wrap gap-1.5">
-                        {(data.creative_formats ?? []).map((f, i) => <Pill key={i}>{f}</Pill>)}
+                        {toArr(data.creative_formats).map((f, i) => <Pill key={i}>{f}</Pill>)}
                     </div>
                 </div>
                 <div className="border border-white/[0.06] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Target Channels</p>
                     <div className="flex flex-wrap gap-1.5">
-                        {(data.target_channels ?? []).map((c, i) => <Pill key={i} variant="blue">{c}</Pill>)}
+                        {toArr(data.target_channels).map((c, i) => <Pill key={i} variant="blue">{c}</Pill>)}
                     </div>
                 </div>
             </div>
