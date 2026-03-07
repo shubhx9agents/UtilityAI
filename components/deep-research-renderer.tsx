@@ -181,7 +181,7 @@ function CompetitorsSection({ data }: { data: Competitor[] }) {
                                 <td className="px-5 py-3.5">
                                     <a href={c.website} target="_blank" rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1.5 text-amber-400 font-bold text-sm hover:text-amber-300 transition-colors group">
-                                        {c.name}
+                                        {toStr(c.name)}
                                         <svg className="w-3 h-3 opacity-40 group-hover:opacity-80 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                         </svg>
@@ -189,13 +189,13 @@ function CompetitorsSection({ data }: { data: Competitor[] }) {
                                 </td>
                                 <td className="px-5 py-3.5">
                                     <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400/80 text-[10px] font-bold px-2.5 py-1 rounded-lg">
-                                        {c.profile?.geography ?? '—'}
+                                        {toStr(c.profile?.geography)}
                                     </span>
                                 </td>
-                                <td className="px-5 py-3.5 text-white/40 text-xs">{c.funnel?.type ?? '—'}</td>
-                                <td className="px-5 py-3.5 text-white/60 text-xs font-semibold">{c.pricing?.estimated_range ?? c.pricing?.model ?? '—'}</td>
+                                <td className="px-5 py-3.5 text-white/40 text-xs">{toStr(c.funnel?.type)}</td>
+                                <td className="px-5 py-3.5 text-white/60 text-xs font-semibold">{toStr(c.pricing?.estimated_range ?? c.pricing?.model)}</td>
                                 <td className="px-5 py-3.5 text-white/35 text-xs leading-relaxed">
-                                    {c.funnel?.lead_magnet ? (c.funnel.lead_magnet.length > 50 ? c.funnel.lead_magnet.substring(0, 50) + '…' : c.funnel.lead_magnet) : '—'}
+                                    {c.funnel?.lead_magnet ? (toStr(c.funnel.lead_magnet).length > 50 ? toStr(c.funnel.lead_magnet).substring(0, 50) + '…' : toStr(c.funnel.lead_magnet)) : '—'}
                                 </td>
                             </tr>
                         ))}
@@ -208,11 +208,11 @@ function CompetitorsSection({ data }: { data: Competitor[] }) {
                         <div className="flex items-center justify-between px-6 py-4 bg-white/[0.02] border-b border-white/[0.05]">
                             <div className="flex items-center gap-3">
                                 <span className="text-[10px] font-black text-white/20 tabular-nums">{String(i + 1).padStart(2, '0')}</span>
-                                <h3 className="text-base font-black text-white">{c.name}</h3>
-                                <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400/70 text-[10px] font-bold px-2 py-0.5 rounded-md">{c.profile?.geography}</span>
+                                <h3 className="text-base font-black text-white">{toStr(c.name)}</h3>
+                                <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400/70 text-[10px] font-bold px-2 py-0.5 rounded-md">{toStr(c.profile?.geography)}</span>
                             </div>
                             <div className="flex items-center gap-3">
-                                <span className="text-white/30 text-xs font-semibold">{c.pricing?.estimated_range ?? c.pricing?.model ?? 'Custom'}</span>
+                                <span className="text-white/30 text-xs font-semibold">{toStr(c.pricing?.estimated_range ?? c.pricing?.model ?? 'Custom')}</span>
                                 <a href={c.website} target="_blank" rel="noopener noreferrer"
                                     className="text-[10px] font-bold text-amber-500/50 hover:text-amber-400 border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 transition-all px-3 py-1.5 rounded-xl flex items-center gap-1.5">
                                     Visit Site
@@ -225,17 +225,17 @@ function CompetitorsSection({ data }: { data: Competitor[] }) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/[0.04]">
                             <div className="px-5 py-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Niche</p>
-                                <p className="text-white/60 text-xs leading-relaxed">{c.profile?.niche}</p>
-                                <p className="text-white/30 text-[11px] mt-1.5 leading-relaxed">{c.profile?.target_audience}</p>
+                                <p className="text-white/60 text-xs leading-relaxed">{toStr(c.profile?.niche)}</p>
+                                <p className="text-white/30 text-[11px] mt-1.5 leading-relaxed">{toStr(c.profile?.target_audience)}</p>
                             </div>
                             <div className="px-5 py-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Core Promise</p>
-                                <p className="text-white/60 text-xs leading-relaxed">{c.offerings?.core_promise}</p>
-                                <p className="text-amber-400/60 text-[11px] mt-1.5 font-semibold">{c.offerings?.usp}</p>
+                                <p className="text-white/60 text-xs leading-relaxed">{toStr(c.offerings?.core_promise)}</p>
+                                <p className="text-amber-400/60 text-[11px] mt-1.5 font-semibold">{toStr(c.offerings?.usp)}</p>
                             </div>
                             <div className="px-5 py-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">What They Sell</p>
-                                <p className="text-white/50 text-xs leading-relaxed">{c.offerings?.what_they_sell}</p>
+                                <p className="text-white/50 text-xs leading-relaxed">{toStr(c.offerings?.what_they_sell)}</p>
                             </div>
                             <div className="px-5 py-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2.5">Key Features</p>
@@ -248,7 +248,7 @@ function CompetitorsSection({ data }: { data: Competitor[] }) {
                                         <div className="flex flex-wrap items-center gap-1">
                                             {toArr(c.funnel.stages).map((s, si) => (
                                                 <React.Fragment key={si}>
-                                                    <span className="text-[10px] text-white/40 font-medium">{s}</span>
+                                                    <span className="text-[10px] text-white/40 font-medium">{toStr(s)}</span>
                                                     {si < toArr(c.funnel.stages).length - 1 && <span className="text-white/15 text-[10px]">›</span>}
                                                 </React.Fragment>
                                             ))}
@@ -275,8 +275,8 @@ function AdResearchSection({ data }: { data: AdResearch[] }) {
                     <div key={i} className="border border-white/[0.06] rounded-2xl overflow-hidden">
                         <div className="flex items-center justify-between px-6 py-4 bg-white/[0.02] border-b border-white/[0.05] flex-wrap gap-3">
                             <div className="flex items-center gap-3">
-                                <h3 className="text-sm font-black text-white">{entry.competitor}</h3>
-                                <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400/70 text-[10px] font-bold px-2 py-0.5 rounded-md">{entry.platform}</span>
+                                <h3 className="text-sm font-black text-white">{toStr(entry.competitor)}</h3>
+                                <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400/70 text-[10px] font-bold px-2 py-0.5 rounded-md">{toStr(entry.platform)}</span>
                             </div>
                             {entry.ad_library_url && (
                                 <a href={entry.ad_library_url} target="_blank" rel="noopener noreferrer"
@@ -303,18 +303,18 @@ function AdResearchSection({ data }: { data: AdResearch[] }) {
                                 <tbody>
                                     {(entry.ads ?? []).map((ad, ai) => (
                                         <tr key={ai} className="border-b border-white/[0.025] hover:bg-white/[0.01] transition-colors align-top">
-                                            <td className="px-4 py-3.5 text-white/15 font-black text-xs tabular-nums">{ad.ad_number}</td>
+                                            <td className="px-4 py-3.5 text-white/15 font-black text-xs tabular-nums">{toStr(ad.ad_number)}</td>
                                             <td className="px-4 py-3.5 text-white/75 font-semibold text-xs max-w-[160px] leading-relaxed">
-                                                <span className="text-white/30">"</span>{ad.hook}<span className="text-white/30">"</span>
+                                                <span className="text-white/30">"</span>{toStr(ad.hook)}<span className="text-white/30">"</span>
                                             </td>
-                                            <td className="px-4 py-3.5 text-white/45 text-xs max-w-[180px] leading-relaxed">{ad.message}</td>
-                                            <td className="px-4 py-3.5 text-emerald-400/70 text-xs font-medium">{ad.offer}</td>
-                                            <td className="px-4 py-3.5 text-white/30 text-xs">{ad.creative_type}</td>
+                                            <td className="px-4 py-3.5 text-white/45 text-xs max-w-[180px] leading-relaxed">{toStr(ad.message)}</td>
+                                            <td className="px-4 py-3.5 text-emerald-400/70 text-xs font-medium">{toStr(ad.offer)}</td>
+                                            <td className="px-4 py-3.5 text-white/30 text-xs">{toStr(ad.creative_type)}</td>
                                             <td className="px-4 py-3.5">
-                                                <span className="bg-amber-500/10 text-amber-400/80 border border-amber-500/20 text-[10px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap">{ad.cta}</span>
+                                                <span className="bg-amber-500/10 text-amber-400/80 border border-amber-500/20 text-[10px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap">{toStr(ad.cta)}</span>
                                             </td>
                                             <td className="px-4 py-3.5">
-                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border whitespace-nowrap ${angleColor(ad.angle)}`}>{ad.angle}</span>
+                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border whitespace-nowrap ${angleColor(toStr(ad.angle))}`}>{toStr(ad.angle)}</span>
                                             </td>
                                         </tr>
                                     ))}
@@ -338,12 +338,12 @@ function LandingPagesSection({ data }: { data: LandingPage[] }) {
                 {data.map((page, i) => (
                     <div key={i} className="border border-white/[0.06] rounded-2xl overflow-hidden">
                         <div className="flex items-center justify-between px-6 py-4 bg-white/[0.02] border-b border-white/[0.05] flex-wrap gap-3">
-                            <h3 className="text-sm font-black text-white">{page.competitor}</h3>
+                            <h3 className="text-sm font-black text-white">{toStr(page.competitor)}</h3>
                             {page.url && (
                                 <a href={page.url} target="_blank" rel="noopener noreferrer"
                                     className="inline-flex items-center gap-2 text-[11px] font-semibold text-white/35 hover:text-amber-400 border border-white/[0.08] hover:border-amber-500/30 bg-transparent hover:bg-amber-500/5 transition-all px-3 py-1.5 rounded-xl"
                                     title={page.url}>
-                                    <span className="truncate max-w-[300px]">{page.url}</span>
+                                    <span className="truncate max-w-[300px]">{toStr(page.url)}</span>
                                     <svg className="w-3 h-3 shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                     </svg>
@@ -357,7 +357,7 @@ function LandingPagesSection({ data }: { data: LandingPage[] }) {
                                     {toArr(page.structure?.page_flow).map((step, si) => (
                                         <li key={si} className="flex items-start gap-2.5 text-xs text-white/45 leading-relaxed">
                                             <span className="shrink-0 w-4 h-4 rounded-full bg-white/5 border border-white/10 text-white/30 text-[9px] font-black flex items-center justify-center mt-0.5">{si + 1}</span>
-                                            {step}
+                                            {toStr(step)}
                                         </li>
                                     ))}
                                 </ol>
@@ -366,25 +366,25 @@ function LandingPagesSection({ data }: { data: LandingPage[] }) {
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Headlines</p>
                                 <div className="space-y-2">
                                     {toArr(page.structure?.headlines).map((h, hi) => (
-                                        <p key={hi} className="text-xs text-white/60 font-semibold leading-relaxed border-l-2 border-amber-500/30 pl-3 italic">{h}</p>
+                                        <p key={hi} className="text-xs text-white/60 font-semibold leading-relaxed border-l-2 border-amber-500/30 pl-3 italic">{toStr(h)}</p>
                                     ))}
                                 </div>
                             </div>
                             <div className="px-5 py-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2.5">Emotional Triggers</p>
                                 <div className="flex flex-wrap gap-1.5 mb-4">
-                                    {toArr(page.conversion_elements?.emotional_triggers).map((t, ti) => <Pill key={ti} variant="red">{t}</Pill>)}
+                                    {toArr(page.conversion_elements?.emotional_triggers).map((t, ti) => <Pill key={ti} variant="red">{toStr(t)}</Pill>)}
                                 </div>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2.5">Social Proof</p>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {toArr(page.conversion_elements?.social_proof).map((s, si) => <Pill key={si} variant="green">{s}</Pill>)}
+                                    {toArr(page.conversion_elements?.social_proof).map((s, si) => <Pill key={si} variant="green">{toStr(s)}</Pill>)}
                                 </div>
                             </div>
                             <div className="px-5 py-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2.5">Offer Positioning</p>
-                                <p className="text-white/45 text-xs leading-relaxed mb-3">{page.conversion_elements?.offer_positioning}</p>
+                                <p className="text-white/45 text-xs leading-relaxed mb-3">{toStr(page.conversion_elements?.offer_positioning)}</p>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Conversion Path</p>
-                                <p className="text-amber-400/60 text-xs font-semibold">{page.conversion_elements?.funnel_path}</p>
+                                <p className="text-amber-400/60 text-xs font-semibold">{toStr(page.conversion_elements?.funnel_path)}</p>
                             </div>
                         </div>
                     </div>
@@ -406,7 +406,7 @@ function MessagingSection({ data }: { data: MessagingPatterns }) {
                     <ul className="space-y-2.5">
                         {toArr(data.repeated_pains).map((item, i) => (
                             <li key={i} className="text-xs text-white/55 flex items-start gap-2 leading-relaxed">
-                                <span className="w-1 h-1 rounded-full bg-red-400/40 shrink-0 mt-1.5" />{item}
+                                <span className="w-1 h-1 rounded-full bg-red-400/40 shrink-0 mt-1.5" />{toStr(item)}
                             </li>
                         ))}
                     </ul>
@@ -416,7 +416,7 @@ function MessagingSection({ data }: { data: MessagingPatterns }) {
                     <ul className="space-y-2.5">
                         {toArr(data.repeated_desires).map((item, i) => (
                             <li key={i} className="text-xs text-white/55 flex items-start gap-2 leading-relaxed">
-                                <span className="w-1 h-1 rounded-full bg-emerald-400/40 shrink-0 mt-1.5" />{item}
+                                <span className="w-1 h-1 rounded-full bg-emerald-400/40 shrink-0 mt-1.5" />{toStr(item)}
                             </li>
                         ))}
                     </ul>
@@ -426,7 +426,7 @@ function MessagingSection({ data }: { data: MessagingPatterns }) {
                     <ul className="space-y-2.5">
                         {toArr(data.repeated_objections).map((item, i) => (
                             <li key={i} className="text-xs text-white/55 flex items-start gap-2 leading-relaxed">
-                                <span className="w-1 h-1 rounded-full bg-amber-400/40 shrink-0 mt-1.5" />{item}
+                                <span className="w-1 h-1 rounded-full bg-amber-400/40 shrink-0 mt-1.5" />{toStr(item)}
                             </li>
                         ))}
                     </ul>
@@ -437,7 +437,7 @@ function MessagingSection({ data }: { data: MessagingPatterns }) {
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Common Hooks</p>
                     <div className="flex flex-wrap gap-2">
                         {toArr(data.common_hooks).map((h, i) => (
-                            <span key={i} className="bg-white/[0.03] border border-white/10 text-white/55 text-xs font-medium px-3 py-1.5 rounded-xl italic">"{h}"</span>
+                            <span key={i} className="bg-white/[0.03] border border-white/10 text-white/55 text-xs font-medium px-3 py-1.5 rounded-xl italic">"{toStr(h)}"</span>
                         ))}
                     </div>
                 </div>
@@ -447,16 +447,16 @@ function MessagingSection({ data }: { data: MessagingPatterns }) {
                     <div className="border border-white/[0.06] rounded-2xl p-5">
                         <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Target Identities</p>
                         <div className="flex flex-wrap gap-2">
-                            {toArr(data.target_identities).map((id, i) => <Pill key={i} variant="violet">{id}</Pill>)}
+                            {toArr(data.target_identities).map((id, i) => <Pill key={i} variant="violet">{toStr(id)}</Pill>)}
                         </div>
                     </div>
                 )}
                 {data.winning_angles && (
                     <div className="border border-white/[0.06] rounded-2xl p-5">
                         <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Winning Angle</p>
-                        <p className="text-white/60 text-sm font-semibold mb-3 leading-relaxed">{data.winning_angles.pain_to_desire}</p>
+                        <p className="text-white/60 text-sm font-semibold mb-3 leading-relaxed">{toStr(data.winning_angles.pain_to_desire)}</p>
                         <div className="flex flex-wrap gap-1.5">
-                            {toArr(data.winning_angles?.key_promises).map((p, i) => <Pill key={i} variant="amber">{p}</Pill>)}
+                            {toArr(data.winning_angles?.key_promises).map((p, i) => <Pill key={i} variant="amber">{toStr(p)}</Pill>)}
                         </div>
                     </div>
                 )}
@@ -513,7 +513,7 @@ function CustomerInsightsSection({ data }: { data: CustomerInsights }) {
                         <ul className="space-y-2">
                             {toArr(data.buying_psychology?.why_buy).map((r, i) => (
                                 <li key={i} className="text-xs text-white/55 flex items-start gap-2 leading-relaxed">
-                                    <span className="w-1 h-1 rounded-full bg-emerald-400/40 shrink-0 mt-1.5" />{r}
+                                    <span className="w-1 h-1 rounded-full bg-emerald-400/40 shrink-0 mt-1.5" />{toStr(r)}
                                 </li>
                             ))}
                         </ul>
@@ -523,7 +523,7 @@ function CustomerInsightsSection({ data }: { data: CustomerInsights }) {
                         <ul className="space-y-2">
                             {toArr(data.buying_psychology?.why_not_buy).map((r, i) => (
                                 <li key={i} className="text-xs text-white/55 flex items-start gap-2 leading-relaxed">
-                                    <span className="w-1 h-1 rounded-full bg-red-400/40 shrink-0 mt-1.5" />{r}
+                                    <span className="w-1 h-1 rounded-full bg-red-400/40 shrink-0 mt-1.5" />{toStr(r)}
                                 </li>
                             ))}
                         </ul>
@@ -533,9 +533,9 @@ function CustomerInsightsSection({ data }: { data: CustomerInsights }) {
             {data.emotional_triggers && (
                 <div className="border border-violet-500/10 bg-violet-500/[0.03] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-violet-400/50 mb-2">Emotional and Status Triggers</p>
-                    <p className="text-violet-300/70 font-semibold text-sm mb-3">Status Identity: {data.emotional_triggers.status}</p>
+                    <p className="text-violet-300/70 font-semibold text-sm mb-3">Status Identity: {toStr(data.emotional_triggers.status)}</p>
                     <div className="flex flex-wrap gap-2">
-                        {toArr(data.emotional_triggers?.emotions).map((e, i) => <Pill key={i} variant="violet">{e}</Pill>)}
+                        {toArr(data.emotional_triggers?.emotions).map((e, i) => <Pill key={i} variant="violet">{toStr(e)}</Pill>)}
                     </div>
                 </div>
             )}
@@ -556,7 +556,7 @@ function GapAnalysisSection({ data }: { data: GapAnalysis }) {
                     <ul className="space-y-3">
                         {toArr(data.market_gaps).map((g, i) => (
                             <li key={i} className="text-xs text-white/55 flex items-start gap-2.5 leading-relaxed">
-                                <span className="w-1 h-1 rounded-full bg-sky-400/40 shrink-0 mt-1.5" />{g}
+                                <span className="w-1 h-1 rounded-full bg-sky-400/40 shrink-0 mt-1.5" />{toStr(g)}
                             </li>
                         ))}
                     </ul>
@@ -566,7 +566,7 @@ function GapAnalysisSection({ data }: { data: GapAnalysis }) {
                     <ul className="space-y-3">
                         {toArr(data.competitor_blind_spots).map((g, i) => (
                             <li key={i} className="text-xs text-white/55 flex items-start gap-2.5 leading-relaxed">
-                                <span className="w-1 h-1 rounded-full bg-red-400/40 shrink-0 mt-1.5" />{g}
+                                <span className="w-1 h-1 rounded-full bg-red-400/40 shrink-0 mt-1.5" />{toStr(g)}
                             </li>
                         ))}
                     </ul>
@@ -576,31 +576,31 @@ function GapAnalysisSection({ data }: { data: GapAnalysis }) {
                 <div className="space-y-4">
                     <div className="border border-amber-500/20 bg-amber-500/[0.05] rounded-2xl px-6 py-5">
                         <p className="text-[10px] font-black uppercase tracking-widest text-amber-400/60 mb-2">Big Idea to Dominate</p>
-                        <p className="text-white font-black text-lg leading-snug">{opp.big_idea}</p>
+                        <p className="text-white font-black text-lg leading-snug">{toStr(opp.big_idea)}</p>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="border border-white/[0.06] rounded-2xl p-5">
                             <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Category Positioning</p>
-                            <p className="text-amber-400/80 font-black text-sm">{opp.category_positioning}</p>
+                            <p className="text-amber-400/80 font-black text-sm">{toStr(opp.category_positioning)}</p>
                         </div>
                         <div className="border border-white/[0.06] rounded-2xl p-5">
                             <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Unique Positioning</p>
-                            <p className="text-white/60 text-xs leading-relaxed">{opp.unique_positioning}</p>
+                            <p className="text-white/60 text-xs leading-relaxed">{toStr(opp.unique_positioning)}</p>
                         </div>
                     </div>
                     {opp.pricing_strategy?.tiers && opp.pricing_strategy.tiers.length > 0 && (
                         <div className="border border-white/[0.06] rounded-2xl p-5">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-4">Pricing Recommendation — {opp.pricing_strategy.model}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-4">Pricing Recommendation — {toStr(opp.pricing_strategy.model)}</p>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                                 {opp.pricing_strategy.tiers.map((tier, i) => (
                                     <div key={i} className="border border-amber-500/[0.12] bg-amber-500/[0.04] rounded-xl p-4 text-center">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-white/25 mb-2">{tier.name}</p>
-                                        <p className="text-2xl font-black text-amber-400 mb-2">{tier.price}</p>
-                                        <p className="text-[11px] text-white/35 leading-relaxed">{tier.features}</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-white/25 mb-2">{toStr(tier.name)}</p>
+                                        <p className="text-2xl font-black text-amber-400 mb-2">{toStr(tier.price)}</p>
+                                        <p className="text-[11px] text-white/35 leading-relaxed">{toStr(tier.features)}</p>
                                     </div>
                                 ))}
                             </div>
-                            <p className="text-xs text-emerald-400/60 font-semibold">{opp.pricing_strategy.competitive_advantage}</p>
+                            <p className="text-xs text-emerald-400/60 font-semibold">{toStr(opp.pricing_strategy.competitive_advantage)}</p>
                         </div>
                     )}
                 </div>
@@ -641,7 +641,7 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
             {data.big_promise && (
                 <div className="border border-amber-500/20 bg-amber-500/[0.05] rounded-2xl px-6 py-5 mb-6">
                     <p className="text-[10px] font-black uppercase tracking-widest text-amber-400/60 mb-2">Big Promise</p>
-                    <p className="text-white font-black text-lg leading-snug">{data.big_promise}</p>
+                    <p className="text-white font-black text-lg leading-snug">{toStr(data.big_promise)}</p>
                 </div>
             )}
             <div className="space-y-3 mb-8">
@@ -666,7 +666,7 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Best Hooks</p>
                     <ul className="space-y-2">
                         {toArr(data.recommended_hooks).map((h, i) => (
-                            <li key={i} className="text-xs text-white/60 font-semibold leading-relaxed border-l-2 border-amber-500/30 pl-3 italic">{h}</li>
+                            <li key={i} className="text-xs text-white/60 font-semibold leading-relaxed border-l-2 border-amber-500/30 pl-3 italic">{toStr(h)}</li>
                         ))}
                     </ul>
                 </div>
@@ -675,7 +675,7 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
                     <ul className="space-y-2">
                         {toArr(data.winning_angles).map((a, i) => (
                             <li key={i} className="text-xs text-white/50 flex items-start gap-2 leading-relaxed">
-                                <span className="text-amber-400/30 shrink-0 font-bold">›</span>{a}
+                                <span className="text-amber-400/30 shrink-0 font-bold">›</span>{toStr(a)}
                             </li>
                         ))}
                     </ul>
@@ -683,20 +683,20 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
                 <div className="border border-white/[0.06] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Creative Formats</p>
                     <div className="flex flex-wrap gap-1.5">
-                        {toArr(data.creative_formats).map((f, i) => <Pill key={i}>{f}</Pill>)}
+                        {toArr(data.creative_formats).map((f, i) => <Pill key={i}>{toStr(f)}</Pill>)}
                     </div>
                 </div>
                 <div className="border border-white/[0.06] rounded-2xl p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Target Channels</p>
                     <div className="flex flex-wrap gap-1.5">
-                        {toArr(data.target_channels).map((c, i) => <Pill key={i} variant="blue">{c}</Pill>)}
+                        {toArr(data.target_channels).map((c, i) => <Pill key={i} variant="blue">{toStr(c)}</Pill>)}
                     </div>
                 </div>
             </div>
             {data.launch_messaging && (
                 <div className="border border-white/[0.08] bg-white/[0.02] rounded-2xl px-6 py-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3">Launch Message</p>
-                    <p className="text-white/65 text-sm leading-relaxed font-medium italic">"{data.launch_messaging}"</p>
+                    <p className="text-white/65 text-sm leading-relaxed font-medium italic">"{toStr(data.launch_messaging)}"</p>
                 </div>
             )}
         </div>
