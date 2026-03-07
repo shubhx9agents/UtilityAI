@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/table"
 import { ParticleCard, GlobalSpotlight } from '@/components/ui/MagicBento'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { DeepResearchRenderer } from '@/components/deep-research-renderer'
 
 const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
 const IMAGE_MODEL_OPTIONS = [
@@ -595,6 +596,341 @@ export default function AgentPage() {
             return
         }
 
+        /* ── Deep Research: build clean HTML from JSON for PDF ── */
+        if (agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:')) {
+            const jsonStr = response.slice('DEEP_RESEARCH_JSON:'.length)
+            let drData: any = null
+            try { drData = JSON.parse(jsonStr) } catch { }
+            if (!drData) { toast.error('Failed to parse research data for PDF'); return }
+
+            const esc = (s: string | null | undefined) => (s ?? '—').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+            const buildCompetitorsHtml = (comps: any[]) => {
+                let html = '<h2>01 — Competitive Landscape</h2>'
+                html += '<table><thead><tr><th>Company</th><th>Geography</th><th>Niche</th><th>Core Promise</th><th>Weakness / USP</th><th>Pricing</th></tr></thead><tbody>'
+                comps.forEach(c => {
+                    html += `<tr>
+                        <td><strong>${esc(c.name)}</strong></td>
+                        <td>${esc(c.profile?.geography)}</td>
+                        <td>${esc(c.profile?.niche)}<br/><small>${esc(c.profile?.target_audience)}</small></td>
+                        <td>${esc(c.offerings?.core_promise)}</td>
+                        <td>${esc(c.offerings?.usp)}</td>
+                        <td>${esc(c.pricing?.estimated_range ?? c.pricing?.model)}</td>
+                    </tr>`
+                })
+                html += '</tbody></table>'
+
+                comps.forEach((c, i) => {
+                    html += `<h3>${String(i + 1).padStart(2, '0')}. ${esc(c.name)}</h3>`
+                    html += `<p><strong>What They Sell:</strong> ${esc(c.offerings?.what_they_sell)}</p>`
+                    if (c.offerings?.key_features?.length) {
+                        html += '<p><strong>Key Features:</strong></p><ul>'
+                        c.offerings.key_features.forEach((f: string) => { html += `<li>${esc(f)}</li>` })
+                        html += '</ul>'
+                    }
+                    if (c.funnel?.stages?.length) {
+                        html += `<p><strong>Funnel (${esc(c.funnel.type)}):</strong> ${c.funnel.stages.map((s: string) => esc(s)).join(' → ')}</p>`
+                    }
+                    if (c.funnel?.lead_magnet) html += `<p><strong>Lead Magnet:</strong> ${esc(c.funnel.lead_magnet)}</p>`
+                })
+                return html
+            }
+
+            const buildAdsHtml = (ads: any[]) => {
+                let html = '<div class="page-break"></div><h2>02 — Ad Intelligence</h2>'
+                ads.forEach(entry => {
+                    html += `<h3>${esc(entry.competitor)} — ${esc(entry.platform)}</h3>`
+                    if (entry.ad_library_url) html += `<p><a href="${entry.ad_library_url}">View Ads Library →</a></p>`
+                    html += '<table><thead><tr><th>#</th><th>Hook</th><th>Message</th><th>Offer</th><th>Creative</th><th>CTA</th><th>Angle</th></tr></thead><tbody>'
+                        ; (entry.ads ?? []).forEach((ad: any) => {
+                            html += `<tr>
+                            <td>${ad.ad_number}</td>
+                            <td>"${esc(ad.hook)}"</td>
+                            <td>${esc(ad.message)}</td>
+                            <td>${esc(ad.offer)}</td>
+                            <td>${esc(ad.creative_type)}</td>
+                            <td><strong>${esc(ad.cta)}</strong></td>
+                            <td>${esc(ad.angle)}</td>
+                        </tr>`
+                        })
+                    html += '</tbody></table>'
+                })
+                return html
+            }
+
+            const buildLandingPagesHtml = (pages: any[]) => {
+                let html = '<div class="page-break"></div><h2>03 — Funnel Intelligence: Landing Pages</h2>'
+                pages.forEach(pg => {
+                    html += `<h3>${esc(pg.competitor)}</h3>`
+                    if (pg.url) html += `<p><a href="${pg.url}">${esc(pg.url)}</a></p>`
+                    html += '<table><thead><tr><th>Aspect</th><th>Details</th></tr></thead><tbody>'
+                    if (pg.structure?.page_flow?.length) {
+                        html += `<tr><td><strong>Page Flow</strong></td><td>${pg.structure.page_flow.map((s: string, i: number) => `${i + 1}. ${esc(s)}`).join('<br/>')}</td></tr>`
+                    }
+                    if (pg.structure?.headlines?.length) {
+                        html += `<tr><td><strong>Headlines</strong></td><td>${pg.structure.headlines.map((h: string) => `"${esc(h)}"`).join('<br/>')}</td></tr>`
+                    }
+                    if (pg.conversion_elements) {
+                        const ce = pg.conversion_elements
+                        if (ce.emotional_triggers?.length) html += `<tr><td><strong>Emotional Triggers</strong></td><td>${ce.emotional_triggers.map((t: string) => esc(t)).join(', ')}</td></tr>`
+                        if (ce.social_proof?.length) html += `<tr><td><strong>Social Proof</strong></td><td>${ce.social_proof.map((s: string) => esc(s)).join(', ')}</td></tr>`
+                        if (ce.offer_positioning) html += `<tr><td><strong>Offer Positioning</strong></td><td>${esc(ce.offer_positioning)}</td></tr>`
+                        if (ce.funnel_path) html += `<tr><td><strong>Conversion Path</strong></td><td>${esc(ce.funnel_path)}</td></tr>`
+                    }
+                    html += '</tbody></table>'
+                })
+                return html
+            }
+
+            const buildMessagingHtml = (msg: any) => {
+                let html = '<div class="page-break"></div><h2>04 — Market Messaging Patterns</h2>'
+                html += '<table><thead><tr><th>Category</th><th>Details</th></tr></thead><tbody>'
+                const sections = [
+                    { title: 'Repeated Pains', items: msg.repeated_pains },
+                    { title: 'Repeated Desires', items: msg.repeated_desires },
+                    { title: 'Repeated Objections', items: msg.repeated_objections },
+                    { title: 'Common Hooks', items: msg.common_hooks },
+                    { title: 'Target Identities', items: msg.target_identities },
+                ]
+                sections.forEach(s => {
+                    if (s.items?.length) {
+                        html += `<tr><td><strong>${s.title}</strong></td><td>${s.items.map((item: string, i: number) => `${i + 1}. ${esc(item)}`).join('<br/>')}</td></tr>`
+                    }
+                })
+                html += '</tbody></table>'
+                if (msg.winning_angles) {
+                    html += '<h3>Winning Angle</h3>'
+                    html += '<table><thead><tr><th>Aspect</th><th>Details</th></tr></thead><tbody>'
+                    html += `<tr><td><strong>Pain → Desire</strong></td><td>${esc(msg.winning_angles.pain_to_desire)}</td></tr>`
+                    if (msg.winning_angles.key_promises?.length) {
+                        html += `<tr><td><strong>Key Promises</strong></td><td>${msg.winning_angles.key_promises.map((p: string, i: number) => `${i + 1}. ${esc(p)}`).join('<br/>')}</td></tr>`
+                    }
+                    html += '</tbody></table>'
+                }
+                return html
+            }
+
+            const buildInsightsHtml = (ins: any) => {
+                let html = '<div class="page-break"></div><h2>05 — Customer Insights</h2>'
+                // Pains, Desires, Objections as tables
+                const lists = [
+                    { title: 'Top Pains', items: ins.top_pains, key: 'pain' },
+                    { title: 'Top Desires', items: ins.top_desires, key: 'desire' },
+                    { title: 'Top Objections', items: ins.top_objections, key: 'objection' },
+                ]
+                lists.forEach(l => {
+                    if (l.items?.length) {
+                        html += `<h3>${l.title}</h3>`
+                        html += '<table><thead><tr><th>Rank</th><th>Description</th></tr></thead><tbody>'
+                        l.items.forEach((item: any) => {
+                            html += `<tr><td>${item.rank}</td><td>${esc(item[l.key])}</td></tr>`
+                        })
+                        html += '</tbody></table>'
+                    }
+                })
+                // Buying Psychology as table
+                if (ins.buying_psychology) {
+                    html += '<h3>Buying Psychology</h3>'
+                    html += '<table><thead><tr><th>Factor</th><th>Details</th></tr></thead><tbody>'
+                    if (ins.buying_psychology.why_buy?.length) {
+                        html += `<tr><td><strong>Why They Buy</strong></td><td>${ins.buying_psychology.why_buy.map((r: string, i: number) => `${i + 1}. ${esc(r)}`).join('<br/>')}</td></tr>`
+                    }
+                    if (ins.buying_psychology.why_not_buy?.length) {
+                        html += `<tr><td><strong>Why They Don't Buy</strong></td><td>${ins.buying_psychology.why_not_buy.map((r: string, i: number) => `${i + 1}. ${esc(r)}`).join('<br/>')}</td></tr>`
+                    }
+                    html += '</tbody></table>'
+                }
+                // Emotional Triggers as table
+                if (ins.emotional_triggers) {
+                    html += '<h3>Emotional & Status Triggers</h3>'
+                    html += '<table><thead><tr><th>Aspect</th><th>Details</th></tr></thead><tbody>'
+                    html += `<tr><td><strong>Status Identity</strong></td><td>${esc(ins.emotional_triggers.status)}</td></tr>`
+                    if (ins.emotional_triggers.emotions?.length) {
+                        html += `<tr><td><strong>Emotions</strong></td><td>${ins.emotional_triggers.emotions.map((e: string) => esc(e)).join(', ')}</td></tr>`
+                    }
+                    html += '</tbody></table>'
+                }
+                return html
+            }
+
+            const buildGapHtml = (gap: any) => {
+                let html = '<div class="page-break"></div><h2>06 — Gap & Opportunity Analysis</h2>'
+                html += '<table><thead><tr><th>Category</th><th>Details</th></tr></thead><tbody>'
+                if (gap.market_gaps?.length) {
+                    html += `<tr><td><strong>Market Gaps</strong></td><td>${gap.market_gaps.map((g: string, i: number) => `${i + 1}. ${esc(g)}`).join('<br/>')}</td></tr>`
+                }
+                if (gap.competitor_blind_spots?.length) {
+                    html += `<tr><td><strong>Competitor Blind Spots</strong></td><td>${gap.competitor_blind_spots.map((g: string, i: number) => `${i + 1}. ${esc(g)}`).join('<br/>')}</td></tr>`
+                }
+                html += '</tbody></table>'
+                const opp = gap.your_opportunity
+                if (opp) {
+                    if (opp.big_idea) html += `<div class="highlight-box"><strong>Big Idea:</strong> ${esc(opp.big_idea)}</div>`
+                    html += '<table><thead><tr><th>Positioning</th><th>Details</th></tr></thead><tbody>'
+                    if (opp.category_positioning) html += `<tr><td><strong>Category</strong></td><td>${esc(opp.category_positioning)}</td></tr>`
+                    if (opp.unique_positioning) html += `<tr><td><strong>Unique</strong></td><td>${esc(opp.unique_positioning)}</td></tr>`
+                    html += '</tbody></table>'
+                    if (opp.pricing_strategy?.tiers?.length) {
+                        html += `<h3>Pricing Recommendation — ${esc(opp.pricing_strategy.model)}</h3>`
+                        html += '<table><thead><tr><th>Tier</th><th>Price</th><th>Features</th></tr></thead><tbody>'
+                        opp.pricing_strategy.tiers.forEach((t: any) => {
+                            html += `<tr><td><strong>${esc(t.name)}</strong></td><td>${esc(t.price)}</td><td>${esc(t.features)}</td></tr>`
+                        })
+                        html += '</tbody></table>'
+                        if (opp.pricing_strategy.competitive_advantage) html += `<p><em>${esc(opp.pricing_strategy.competitive_advantage)}</em></p>`
+                    }
+                }
+                return html
+            }
+
+            const buildFunnelHtml = (fun: any) => {
+                let html = '<div class="page-break"></div><h2>07 — Funnel & Ad Direction</h2>'
+                if (fun.big_promise) html += `<div class="highlight-box"><strong>Big Promise:</strong> ${esc(fun.big_promise)}</div>`
+                // Funnel stages table
+                if (fun.funnel_stages) {
+                    html += '<h3>Funnel Stages</h3>'
+                    html += '<table><thead><tr><th>Stage</th><th>Details</th></tr></thead><tbody>'
+                    const stageLabels = [
+                        { key: 'tofu', label: 'TOFU — Top of Funnel' },
+                        { key: 'mofu', label: 'MOFU — Middle of Funnel' },
+                        { key: 'bofu', label: 'BOFU — Bottom of Funnel' },
+                        { key: 'retention', label: 'Retention' },
+                    ]
+                    stageLabels.forEach(s => {
+                        const stage = fun.funnel_stages[s.key]
+                        if (stage) {
+                            const details = Object.entries(stage).filter(([, v]) => v).map(([k, v]) => `<strong>${k}:</strong> ${esc(v as string)}`).join('<br/>')
+                            html += `<tr><td><strong>${s.label}</strong></td><td>${details}</td></tr>`
+                        }
+                    })
+                    html += '</tbody></table>'
+                }
+                // Hooks, Angles, Formats, Channels — all as one table
+                html += '<h3>Strategy Details</h3>'
+                html += '<table><thead><tr><th>Category</th><th>Details</th></tr></thead><tbody>'
+                const listSections = [
+                    { title: 'Best Hooks', items: fun.recommended_hooks },
+                    { title: 'Winning Angles', items: fun.winning_angles },
+                    { title: 'Creative Formats', items: fun.creative_formats },
+                    { title: 'Target Channels', items: fun.target_channels },
+                ]
+                listSections.forEach(s => {
+                    if (s.items?.length) {
+                        html += `<tr><td><strong>${s.title}</strong></td><td>${s.items.map((item: string, i: number) => `${i + 1}. ${esc(item)}`).join('<br/>')}</td></tr>`
+                    }
+                })
+                html += '</tbody></table>'
+                if (fun.launch_messaging) html += `<div class="highlight-box"><strong>Launch Message:</strong> <em>"${esc(fun.launch_messaging)}"</em></div>`
+                return html
+            }
+
+            let fullHtml = ''
+            if (drData.competitors?.length) fullHtml += buildCompetitorsHtml(drData.competitors)
+            if (drData.ad_research?.length) fullHtml += buildAdsHtml(drData.ad_research)
+            if (drData.landing_pages?.length) fullHtml += buildLandingPagesHtml(drData.landing_pages)
+            if (drData.messaging_patterns) fullHtml += buildMessagingHtml(drData.messaging_patterns)
+            if (drData.customer_insights) fullHtml += buildInsightsHtml(drData.customer_insights)
+            if (drData.gap_analysis) fullHtml += buildGapHtml(drData.gap_analysis)
+            if (drData.funnel_strategy) fullHtml += buildFunnelHtml(drData.funnel_strategy)
+
+            const overlay = document.createElement('div')
+            overlay.style.cssText = `
+                position:fixed;top:0;left:0;width:750px;height:auto;min-height:100vh;
+                z-index:99999;background:#fff;overflow:visible;
+                font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+                color:#1a1a1a;font-size:10pt;line-height:1.6;
+            `
+            overlay.innerHTML = `
+                <div style="padding:36px 40px;background:#fff;width:750px;box-sizing:border-box;">
+                    <h1 style="text-align:center;font-size:20pt;font-weight:900;margin-bottom:8px;color:#111;">Deep Research Report</h1>
+                    <p style="text-align:center;font-size:9pt;color:#888;margin-bottom:32px;">Generated by UtilityAI</p>
+                    ${fullHtml}
+                </div>
+                <style>
+                    .page-break { page-break-before: always; padding-top: 16px; }
+                    h2 {
+                        font-size: 14pt; font-weight: 800; color: #111;
+                        border-bottom: 2px solid #e5e7eb; padding-bottom: 6px;
+                        margin-top: 28px; margin-bottom: 14px;
+                        page-break-after: avoid;
+                    }
+                    h3 {
+                        font-size: 11pt; font-weight: 700; color: #333;
+                        margin-top: 18px; margin-bottom: 8px;
+                        page-break-after: avoid;
+                    }
+                    p {
+                        font-size: 9.5pt; margin-bottom: 8px; color: #222;
+                        line-height: 1.6; word-wrap: break-word;
+                    }
+                    table {
+                        width: 100%; border-collapse: collapse; margin: 12px 0;
+                        table-layout: fixed; word-wrap: break-word;
+                        page-break-inside: auto;
+                    }
+                    thead { display: table-header-group; }
+                    tr { page-break-inside: avoid; page-break-after: auto; }
+                    th {
+                        background: #f3f4f6; padding: 8px 10px; border: 1px solid #d1d5db;
+                        font-size: 8pt; font-weight: 700; text-transform: uppercase;
+                        letter-spacing: 0.05em; color: #374151; text-align: left;
+                        word-wrap: break-word;
+                    }
+                    td {
+                        padding: 8px 10px; border: 1px solid #e5e7eb; font-size: 9pt;
+                        color: #222; vertical-align: top; word-wrap: break-word;
+                        overflow-wrap: break-word;
+                    }
+                    ul {
+                        list-style-type: disc; padding-left: 22px;
+                        margin: 6px 0 14px;
+                    }
+                    ol {
+                        list-style-type: decimal; padding-left: 22px;
+                        margin: 6px 0 14px;
+                    }
+                    li {
+                        font-size: 9.5pt; color: #222; margin-bottom: 5px;
+                        line-height: 1.55; display: list-item;
+                        page-break-inside: avoid;
+                    }
+                    a { color: #1d4ed8; text-decoration: underline; }
+                    strong { font-weight: 700; }
+                    em { font-style: italic; }
+                    small { font-size: 8pt; color: #666; }
+                    .highlight-box {
+                        background: #fffbeb; border: 1px solid #f59e0b;
+                        border-radius: 6px; padding: 12px 16px; margin: 12px 0;
+                        font-size: 10pt; color: #111;
+                    }
+                </style>
+            `
+            document.body.appendChild(overlay)
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+            try {
+                await html2pdf()
+                    .set({
+                        ...pdfSettings,
+                        pagebreak: {
+                            mode: ['avoid-all', 'css'],
+                            avoid: ['tr', 'li', 'h2', 'h3', '.highlight-box'],
+                        },
+                        html2canvas: {
+                            scale: 2,
+                            useCORS: true,
+                            backgroundColor: '#ffffff',
+                            logging: false,
+                            windowWidth: 750,
+                        },
+                    })
+                    .from(overlay.querySelector('div') as HTMLElement)
+                    .save()
+            } finally {
+                document.body.removeChild(overlay)
+            }
+            return
+        }
+
         /* ── All other agents: original clone-based approach ── */
         const reportContent = document.getElementById('report-content')
         if (!reportContent) return
@@ -623,15 +959,74 @@ export default function AgentPage() {
 
         const exportStyles = document.createElement('style')
         exportStyles.textContent = `
-            .pdf-export-container{font-family:'Georgia','Times New Roman',serif!important;color:#1a1a1a!important;background:#fff!important}
-            .pdf-export-container .pdf-export{font-family:'Georgia','Times New Roman',serif!important;color:#1a1a1a!important;background:#fff!important;line-height:1.8!important;font-size:12pt!important}
-            .pdf-export-container .pdf-export *{color:#1a1a1a!important;background-color:transparent!important}
-            .pdf-export h1{font-size:24pt!important;margin-bottom:24px!important;font-weight:700!important;text-align:center!important;border-bottom:2px solid #000!important;padding-bottom:12px!important}
-            .pdf-export h2{font-size:18pt!important;margin-top:32px!important;margin-bottom:16px!important;font-weight:700!important;border-bottom:1px solid #333!important;padding-bottom:8px!important}
-            .pdf-export h3{font-size:14pt!important;margin-top:24px!important;margin-bottom:12px!important;font-weight:700!important}
-            .pdf-export p,.pdf-export li{margin-bottom:12px!important;text-align:justify!important;font-size:11pt!important;line-height:1.8!important}
-            .pdf-export strong{font-weight:bold!important}
-            .pdf-export ul,.pdf-export ol{margin-bottom:16px!important;padding-left:20px!important}
+            /* ── Base reset for PDF ── */
+            .pdf-export-container,
+            .pdf-export-container * {
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .pdf-export-container,
+            .pdf-export-container .pdf-export {
+                color: #111111 !important;
+                background: #ffffff !important;
+                line-height: 1.6 !important;
+            }
+
+            /* ── Force all text visible ── */
+            .pdf-export-container [class*="text-white"] { color: #111111 !important; }
+            .pdf-export-container [class*="text-white/"] { color: #111111 !important; }
+            .pdf-export-container [class*="text-amber"] { color: #92400e !important; }
+            .pdf-export-container [class*="text-red"] { color: #991b1b !important; }
+            .pdf-export-container [class*="text-emerald"] { color: #065f46 !important; }
+            .pdf-export-container [class*="text-sky"] { color: #1e3a5f !important; }
+            .pdf-export-container [class*="text-blue"] { color: #1e40af !important; }
+            .pdf-export-container [class*="text-violet"] { color: #4c1d95 !important; }
+            .pdf-export-container [class*="text-orange"] { color: #7c2d12 !important; }
+
+            /* ── Force all backgrounds light ── */
+            .pdf-export-container [class*="bg-white"] { background-color: #f9fafb !important; }
+            .pdf-export-container [class*="bg-amber"] { background-color: #fef3c7 !important; }
+            .pdf-export-container [class*="bg-red"] { background-color: #fee2e2 !important; }
+            .pdf-export-container [class*="bg-emerald"] { background-color: #d1fae5 !important; }
+            .pdf-export-container [class*="bg-sky"] { background-color: #e0f2fe !important; }
+            .pdf-export-container [class*="bg-blue"] { background-color: #dbeafe !important; }
+            .pdf-export-container [class*="bg-violet"] { background-color: #ede9fe !important; }
+            .pdf-export-container [class*="bg-orange"] { background-color: #ffedd5 !important; }
+
+            /* ── Force borders visible ── */
+            .pdf-export-container [class*="border-white"] { border-color: #e5e7eb !important; }
+            .pdf-export-container [class*="border-amber"] { border-color: #d97706 !important; }
+            .pdf-export-container [class*="border-red"] { border-color: #ef4444 !important; }
+            .pdf-export-container [class*="border-emerald"] { border-color: #10b981 !important; }
+            .pdf-export-container [class*="border-sky"] { border-color: #0ea5e9 !important; }
+            .pdf-export-container [class*="border-blue"] { border-color: #3b82f6 !important; }
+            .pdf-export-container [class*="border-violet"] { border-color: #8b5cf6 !important; }
+
+            /* ── Dividers ── */
+            .pdf-export-container [class*="border-t"] { border-top-color: #e5e7eb !important; }
+            .pdf-export-container [class*="border-b"] { border-bottom-color: #e5e7eb !important; }
+            .pdf-export-container [class*="border-l"] { border-left-color: #d1d5db !important; }
+            .pdf-export-container [class*="divide-white"] > * + * { border-color: #e5e7eb !important; }
+
+            /* ── Standard elements ── */
+            .pdf-export-container h1, .pdf-export-container h2 { color: #111111 !important; }
+            .pdf-export-container h2 { font-size: 16pt !important; margin-top: 24px !important; margin-bottom: 12px !important; font-weight: 800 !important; }
+            .pdf-export-container p { margin-bottom: 8px !important; color: #111111 !important; }
+            .pdf-export-container table { width: 100% !important; border-collapse: collapse !important; margin: 16px 0 !important; page-break-inside: auto !important; }
+            .pdf-export-container tr { page-break-inside: avoid !important; page-break-after: auto !important; }
+            .pdf-export-container th { background-color: #f3f4f6 !important; padding: 10px 12px !important; border: 1px solid #d1d5db !important; color: #111111 !important; text-align: left !important; font-weight: 700 !important; }
+            .pdf-export-container td { border: 1px solid #e5e7eb !important; padding: 10px 12px !important; color: #111111 !important; vertical-align: top !important; }
+            .pdf-export-container a { color: #1d4ed8 !important; text-decoration: underline !important; }
+            .pdf-export-container span { color: inherit !important; }
+            .pdf-export-container ul { list-style-type: disc !important; padding-left: 24px !important; margin-bottom: 12px !important; }
+            .pdf-export-container ol { list-style-type: decimal !important; padding-left: 24px !important; margin-bottom: 12px !important; }
+            .pdf-export-container li { color: #111111 !important; margin-bottom: 6px !important; display: list-item !important; text-align: left !important; page-break-inside: avoid !important; }
+
+            /* ── Gradient overrides ── */
+            .pdf-export-container [class*="from-"] { background-image: none !important; }
+            .pdf-export-container [class*="to-"] { background-image: none !important; }
+            .pdf-export-container [class*="bg-gradient"] { background-image: none !important; background-color: #fffbeb !important; }
         `
         document.head.appendChild(exportStyles)
         try {
@@ -805,8 +1200,8 @@ export default function AgentPage() {
                         </h1>
                     </div>
                     {agentId !== 'course_generator' && (
-                        <p className="text-sm sm:text-base text-white/40 max-w-2xl leading-relaxed font-light">
-                            {agent.system_message}
+                        <p className="text-sm sm:text-base text-white/40 max-w-2xl leading-relaxed font-light whitespace-pre-line">
+                            {agent.description || agent.system_message}
                         </p>
                     )}
                 </div>
@@ -1273,48 +1668,42 @@ export default function AgentPage() {
                                     </div>
                                 ) : response ? (
                                     <div className="h-full flex flex-col min-h-0">
-                                        {agentId === 'book_writing' ? (
-                                            <div className="flex-1 min-h-0 h-full">
-                                                <KindleBookReader content={response} />
-                                            </div>
-                                        ) : (
-                                            <ScrollArea id="report-content" className="flex-1 rounded-3xl border border-white/5 bg-white/[0.01] p-6 sm:p-10">
-                                                {(agentId === 'image_generation' || agentId === 'linkedin_headshot') && (response.startsWith('http') || response.startsWith('data:image/')) ? (
-                                                    <div className="flex justify-center h-full items-center py-10">
-                                                        <div className="relative group">
-                                                            <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-                                                            <img
-                                                                src={response}
-                                                                alt="Generated Asset"
-                                                                className="relative max-w-full rounded-2xl shadow-2xl border border-white/10"
-                                                            />
-                                                        </div>
+                                        <ScrollArea id="report-content" className="flex-1 rounded-3xl border border-white/5 bg-white/[0.01] p-6 sm:p-10">
+                                            {(agentId === 'image_generation' || agentId === 'linkedin_headshot') && (response.startsWith('http') || response.startsWith('data:image/')) ? (
+                                                <div className="flex justify-center h-full items-center py-10">
+                                                    <div className="relative group">
+                                                        <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                                                        <img
+                                                            src={response}
+                                                            alt="Generated Asset"
+                                                            className="relative max-w-full rounded-2xl shadow-2xl border border-white/10"
+                                                        />
                                                     </div>
-                                                ) : agentId === 'ad_copy' ? (
-                                                    <CSVTable csvData={response} />
-                                                ) : (
-                                                    <div className="markdown-container prose prose-invert prose-amber max-w-none 
-                                                        prose-h1:text-3xl prose-h1:font-black prose-h1:text-white prose-h1:mb-10 prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-6
-                                                        prose-h2:text-2xl prose-h2:font-bold prose-h2:text-amber-500 prose-h2:mt-16 prose-h2:mb-6
-                                                        prose-h3:text-xl prose-h3:font-bold prose-h3:text-white/90 prose-h3:mt-12
-                                                        prose-p:text-white/60 prose-p:leading-8 prose-p:text-[15px] prose-p:mb-6
-                                                        prose-li:text-white/60 prose-li:mb-4 prose-li:leading-7
-                                                        prose-strong:text-white prose-strong:font-bold
-                                                        prose-code:bg-white/5 prose-code:px-2 prose-code:py-1 prose-code:rounded-lg prose-code:text-amber-400
-                                                    ">
-                                                        <ReactMarkdown
-                                                            remarkPlugins={[remarkGfm]}
-                                                            components={{
-                                                                a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline" />,
-                                                            }}
-                                                        >
-                                                            {response}
-                                                        </ReactMarkdown>
-                                                    </div>
-
-                                                )}
-                                            </ScrollArea>
-                                        )}
+                                                </div>
+                                            ) : agentId === 'ad_copy' ? (
+                                                <CSVTable csvData={response} />
+                                            ) : agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:') ? (
+                                                <DeepResearchRenderer rawResponse={response} />
+                                            ) : agentId === 'book_writing' ? (
+                                                <div className="w-full h-full min-h-[600px] rounded-xl overflow-hidden bg-white/[0.02] border border-white/5 relative">
+                                                    <KindleBookReader content={response} />
+                                                </div>
+                                            ) : (
+                                                <div className="markdown-container prose prose-invert prose-amber max-w-none 
+                                                    prose-h1:text-3xl prose-h1:font-black prose-h1:text-white prose-h1:mb-10 prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-6
+                                                    prose-h2:text-2xl prose-h2:font-bold prose-h2:text-amber-500 prose-h2:mt-16 prose-h2:mb-6
+                                                    prose-h3:text-xl prose-h3:font-bold prose-h3:text-white/90 prose-h3:mt-12
+                                                    prose-p:text-white/60 prose-p:leading-8 prose-p:text-[15px] prose-p:mb-6
+                                                    prose-li:text-white/60 prose-li:mb-4 prose-li:leading-7
+                                                    prose-strong:text-white prose-strong:font-bold
+                                                    prose-code:bg-white/5 prose-code:px-2 prose-code:py-1 prose-code:rounded-lg prose-code:text-amber-400
+                                                ">
+                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                        {response}
+                                                    </ReactMarkdown>
+                                                </div>
+                                            )}
+                                        </ScrollArea>
                                     </div>
                                 ) : (
                                     <div className="h-full flex flex-col items-center justify-center text-center bg-white/[0.01] border border-white/5 rounded-3xl px-10 py-20">
@@ -1471,8 +1860,12 @@ export default function AgentPage() {
                                 </div>
                             ) : agentId === 'ad_copy' ? (
                                 <CSVTable csvData={response} />
+                            ) : agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:') ? (
+                                <DeepResearchRenderer rawResponse={response} />
                             ) : agentId === 'book_writing' ? (
-                                <KindleBookReader content={response} />
+                                <div className="w-full h-full min-h-[600px] rounded-2xl overflow-hidden bg-[#111] border border-white/5 relative">
+                                    <KindleBookReader content={response} />
+                                </div>
                             ) : (
                                 <div className="markdown-container prose prose-invert prose-amber max-w-none">
                                     <ReactMarkdown

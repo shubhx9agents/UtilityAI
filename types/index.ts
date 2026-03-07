@@ -102,6 +102,7 @@ export type AgentType =
 
 export interface AgentConfig {
     system_message: string
+    description?: string
     questions: string[]
     image_fields?: string[]
 }
