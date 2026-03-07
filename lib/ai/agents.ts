@@ -1160,7 +1160,7 @@ Output ONLY a single valid JSON object — no markdown, no code fences, no pream
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'moonshotai/kimi-k2-instruct',
+                    model: 'llama-3.3-70b-versatile',
                     messages: [
                         { role: 'system', content: GROQ_STRUCTURING_SYSTEM },
                         { role: 'user', content: llmInput }

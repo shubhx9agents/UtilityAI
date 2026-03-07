@@ -4,7 +4,7 @@ import { aiService } from '@/lib/ai/agents'
 import { AgentType } from '@/types'
 import { preCheckAgentCredit, deductAgentCreditOnSuccess, creditExhaustedResponse } from '@/lib/credits'
 
-export const maxDuration = 60 // Allow up to 60 seconds for long generation tasks
+export const maxDuration = 300 // Allow up to 300 seconds for long generation tasks (deep research, book writing)
 
 export async function POST(request: NextRequest) {
     try {
