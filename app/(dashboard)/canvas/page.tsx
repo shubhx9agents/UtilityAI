@@ -57,6 +57,7 @@ import {
 import { Workflow, WorkflowPlan, WorkflowStep, AgentType, CanvasNode, CanvasEdge } from '@/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { DeepResearchRenderer } from '@/components/deep-research-renderer'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { useCredits } from '@/contexts/CreditsContext'
@@ -3160,12 +3161,8 @@ export default function CanvasPage() {
                                                                 <Download className="h-4 w-4 mr-2" />
                                                                 Download
                                                             </Button>
-                                                        ) : isAdCopy ? (
-                                                            <Button variant="outline" size="sm" onClick={() => downloadAsFile(content, selectedResultStepId as string, 'csv')} className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30">
-                                                                <Download className="h-4 w-4 mr-2 text-orange-600 dark:text-orange-400" />
-                                                                .CSV
-                                                            </Button>
-                                                        ) : isSpecializedText ? (
+                                                        ) : isAdCopy || isSpecializedText ? (
+
                                                             <>
                                                                 <Button variant="outline" size="sm" onClick={() => copyToClipboard(content)}>
                                                                     <Copy className="h-4 w-4 mr-2" />
@@ -3262,27 +3259,8 @@ export default function CanvasPage() {
                                                                 ))}
                                                             </div>
                                                         </div>
-                                                    ) : isAdCopy ? (
-                                                        <div className="overflow-x-auto">
-                                                            <Table>
-                                                                <TableHeader>
-                                                                    <TableRow>
-                                                                        {parseCSV(content)[0]?.map((header, i) => (
-                                                                            <TableHead key={i} className="font-bold">{header}</TableHead>
-                                                                        ))}
-                                                                    </TableRow>
-                                                                </TableHeader>
-                                                                <TableBody>
-                                                                    {parseCSV(content).slice(1).map((row, i) => (
-                                                                        <TableRow key={i}>
-                                                                            {row.map((cell, j) => (
-                                                                                <TableCell key={j}>{cell}</TableCell>
-                                                                            ))}
-                                                                        </TableRow>
-                                                                    ))}
-                                                                </TableBody>
-                                                            </Table>
-                                                        </div>
+                                                    ) : agentType === 'deep_research' && typeof content === 'string' && content.startsWith('DEEP_RESEARCH_JSON:') ? (
+                                                        <DeepResearchRenderer rawResponse={content} />
                                                     ) : (
                                                         <div className="markdown-container prose dark:prose-invert max-w-none prose-base pr-3">
                                                             {isSummary && (
