@@ -580,7 +580,346 @@ export default function CanvasPage() {
         toast.success(`Downloaded as ${type.toUpperCase()}`)
     }
 
-    const downloadAsPDF = (content: string, stepId: string) => {
+    const downloadAsPDF = async (content: string, stepId: string) => {
+        /* ── Deep Research: use html2pdf.js with the same logic as agent page ── */
+        if (typeof content === 'string' && content.startsWith('DEEP_RESEARCH_JSON:')) {
+            const { default: html2pdf } = await import('html2pdf.js')
+            const jsonStr = content.slice('DEEP_RESEARCH_JSON:'.length)
+            let drData: any = null
+            try { drData = JSON.parse(jsonStr) } catch { }
+            if (!drData) { toast.error('Failed to parse research data for PDF'); return }
+
+            const pdfSettings = {
+                margin: [15, 15, 15, 15],
+                filename: `${stepId}-deep-research-report.pdf`,
+                image: { type: 'jpeg', quality: 1.0 },
+                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }
+
+            const esc = (s: string | null | undefined) => (s ?? '—').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+            const buildCompetitorsHtml = (comps: any[]) => {
+                let html = '<h2>01 — Competitive Landscape</h2>'
+                html += '<table><thead><tr><th>Company</th><th>Geography</th><th>Niche</th><th>Core Promise</th><th>Weakness / USP</th><th>Pricing</th></tr></thead><tbody>'
+                comps.forEach(c => {
+                    html += `<tr>
+                        <td><strong>${esc(c.name)}</strong></td>
+                        <td>${esc(c.profile?.geography)}</td>
+                        <td>${esc(c.profile?.niche)}<br/><small>${esc(c.profile?.target_audience)}</small></td>
+                        <td>${esc(c.offerings?.core_promise)}</td>
+                        <td>${esc(c.offerings?.usp)}</td>
+                        <td>${esc(c.pricing?.estimated_range ?? c.pricing?.model)}</td>
+                    </tr>`
+                })
+                html += '</tbody></table>'
+                comps.forEach((c, i) => {
+                    html += `<h3>${String(i + 1).padStart(2, '0')}. ${esc(c.name)}</h3>`
+                    html += `<p><strong>What They Sell:</strong> ${esc(c.offerings?.what_they_sell)}</p>`
+                    if (c.offerings?.key_features?.length) {
+                        html += '<p><strong>Key Features:</strong></p><ul>'
+                        c.offerings.key_features.forEach((f: string) => { html += `<li>${esc(f)}</li>` })
+                        html += '</ul>'
+                    }
+                    if (c.funnel?.stages?.length) {
+                        html += `<p><strong>Funnel (${esc(c.funnel.type)}):</strong> ${c.funnel.stages.map((s: string) => esc(s)).join(' → ')}</p>`
+                    }
+                    if (c.funnel?.lead_magnet) html += `<p><strong>Lead Magnet:</strong> ${esc(c.funnel.lead_magnet)}</p>`
+                })
+                return html
+            }
+
+            const buildAdsHtml = (ads: any[]) => {
+                let html = '<div class="page-break"></div><h2>02 — Ad Intelligence</h2>'
+                ads.forEach(entry => {
+                    html += `<h3>${esc(entry.competitor)} — ${esc(entry.platform)}</h3>`
+                    if (entry.ad_library_url) html += `<p><a href="${entry.ad_library_url}">View Ads Library →</a></p>`
+                    html += '<table><thead><tr><th>#</th><th>Hook</th><th>Message</th><th>Offer</th><th>Creative</th><th>CTA</th><th>Angle</th></tr></thead><tbody>'
+                        ; (entry.ads ?? []).forEach((ad: any) => {
+                            html += `<tr>
+                            <td>${ad.ad_number}</td>
+                            <td>"${esc(ad.hook)}"</td>
+                            <td>${esc(ad.message)}</td>
+                            <td>${esc(ad.offer)}</td>
+                            <td>${esc(ad.creative_type)}</td>
+                            <td><strong>${esc(ad.cta)}</strong></td>
+                            <td>${esc(ad.angle)}</td>
+                        </tr>`
+                        })
+                    html += '</tbody></table>'
+                })
+                return html
+            }
+
+            const buildLandingPagesHtml = (pages: any[]) => {
+                let html = '<div class="page-break"></div><h2>03 — Funnel Intelligence: Landing Pages</h2>'
+                pages.forEach(pg => {
+                    html += `<h3>${esc(pg.competitor)}</h3>`
+                    if (pg.url) html += `<p><a href="${pg.url}">${esc(pg.url)}</a></p>`
+                    html += '<table><thead><tr><th>Aspect</th><th>Details</th></tr></thead><tbody>'
+                    if (pg.structure?.page_flow?.length) {
+                        html += `<tr><td><strong>Page Flow</strong></td><td>${pg.structure.page_flow.map((s: string, i: number) => `${i + 1}. ${esc(s)}`).join('<br/>')}</td></tr>`
+                    }
+                    if (pg.structure?.headlines?.length) {
+                        html += `<tr><td><strong>Headlines</strong></td><td>${pg.structure.headlines.map((h: string) => `"${esc(h)}"`).join('<br/>')}</td></tr>`
+                    }
+                    if (pg.conversion_elements) {
+                        const ce = pg.conversion_elements
+                        if (ce.emotional_triggers?.length) html += `<tr><td><strong>Emotional Triggers</strong></td><td>${ce.emotional_triggers.map((t: string) => esc(t)).join(', ')}</td></tr>`
+                        if (ce.social_proof?.length) html += `<tr><td><strong>Social Proof</strong></td><td>${ce.social_proof.map((s: string) => esc(s)).join(', ')}</td></tr>`
+                        if (ce.offer_positioning) html += `<tr><td><strong>Offer Positioning</strong></td><td>${esc(ce.offer_positioning)}</td></tr>`
+                        if (ce.funnel_path) html += `<tr><td><strong>Conversion Path</strong></td><td>${esc(ce.funnel_path)}</td></tr>`
+                    }
+                    html += '</tbody></table>'
+                })
+                return html
+            }
+
+            const buildMessagingHtml = (msg: any) => {
+                let html = '<div class="page-break"></div><h2>04 — Market Messaging Patterns</h2>'
+                html += '<table><thead><tr><th>Category</th><th>Details</th></tr></thead><tbody>'
+                const sections = [
+                    { title: 'Repeated Pains', items: msg.repeated_pains },
+                    { title: 'Repeated Desires', items: msg.repeated_desires },
+                    { title: 'Repeated Objections', items: msg.repeated_objections },
+                    { title: 'Common Hooks', items: msg.common_hooks },
+                    { title: 'Target Identities', items: msg.target_identities },
+                ]
+                sections.forEach(s => {
+                    if (s.items?.length) {
+                        html += `<tr><td><strong>${s.title}</strong></td><td>${s.items.map((item: string, i: number) => `${i + 1}. ${esc(item)}`).join('<br/>')}</td></tr>`
+                    }
+                })
+                html += '</tbody></table>'
+                if (msg.winning_angles) {
+                    html += '<h3>Winning Angle</h3>'
+                    html += '<table><thead><tr><th>Aspect</th><th>Details</th></tr></thead><tbody>'
+                    html += `<tr><td><strong>Pain → Desire</strong></td><td>${esc(msg.winning_angles.pain_to_desire)}</td></tr>`
+                    if (msg.winning_angles.key_promises?.length) {
+                        html += `<tr><td><strong>Key Promises</strong></td><td>${msg.winning_angles.key_promises.map((p: string, i: number) => `${i + 1}. ${esc(p)}`).join('<br/>')}</td></tr>`
+                    }
+                    html += '</tbody></table>'
+                }
+                return html
+            }
+
+            const buildInsightsHtml = (ins: any) => {
+                let html = '<div class="page-break"></div><h2>05 — Customer Insights</h2>'
+                const lists = [
+                    { title: 'Top Pains', items: ins.top_pains, key: 'pain' },
+                    { title: 'Top Desires', items: ins.top_desires, key: 'desire' },
+                    { title: 'Top Objections', items: ins.top_objections, key: 'objection' },
+                ]
+                lists.forEach(l => {
+                    if (l.items?.length) {
+                        html += `<h3>${l.title}</h3>`
+                        html += '<table><thead><tr><th>Rank</th><th>Description</th></tr></thead><tbody>'
+                        l.items.forEach((item: any) => {
+                            html += `<tr><td>${item.rank}</td><td>${esc(item[l.key])}</td></tr>`
+                        })
+                        html += '</tbody></table>'
+                    }
+                })
+                if (ins.buying_psychology) {
+                    html += '<h3>Buying Psychology</h3>'
+                    html += '<table><thead><tr><th>Factor</th><th>Details</th></tr></thead><tbody>'
+                    if (ins.buying_psychology.why_buy?.length) {
+                        html += `<tr><td><strong>Why They Buy</strong></td><td>${ins.buying_psychology.why_buy.map((r: string, i: number) => `${i + 1}. ${esc(r)}`).join('<br/>')}</td></tr>`
+                    }
+                    if (ins.buying_psychology.why_not_buy?.length) {
+                        html += `<tr><td><strong>Why They Don't Buy</strong></td><td>${ins.buying_psychology.why_not_buy.map((r: string, i: number) => `${i + 1}. ${esc(r)}`).join('<br/>')}</td></tr>`
+                    }
+                    html += '</tbody></table>'
+                }
+                if (ins.emotional_triggers) {
+                    html += '<h3>Emotional & Status Triggers</h3>'
+                    html += '<table><thead><tr><th>Aspect</th><th>Details</th></tr></thead><tbody>'
+                    html += `<tr><td><strong>Status Identity</strong></td><td>${esc(ins.emotional_triggers.status)}</td></tr>`
+                    if (ins.emotional_triggers.emotions?.length) {
+                        html += `<tr><td><strong>Emotions</strong></td><td>${ins.emotional_triggers.emotions.map((e: string) => esc(e)).join(', ')}</td></tr>`
+                    }
+                    html += '</tbody></table>'
+                }
+                return html
+            }
+
+            const buildGapHtml = (gap: any) => {
+                let html = '<div class="page-break"></div><h2>06 — Gap & Opportunity Analysis</h2>'
+                html += '<table><thead><tr><th>Category</th><th>Details</th></tr></thead><tbody>'
+                if (gap.market_gaps?.length) {
+                    html += `<tr><td><strong>Market Gaps</strong></td><td>${gap.market_gaps.map((g: string, i: number) => `${i + 1}. ${esc(g)}`).join('<br/>')}</td></tr>`
+                }
+                if (gap.competitor_blind_spots?.length) {
+                    html += `<tr><td><strong>Competitor Blind Spots</strong></td><td>${gap.competitor_blind_spots.map((g: string, i: number) => `${i + 1}. ${esc(g)}`).join('<br/>')}</td></tr>`
+                }
+                html += '</tbody></table>'
+                const opp = gap.your_opportunity
+                if (opp) {
+                    if (opp.big_idea) html += `<div class="highlight-box"><strong>Big Idea:</strong> ${esc(opp.big_idea)}</div>`
+                    html += '<table><thead><tr><th>Positioning</th><th>Details</th></tr></thead><tbody>'
+                    if (opp.category_positioning) html += `<tr><td><strong>Category</strong></td><td>${esc(opp.category_positioning)}</td></tr>`
+                    if (opp.unique_positioning) html += `<tr><td><strong>Unique</strong></td><td>${esc(opp.unique_positioning)}</td></tr>`
+                    html += '</tbody></table>'
+                    if (opp.pricing_strategy?.tiers?.length) {
+                        html += `<h3>Pricing Recommendation — ${esc(opp.pricing_strategy.model)}</h3>`
+                        html += '<table><thead><tr><th>Tier</th><th>Price</th><th>Features</th></tr></thead><tbody>'
+                        opp.pricing_strategy.tiers.forEach((t: any) => {
+                            html += `<tr><td><strong>${esc(t.name)}</strong></td><td>${esc(t.price)}</td><td>${esc(t.features)}</td></tr>`
+                        })
+                        html += '</tbody></table>'
+                        if (opp.pricing_strategy.competitive_advantage) html += `<p><em>${esc(opp.pricing_strategy.competitive_advantage)}</em></p>`
+                    }
+                }
+                return html
+            }
+
+            const buildFunnelHtml = (fun: any) => {
+                let html = '<div class="page-break"></div><h2>07 — Funnel & Ad Direction</h2>'
+                if (fun.big_promise) html += `<div class="highlight-box"><strong>Big Promise:</strong> ${esc(fun.big_promise)}</div>`
+                if (fun.funnel_stages) {
+                    html += '<h3>Funnel Stages</h3>'
+                    html += '<table><thead><tr><th>Stage</th><th>Details</th></tr></thead><tbody>'
+                    const stageLabels = [
+                        { key: 'tofu', label: 'TOFU — Top of Funnel' },
+                        { key: 'mofu', label: 'MOFU — Middle of Funnel' },
+                        { key: 'bofu', label: 'BOFU — Bottom of Funnel' },
+                        { key: 'retention', label: 'Retention' },
+                    ]
+                    stageLabels.forEach(s => {
+                        const stage = fun.funnel_stages[s.key]
+                        if (stage) {
+                            const details = Object.entries(stage).filter(([, v]) => v).map(([k, v]) => `<strong>${k}:</strong> ${esc(v as string)}`).join('<br/>')
+                            html += `<tr><td><strong>${s.label}</strong></td><td>${details}</td></tr>`
+                        }
+                    })
+                    html += '</tbody></table>'
+                }
+                html += '<h3>Strategy Details</h3>'
+                html += '<table><thead><tr><th>Category</th><th>Details</th></tr></thead><tbody>'
+                const listSections = [
+                    { title: 'Best Hooks', items: fun.recommended_hooks },
+                    { title: 'Winning Angles', items: fun.winning_angles },
+                    { title: 'Creative Formats', items: fun.creative_formats },
+                    { title: 'Target Channels', items: fun.target_channels },
+                ]
+                listSections.forEach(s => {
+                    if (s.items?.length) {
+                        html += `<tr><td><strong>${s.title}</strong></td><td>${s.items.map((item: string, i: number) => `${i + 1}. ${esc(item)}`).join('<br/>')}</td></tr>`
+                    }
+                })
+                html += '</tbody></table>'
+                if (fun.launch_messaging) html += `<div class="highlight-box"><strong>Launch Message:</strong> <em>"${esc(fun.launch_messaging)}"</em></div>`
+                return html
+            }
+
+            let fullHtml = ''
+            if (drData.competitors?.length) fullHtml += buildCompetitorsHtml(drData.competitors)
+            if (drData.ad_research?.length) fullHtml += buildAdsHtml(drData.ad_research)
+            if (drData.landing_pages?.length) fullHtml += buildLandingPagesHtml(drData.landing_pages)
+            if (drData.messaging_patterns) fullHtml += buildMessagingHtml(drData.messaging_patterns)
+            if (drData.customer_insights) fullHtml += buildInsightsHtml(drData.customer_insights)
+            if (drData.gap_analysis) fullHtml += buildGapHtml(drData.gap_analysis)
+            if (drData.funnel_strategy) fullHtml += buildFunnelHtml(drData.funnel_strategy)
+
+            const overlay = document.createElement('div')
+            overlay.style.cssText = `
+                position:fixed;top:0;left:0;width:750px;height:auto;min-height:100vh;
+                z-index:99999;background:#fff;overflow:visible;
+                font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+                color:#1a1a1a;font-size:10pt;line-height:1.6;
+            `
+            overlay.innerHTML = `
+                <div style="padding:36px 40px;background:#fff;width:750px;box-sizing:border-box;">
+                    <h1 style="text-align:center;font-size:20pt;font-weight:900;margin-bottom:8px;color:#111;">Deep Research Report</h1>
+                    <p style="text-align:center;font-size:9pt;color:#888;margin-bottom:32px;">Generated by UtilityAI</p>
+                    ${fullHtml}
+                </div>
+                <style>
+                    .page-break { page-break-before: always; padding-top: 16px; }
+                    h2 {
+                        font-size: 14pt; font-weight: 800; color: #111;
+                        border-bottom: 2px solid #e5e7eb; padding-bottom: 6px;
+                        margin-top: 28px; margin-bottom: 14px;
+                        page-break-after: avoid;
+                    }
+                    h3 {
+                        font-size: 11pt; font-weight: 700; color: #333;
+                        margin-top: 18px; margin-bottom: 8px;
+                        page-break-after: avoid;
+                    }
+                    p {
+                        font-size: 9.5pt; margin-bottom: 8px; color: #222;
+                        line-height: 1.6; word-wrap: break-word;
+                    }
+                    table {
+                        width: 100%; border-collapse: collapse; margin: 12px 0;
+                        table-layout: fixed; word-wrap: break-word;
+                        page-break-inside: auto;
+                    }
+                    thead { display: table-header-group; }
+                    tr { page-break-inside: avoid; page-break-after: auto; }
+                    th {
+                        background: #f3f4f6; padding: 8px 10px; border: 1px solid #d1d5db;
+                        font-size: 8pt; font-weight: 700; text-transform: uppercase;
+                        letter-spacing: 0.05em; color: #374151; text-align: left;
+                        word-wrap: break-word;
+                    }
+                    td {
+                        padding: 8px 10px; border: 1px solid #e5e7eb; font-size: 9pt;
+                        color: #222; vertical-align: top; word-wrap: break-word;
+                        overflow-wrap: break-word;
+                    }
+                    ul {
+                        list-style-type: disc; padding-left: 22px;
+                        margin: 6px 0 14px;
+                    }
+                    ol {
+                        list-style-type: decimal; padding-left: 22px;
+                        margin: 6px 0 14px;
+                    }
+                    li {
+                        font-size: 9.5pt; color: #222; margin-bottom: 5px;
+                        line-height: 1.55; display: list-item;
+                        page-break-inside: avoid;
+                    }
+                    a { color: #1d4ed8; text-decoration: underline; }
+                    strong { font-weight: 700; }
+                    em { font-style: italic; }
+                    small { font-size: 8pt; color: #666; }
+                    .highlight-box {
+                        background: #fffbeb; border: 1px solid #f59e0b;
+                        border-radius: 6px; padding: 12px 16px; margin: 12px 0;
+                        font-size: 10pt; color: #111;
+                    }
+                </style>
+            `
+            document.body.appendChild(overlay)
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+            try {
+                await html2pdf()
+                    .set({
+                        ...pdfSettings,
+                        pagebreak: {
+                            mode: ['avoid-all', 'css'],
+                            avoid: ['tr', 'li', 'h2', 'h3', '.highlight-box'],
+                        },
+                        html2canvas: {
+                            scale: 2,
+                            useCORS: true,
+                            backgroundColor: '#ffffff',
+                            logging: false,
+                            windowWidth: 750,
+                        },
+                    })
+                    .from(overlay.querySelector('div') as HTMLElement)
+                    .save()
+            } finally {
+                document.body.removeChild(overlay)
+            }
+            return
+        }
+
+        /* ── All other agents: existing window.open() + print() approach ── */
         const newWindow = window.open('', '_blank')
         if (newWindow) {
             // Convert markdown to HTML with proper table handling

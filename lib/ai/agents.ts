@@ -1275,7 +1275,17 @@ Output ONLY a single valid JSON object — no markdown, no code fences, no pream
             adRequest += `\n\nPrevious workflow step outputs:\n${previousStepOutputs.join('\n\n')}`
         }
 
+        // Extract the explicit platform value for strict enforcement
+        const explicitPlatforms = (
+            context.platforms ||
+            context.specific_platforms ||
+            context['Specific Platforms (e.g. Facebook, Instagram, LinkedIn, Google)'] ||
+            extractedInputs['Specific Platforms (e.g. Facebook, Instagram, LinkedIn, Google)'] ||
+            ''
+        ).toString().trim()
+
         console.log(`[Ad Copy] Using request:\n${adRequest.substring(0, 300)}...`)
+        console.log(`[Ad Copy] Explicit platforms: "${explicitPlatforms}"`)
 
         try {
             // 1. Market Research using Perplexity
@@ -1402,7 +1412,7 @@ Output Format: Use Markdown with clear headings for each platform and variation.
                     model: 'llama-3.3-70b-versatile',
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        { role: 'user', content: `REQUEST:\n${adRequest}\n\nRESEARCH DATA:\n${researchData}` }
+                        { role: 'user', content: `REQUEST:\n${adRequest}\n\nRESEARCH DATA:\n${researchData}${explicitPlatforms ? `\n\n⚠️ PLATFORM RESTRICTION (MANDATORY — DO NOT IGNORE):\nYou MUST generate ads ONLY for the following platform(s): ${explicitPlatforms}.\nDo NOT generate ads for any other platform. If the user said "${explicitPlatforms}", output ONLY ${explicitPlatforms} ads. Zero exceptions.` : ''}` }
                     ],
                     temperature: 0.8
                 })
