@@ -41,6 +41,9 @@ export const FILE_SIZE_LIMITS = {
     default: 10 * 1024 * 1024,   // 10MB default max
 } as const
 
+// Correct Content-Type for serving SVG files (must NOT be served as text/html)
+export const SVG_CONTENT_TYPE = 'image/svg+xml' as const
+
 // ============================================================================
 // DANGEROUS PATTERNS
 // ============================================================================
@@ -72,6 +75,7 @@ export interface FileValidationResult {
     valid: boolean
     error?: string
     sanitizedName?: string
+    sanitizedSvgContent?: string
 }
 
 /**
@@ -187,6 +191,59 @@ export function containsScriptInSvg(content: string): boolean {
 }
 
 /**
+ * Sanitize SVG content by stripping dangerous elements and attributes.
+ * This acts as a server-side sanitizer since DOMPurify requires a DOM.
+ * Removes: script, iframe, object, embed, foreignObject, use with external hrefs,
+ *          all event handler attributes (on*), javascript: URIs, and data: URIs in href/xlink:href.
+ */
+export function sanitizeSvg(content: string): string {
+    let sanitized = content
+
+    // Remove dangerous elements and their contents
+    const dangerousElements = [
+        'script', 'iframe', 'object', 'embed', 'foreignObject',
+        'math', 'form', 'input', 'textarea', 'button', 'select',
+    ]
+    for (const tag of dangerousElements) {
+        // Remove opening+closing tags with content
+        sanitized = sanitized.replace(
+            new RegExp(`<${tag}[\\s\\S]*?</${tag}>`, 'gi'), ''
+        )
+        // Remove self-closing tags
+        sanitized = sanitized.replace(
+            new RegExp(`<${tag}[^>]*\/?>`, 'gi'), ''
+        )
+    }
+
+    // Remove all event handler attributes (on*="...")
+    sanitized = sanitized.replace(
+        /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, ''
+    )
+
+    // Remove javascript: and data: URIs in href and xlink:href attributes
+    sanitized = sanitized.replace(
+        /((?:xlink:)?href\s*=\s*)(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*')/gi,
+        '$1""'
+    )
+    sanitized = sanitized.replace(
+        /((?:xlink:)?href\s*=\s*)(?:"\s*data:[^"]*"|'\s*data:[^']*')/gi,
+        '$1""'
+    )
+
+    // Remove <use> elements with external references (potential SSRF)
+    sanitized = sanitized.replace(
+        /<use[^>]*(?:xlink:)?href\s*=\s*(?:"(?:https?:|\/\/)[^"]*"|'(?:https?:|\/\/)[^']*')[^>]*\/?>/gi, ''
+    )
+
+    // Remove set and animate elements that can trigger script behavior
+    sanitized = sanitized.replace(
+        /<(?:set|animate)[^>]*attributeName\s*=\s*(?:"on[^"]*"|'on[^']*')[^>]*\/?>/gi, ''
+    )
+
+    return sanitized
+}
+
+/**
  * Comprehensive file validation
  */
 export async function validateFile(
@@ -238,7 +295,8 @@ export async function validateFile(
         }
     }
 
-    // Special handling for SVG files
+    // Special handling for SVG files: reject if malicious, then sanitize
+    let sanitizedSvgContent: string | undefined
     if (file.type === 'image/svg+xml') {
         const content = await file.text()
         if (containsScriptInSvg(content)) {
@@ -247,6 +305,8 @@ export async function validateFile(
                 error: 'SVG file contains potentially malicious content',
             }
         }
+        // Even if no overt script tags, sanitize defensively
+        sanitizedSvgContent = sanitizeSvg(content)
     }
 
     // Generate sanitized filename
@@ -255,6 +315,7 @@ export async function validateFile(
     return {
         valid: true,
         sanitizedName,
+        ...(sanitizedSvgContent !== undefined && { sanitizedSvgContent }),
     }
 }
 
@@ -307,7 +368,14 @@ export async function prepareFileForUpload(
         return { valid: false, error: validation.error }
     }
 
-    const safeFile = createSafeFile(file, validation.sanitizedName!)
+    // For SVG files, use the sanitized content instead of the raw file
+    let safeFile: File
+    if (file.type === 'image/svg+xml' && validation.sanitizedSvgContent !== undefined) {
+        const svgBlob = new Blob([validation.sanitizedSvgContent], { type: SVG_CONTENT_TYPE })
+        safeFile = new File([svgBlob], validation.sanitizedName!, { type: SVG_CONTENT_TYPE })
+    } else {
+        safeFile = createSafeFile(file, validation.sanitizedName!)
+    }
     const path = generateStoragePath(userId, validation.sanitizedName!, options.folder)
 
     return {

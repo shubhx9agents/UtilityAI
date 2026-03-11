@@ -47,6 +47,16 @@ export async function POST(request: NextRequest) {
         if (error) {
             // Record failed login attempt
             recordFailedLogin(ip, sanitizedEmail)
+
+            // Log failed login for audit trail (SOC 2 CC6.1)
+            await logAuditEvent({
+                userEmail: sanitizedEmail,
+                action: AUDIT_ACTIONS.LOGIN_FAILED,
+                resourceType: 'user',
+                details: { email: sanitizedEmail, reason: error.message },
+                request,
+            })
+
             return NextResponse.json({ error: error.message }, { status: 400 })
         }
 

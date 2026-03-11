@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
+import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 
 // ============================================================================
 // RATE LIMITING
@@ -147,6 +148,21 @@ export async function rateLimit(
 
     if (result.limited) {
         const retryAfter = Math.ceil((result.resetTime - Date.now()) / 1000)
+
+        // Log rate-limit trigger for audit trail (SOC 2 CC6.1)
+        logAuditEvent({
+            action: AUDIT_ACTIONS.RATE_LIMITED,
+            resourceType: 'security',
+            details: {
+                ip,
+                path,
+                maxRequests: config.maxRequests,
+                windowMs: config.windowMs,
+                retryAfter,
+            },
+            request,
+        }).catch(() => { /* fire-and-forget; audit must not break rate-limit response */ })
+
         return {
             allowed: false,
             response: NextResponse.json(
@@ -226,6 +242,18 @@ export function recordFailedLogin(ip: string, email: string): void {
         if (entry.count >= 10) {
             blockIp(ip)
             console.warn(`Auto-blocked IP ${ip} after 10 failed login attempts for ${email}`)
+
+            // Log IP block for audit trail (SOC 2 CC6.1)
+            logAuditEvent({
+                action: AUDIT_ACTIONS.IP_BLOCKED,
+                resourceType: 'security',
+                details: {
+                    ip,
+                    email,
+                    failedAttempts: entry.count,
+                    reason: 'Auto-blocked after 10 failed login attempts',
+                },
+            }).catch(() => { /* fire-and-forget */ })
         }
     }
 }

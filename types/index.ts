@@ -169,11 +169,15 @@ export type AuditAction =
     | 'user.password_reset'
     | 'user.deleted'
     | 'user.data_export'
+    | 'user.login_failed'
+    | 'user.data_exported'
     | 'session.created'
     | 'session.updated'
     | 'session.deleted'
     | 'session.restored'
     | 'role.updated'
+    | 'security.ip_blocked'
+    | 'security.rate_limited'
 
 export interface AuditLog {
     id: string

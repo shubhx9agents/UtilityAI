@@ -142,6 +142,87 @@ export const AUDIT_ACTIONS = {
     SESSION_DELETED: 'session.deleted' as AuditAction,
     SESSION_RESTORED: 'session.restored' as AuditAction,
 
+    // Security events
+    LOGIN_FAILED: 'user.login_failed' as AuditAction,
+    IP_BLOCKED: 'security.ip_blocked' as AuditAction,
+    RATE_LIMITED: 'security.rate_limited' as AuditAction,
+    DATA_EXPORTED: 'user.data_exported' as AuditAction,
+
     // Admin actions
     ROLE_UPDATED: 'role.updated' as AuditAction,
 } as const
+
+// ============================================================================
+// AUDIT LOG RETENTION / ARCHIVAL (SOC 2 CC7.4)
+// ============================================================================
+
+/**
+ * Archive audit logs older than the active retention period.
+ * Marks logs older than `activeDays` (default 90) as archived by
+ * setting `details.archived = true` and `details.archived_at`.
+ * Returns the number of rows archived.
+ */
+export async function archiveOldAuditLogs(
+    activeDays: number = 90
+): Promise<{ archivedCount: number }> {
+    const supabase = await createClient()
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - activeDays)
+    const cutoffISO = cutoff.toISOString()
+
+    // Update rows that are older than cutoff and not yet archived
+    const { data, error } = await supabase.rpc('archive_audit_logs', {
+        cutoff_date: cutoffISO,
+    })
+
+    if (error) {
+        // If the RPC doesn't exist, fall back to a direct update
+        console.warn('archive_audit_logs RPC not found, using direct update:', error.message)
+        const { data: updatedRows, error: updateError } = await supabase
+            .from('audit_logs')
+            .update({
+                details: {
+                    archived: true,
+                    archived_at: new Date().toISOString(),
+                },
+            })
+            .lt('created_at', cutoffISO)
+            .not('details->>archived', 'eq', 'true')
+            .select('id')
+
+        if (updateError) {
+            console.error('Failed to archive audit logs:', updateError)
+            throw new Error('Failed to archive audit logs')
+        }
+        return { archivedCount: updatedRows?.length || 0 }
+    }
+
+    return { archivedCount: typeof data === 'number' ? data : 0 }
+}
+
+/**
+ * Purge audit logs older than the total retention period.
+ * Deletes logs older than `totalRetentionDays` (default 365).
+ * Returns the number of rows deleted.
+ */
+export async function purgeAncientAuditLogs(
+    totalRetentionDays: number = 365
+): Promise<{ deletedCount: number }> {
+    const supabase = await createClient()
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - totalRetentionDays)
+    const cutoffISO = cutoff.toISOString()
+
+    const { data: deletedRows, error } = await supabase
+        .from('audit_logs')
+        .delete()
+        .lt('created_at', cutoffISO)
+        .select('id')
+
+    if (error) {
+        console.error('Failed to purge ancient audit logs:', error)
+        throw new Error('Failed to purge audit logs')
+    }
+
+    return { deletedCount: deletedRows?.length || 0 }
+}
