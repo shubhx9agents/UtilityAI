@@ -11,6 +11,7 @@ import {
     FinalResponseStrategy,
 } from '@/types'
 import { getExecutionOrder } from './orchestrator'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export interface ExecutionResult {
     execution_id: string
@@ -41,7 +42,7 @@ export class WorkflowExecutionService {
             .single()
 
         if (error) {
-            throw new Error(`Failed to create execution: ${error.message}`)
+            throw new Error(`Failed to create execution: ${getErrorMessage(error)}`)
         }
 
         return data.id
@@ -158,13 +159,13 @@ export class WorkflowExecutionService {
                 step_results: stepResults,
                 final_result: finalResult
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Update execution to failed
             await this.supabase
                 .from('workflow_executions')
                 .update({
                     status: 'failed',
-                    error_message: error.message,
+                    error_message: getErrorMessage(error),
                     completed_at: new Date().toISOString()
                 })
                 .eq('id', executionId)
@@ -174,7 +175,7 @@ export class WorkflowExecutionService {
                 status: 'failed',
                 step_results: {},
                 final_result: null,
-                error: error.message
+                error: getErrorMessage(error)
             }
         }
     }
@@ -194,7 +195,7 @@ export class WorkflowExecutionService {
             .insert(stepExecutions)
 
         if (error) {
-            throw new Error(`Failed to create step executions: ${error.message}`)
+            throw new Error(`Failed to create step executions: ${getErrorMessage(error)}`)
         }
     }
 

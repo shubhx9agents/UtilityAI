@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { AgentType } from '@/types'
+import { getErrorMessage } from '@/lib/types/errors'
 
 // GET /api/canvas/histories - Get agent session histories for orchestrator context
 export async function GET(request: NextRequest) {
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
         const { data: sessions, error } = await query
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         // Group by agent type for orchestrator context
@@ -75,9 +76,9 @@ export async function GET(request: NextRequest) {
         const histories = Object.values(historiesByAgent)
 
         return NextResponse.json({ histories })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Get histories error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }
 
@@ -129,12 +130,12 @@ export async function POST(request: NextRequest) {
             .single()
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         return NextResponse.json({ history_summary: data })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Create history error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { UpdateWorkflowRequest } from '@/types'
 import { validateWorkflowPlan, workflowToCanvas } from '@/lib/ai/orchestrator'
+import { getErrorMessage } from '@/lib/types/errors'
 
 // GET /api/canvas/workflows/[workflowId] - Get a specific workflow
 export async function GET(
@@ -37,9 +38,9 @@ export async function GET(
             workflow: data,
             canvas: canvasData
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Get workflow error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }
 
@@ -87,13 +88,13 @@ export async function PUT(
             .single()
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         return NextResponse.json({ workflow: data })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Update workflow error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }
 
@@ -118,12 +119,12 @@ export async function DELETE(
             .eq('user_id', user.id)
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         return NextResponse.json({ success: true })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Delete workflow error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }

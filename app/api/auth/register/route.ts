@@ -4,6 +4,7 @@ import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 import { registerSchema, validateInput, validationErrorResponse } from '@/lib/validations'
 import { sanitizeEmail, sanitizeText } from '@/utils/sanitize'
 import { rateLimit, AUTH_RATE_LIMIT, getClientIp, isIpBlocked } from '@/lib/security'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export async function POST(request: NextRequest) {
     try {
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
         })
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 })
         }
 
         // Log successful registration
@@ -63,10 +64,10 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ data })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Register API error:', error)
         return NextResponse.json(
-            { error: error.message || 'Registration failed' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

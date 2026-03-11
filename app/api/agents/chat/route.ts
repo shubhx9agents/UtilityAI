@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeText } from '@/utils/sanitize'
 import { preCheckAgentCredit, deductAgentCreditOnSuccess, creditExhaustedResponse } from '@/lib/credits'
+import { getErrorMessage } from '@/lib/types/errors'
 
 // Build Gemini image parts from base64 data
 function buildGeminiImageParts(images: Record<string, string>): Array<{ inlineData: { mimeType: string; data: string } }> {
@@ -153,11 +154,11 @@ export async function POST(request: NextRequest) {
         await deductAgentCreditOnSuccess(user.id, agentKey)
         return NextResponse.json({ response })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Chat API Error:', error)
         // No credit deducted — uncaught error
         return NextResponse.json(
-            { error: error.message || 'Internal server error' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

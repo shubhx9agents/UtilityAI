@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getUserPlan, getUserUsage, PLAN_LIMITS } from '@/lib/credits'
 import { subDays, format } from 'date-fns'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -117,10 +118,10 @@ export async function GET(_request: NextRequest) {
             history: history
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Credits stats API error:', error)
         return NextResponse.json(
-            { error: error.message || 'Failed to fetch stats' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

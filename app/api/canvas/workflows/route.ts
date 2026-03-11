@@ -5,6 +5,7 @@ import { validateWorkflowPlan } from '@/lib/ai/orchestrator'
 import { createWorkflowSchema, validateInput, validationErrorResponse } from '@/lib/validations'
 import { sanitizeText } from '@/utils/sanitize'
 import { enforceAndDeductCanvasCredit, creditExhaustedResponse } from '@/lib/credits'
+import { getErrorMessage } from '@/lib/types/errors'
 
 // GET /api/canvas/workflows - List user's workflows
 export async function GET(request: NextRequest) {
@@ -37,13 +38,13 @@ export async function GET(request: NextRequest) {
         const { data, error } = await query
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         return NextResponse.json({ workflows: data })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('List workflows error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }
 
@@ -110,12 +111,12 @@ export async function POST(request: NextRequest) {
 
         if (error) {
             console.error('Supabase insert error:', error)
-            return NextResponse.json({ error: error.message, details: error }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error), details: error }, { status: 500 })
         }
 
         return NextResponse.json({ workflow: data }, { status: 201 })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Create workflow error:', error)
-        return NextResponse.json({ error: error.message || 'Unknown error' }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }

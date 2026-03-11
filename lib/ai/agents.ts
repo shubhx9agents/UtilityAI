@@ -1,4 +1,5 @@
 import { AgentType, AgentConfig } from '@/types'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     business_snapshot: {
@@ -291,9 +292,9 @@ export class AIAgentService {
 
             // Default to Groq for all other agents as requested (stick to groq api key only)
             return await this.runGroqAgent(agentType, userInput)
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(`AIAgentService Error [${agentType}]:`, error)
-            throw new Error(`${agentType.replace('_', ' ')} Agent failed: ${error.message || 'Unknown error'}`)
+            throw new Error(`${agentType.replace('_', ' ')} Agent failed: ${getErrorMessage(error)}`)
         }
     }
 
@@ -704,7 +705,7 @@ CRITICAL REQUIREMENTS:
                 response: imageUrl,
                 refined_prompt: refinedPrompt
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Image Generation error:', error)
             throw error
         }
@@ -837,7 +838,7 @@ CRITICAL REQUIREMENTS:
                 response: imageUrl,
                 refined_prompt: refinedPrompt
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('LinkedIn Headshot error:', error)
             throw error
         }
@@ -1191,7 +1192,7 @@ Output ONLY a single valid JSON object — no markdown, no code fences, no pream
                 return { response: rawOutput }
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Deep Research multi-step error:', error)
             throw error
         }
@@ -1426,7 +1427,7 @@ Output Format: Use Markdown with clear headings for each platform and variation.
             const groqData = await groqRes.json()
             return { response: groqData.choices?.[0]?.message?.content || researchData }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Ad Copy multi-step error:', error)
             throw error
         }
@@ -1595,7 +1596,7 @@ Generate the complete masterpiece program structure now using the researched dee
             }
 
             return { response }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(`Groq Agent Error [${agentType}]:`, error)
             throw error
         }

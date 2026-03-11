@@ -62,7 +62,7 @@ User Input to Optimize:
         }
 
         return NextResponse.json({ optimizedPrompt })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Optimize Prompt API] Server error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
             : 'free'
 
         return NextResponse.json({ type })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Subscription GET error:', error)
         return NextResponse.json({ type: 'free' })
     }

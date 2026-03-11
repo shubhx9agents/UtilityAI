@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 import { updateSessionSchema, validateInput, validationErrorResponse, uuidSchema } from '@/lib/validations'
 import { sanitizeJson } from '@/utils/sanitize'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export async function GET(
     request: NextRequest,
@@ -29,14 +30,14 @@ export async function GET(
 
         if (error) {
             console.error('Error fetching session:', error)
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         return NextResponse.json({ data })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Session API Error:', error)
         return NextResponse.json(
-            { error: error.message || 'Failed to fetch session' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }
@@ -92,7 +93,7 @@ export async function PATCH(
 
         if (error) {
             console.error('Error updating session:', error)
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         console.log('Session updated successfully:', data.id)
@@ -112,10 +113,10 @@ export async function PATCH(
         })
 
         return NextResponse.json({ data })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Session API Error:', error)
         return NextResponse.json(
-            { error: error.message || 'Failed to update session' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }
@@ -145,7 +146,7 @@ export async function DELETE(
 
         if (error) {
             console.error('Error deleting session:', error)
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         // Log audit event
@@ -159,10 +160,10 @@ export async function DELETE(
         })
 
         return NextResponse.json({ success: true })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Session API Error:', error)
         return NextResponse.json(
-            { error: error.message || 'Failed to delete session' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
             status: 200,
             headers,
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Download Proxy Error:', error)
         return NextResponse.json({ error: 'Failed to download image' }, { status: 500 })
     }

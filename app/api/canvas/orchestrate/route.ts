@@ -10,6 +10,7 @@ import {
     enforceLinearWorkflowPlan
 } from '@/lib/ai/orchestrator'
 import { AGENT_CONFIGS } from '@/lib/ai/agents'
+import { getErrorMessage } from '@/lib/types/errors'
 
 type AgentInputSpec = {
     agent_id: string
@@ -418,9 +419,9 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ workflow_plan: result.workflow_plan })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Orchestrate error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }
 
@@ -441,8 +442,8 @@ export async function GET(request: NextRequest) {
         }))
 
         return NextResponse.json({ agents })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Get agents error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }

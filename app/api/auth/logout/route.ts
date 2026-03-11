@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export async function POST(request: NextRequest) {
     try {
@@ -26,14 +27,14 @@ export async function POST(request: NextRequest) {
         const { error } = await supabase.auth.signOut()
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 })
         }
 
         return NextResponse.json({ success: true })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Logout API error:', error)
         return NextResponse.json(
-            { error: error.message || 'Logout failed' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

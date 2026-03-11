@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { getErrorMessage } from '@/lib/types/errors'
 
 /**
  * POST /api/auth/upgrade
@@ -28,16 +29,16 @@ export async function POST(request: NextRequest) {
         if (error) {
             console.error('Upgrade DB error:', error)
             return NextResponse.json(
-                { error: `Failed to upgrade: ${error.message}` },
+                { error: `Failed to upgrade: ${getErrorMessage(error)}` },
                 { status: 500 }
             )
         }
 
         return NextResponse.json({ success: true, type: 'premium' })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Upgrade API error:', error)
         return NextResponse.json(
-            { error: error.message || 'Failed to upgrade subscription' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

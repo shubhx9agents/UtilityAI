@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 import { rateLimit, API_RATE_LIMIT } from '@/lib/security'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export async function GET(request: NextRequest) {
     try {
@@ -104,10 +105,10 @@ export async function GET(request: NextRequest) {
                 'Content-Disposition': `attachment; filename="user_data_export_${userId}_${Date.now()}.json"`,
             },
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('User export API error:', error)
         return NextResponse.json(
-            { error: error.message || 'Data export failed' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

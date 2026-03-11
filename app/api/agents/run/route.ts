@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { aiService } from '@/lib/ai/agents'
 import { AgentType } from '@/types'
 import { preCheckAgentCredit, deductAgentCreditOnSuccess, creditExhaustedResponse } from '@/lib/credits'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export const maxDuration = 300 // Allow up to 300 seconds for long generation tasks (deep research, book writing)
 
@@ -63,11 +64,11 @@ export async function POST(request: NextRequest) {
         await deductAgentCreditOnSuccess(user.id, agent_type)
 
         return NextResponse.json(response)
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Agent API Error:', error)
         // No credit deducted — error paths never charge
         return NextResponse.json(
-            { error: error.message || 'Failed to run agent' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

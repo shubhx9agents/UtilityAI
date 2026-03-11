@@ -60,6 +60,8 @@ import remarkGfm from 'remark-gfm'
 import { DeepResearchRenderer } from '@/components/deep-research-renderer'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from 'sonner'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { getErrorMessage } from '@/lib/types/errors'
 import { useCredits } from '@/contexts/CreditsContext'
 import { useSubscription } from '@/contexts/SubscriptionContext'
 import { ExhaustedBanner } from '@/components/credits/ExhaustedBanner'
@@ -342,7 +344,7 @@ const OutputNode = ({ data }: NodeProps<FlowNodeData>) => (
     </div>
 )
 
-export default function CanvasPage() {
+function CanvasPageContent() {
     const { isCanvasExhausted, isAgentExhausted, refetchUsage } = useCredits()
     const { isPremium } = useSubscription()
 
@@ -1872,15 +1874,16 @@ export default function CanvasPage() {
             await fetchExecutionHistory()
 
             setShowResultsDialog(true)
-        } catch (error: any) {
+        } catch (error: unknown) {
             clearExecutionIntervals()
             executionAbortControllerRef.current = null
-            if (cancelRequestedRef.current || error?.name === 'AbortError') {
+            const isAbort = error instanceof Error ? error.name === 'AbortError' : (error as any)?.name === 'AbortError'
+            if (cancelRequestedRef.current || isAbort) {
                 toast.success('Execution stopped')
                 return
             }
 
-            console.error('Failed to execute workflow:', error)
+            console.error('Failed to execute workflow:', getErrorMessage(error))
             setStepStatuses(prev => {
                 const next = { ...prev }
                 const runningStepId = Object.keys(next).find(stepId => next[stepId] === 'running')
@@ -3837,3 +3840,10 @@ export default function CanvasPage() {
     )
 }
 
+export default function CanvasPage() {
+    return (
+        <ErrorBoundary>
+            <CanvasPageContent />
+        </ErrorBoundary>
+    )
+}

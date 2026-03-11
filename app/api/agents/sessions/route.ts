@@ -4,6 +4,7 @@ import { AgentSession } from '@/types'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 import { createSessionSchema, validateInput, validationErrorResponse } from '@/lib/validations'
 import { sanitizeJson } from '@/utils/sanitize'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export async function POST(request: NextRequest) {
     try {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
         if (error) {
             console.error('Error creating session:', error)
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         // Log audit event
@@ -75,10 +76,10 @@ export async function POST(request: NextRequest) {
         })
 
         return NextResponse.json({ data })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Session API Error:', error)
         return NextResponse.json(
-            { error: error.message || 'Failed to create session' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }
@@ -113,14 +114,14 @@ export async function GET(request: NextRequest) {
 
         if (error) {
             console.error('Error fetching sessions:', error)
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         return NextResponse.json({ data })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Session API Error:', error)
         return NextResponse.json(
-            { error: error.message || 'Failed to fetch sessions' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserPlan, getUserUsage, PLAN_LIMITS } from '@/lib/credits'
+import { getErrorMessage } from '@/lib/types/errors'
 
 /**
  * GET /api/credits/usage
@@ -42,10 +43,10 @@ export async function GET(_request: NextRequest) {
                 // by_agent removed — enforcement is now aggregate-only
             },
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Credits usage API error:', error)
         return NextResponse.json(
-            { error: error.message || 'Failed to fetch usage' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

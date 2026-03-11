@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 import { rateLimit, AUTH_RATE_LIMIT } from '@/lib/security'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export async function POST(request: NextRequest) {
     try {
@@ -63,10 +64,10 @@ export async function POST(request: NextRequest) {
             success: true,
             message: 'Your account and all associated data have been permanently deleted.',
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('User delete API error:', error)
         return NextResponse.json(
-            { error: error.message || 'Account deletion failed' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

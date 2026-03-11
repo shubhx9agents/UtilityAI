@@ -4,6 +4,7 @@ import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 import { loginSchema, validateInput, validationErrorResponse } from '@/lib/validations'
 import { sanitizeEmail } from '@/utils/sanitize'
 import { rateLimit, AUTH_RATE_LIMIT, getClientIp, recordFailedLogin, clearFailedLogins, isIpBlocked } from '@/lib/security'
+import { getErrorMessage } from '@/lib/types/errors'
 
 export async function POST(request: NextRequest) {
     try {
@@ -53,11 +54,11 @@ export async function POST(request: NextRequest) {
                 userEmail: sanitizedEmail,
                 action: AUDIT_ACTIONS.LOGIN_FAILED,
                 resourceType: 'user',
-                details: { email: sanitizedEmail, reason: error.message },
+                details: { email: sanitizedEmail, reason: getErrorMessage(error) },
                 request,
             })
 
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 })
         }
 
         // Clear failed login attempts on success
@@ -77,10 +78,10 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ data })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Login API error:', error)
         return NextResponse.json(
-            { error: error.message || 'Login failed' },
+            { error: getErrorMessage(error) },
             { status: 500 }
         )
     }

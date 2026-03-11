@@ -25,6 +25,8 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { getErrorMessage } from '@/lib/types/errors'
 import { AgentSessionHistory } from '@/components/agent-session-history'
 import KindleBookReader from '@/components/KindleBookReader'
 import { useCredits } from '@/contexts/CreditsContext'
@@ -48,7 +50,7 @@ const IMAGE_MODEL_OPTIONS = [
     { value: 'seedream-4-0-250828', label: 'Seedream 4 (BytePlus)' },
 ]
 
-export default function AgentPage() {
+function AgentPageContent() {
     const params = useParams()
     const agentId = params.agentId as AgentType
     const agent = AGENT_CONFIGS[agentId]
@@ -365,9 +367,9 @@ export default function AgentPage() {
             } else if (data.error) {
                 setError(data.error)
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Agent error:', error)
-            setError(error.message || 'Failed to get response from AI agent')
+            setError(getErrorMessage(error))
         } finally {
             setLoading(false)
         }
@@ -1883,5 +1885,13 @@ export default function AgentPage() {
                 </DialogContent>
             </Dialog>
         </div>
+    )
+}
+
+export default function AgentPage() {
+    return (
+        <ErrorBoundary>
+            <AgentPageContent />
+        </ErrorBoundary>
     )
 }

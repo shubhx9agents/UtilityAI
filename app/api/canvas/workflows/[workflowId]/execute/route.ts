@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { workflowExecutionService } from '@/lib/ai/workflow-executor'
+import { getErrorMessage } from '@/lib/types/errors'
 
 type OnboardingStepOutputs = Record<string, any>
 
@@ -155,9 +156,9 @@ export async function POST(
         )
 
         return NextResponse.json(result)
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Execute workflow error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }
 
@@ -184,12 +185,12 @@ export async function GET(
             .limit(20)
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
         }
 
         return NextResponse.json({ executions: data })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Get executions error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 }
