@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 })
         }
 
-        const rateLimitResult = rateLimit(request, AUTH_RATE_LIMIT)
+        const rateLimitResult = await rateLimit(request, AUTH_RATE_LIMIT)
         if (!rateLimitResult.allowed) {
             return rateLimitResult.response!
         }

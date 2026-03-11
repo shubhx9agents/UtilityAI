@@ -133,6 +133,8 @@ export const AUDIT_ACTIONS = {
     USER_LOGOUT: 'user.logout' as AuditAction,
     USER_SIGNUP: 'user.signup' as AuditAction,
     USER_PASSWORD_RESET: 'user.password_reset' as AuditAction,
+    USER_DELETED: 'user.deleted' as AuditAction,
+    USER_DATA_EXPORT: 'user.data_export' as AuditAction,
 
     // Session actions
     SESSION_CREATED: 'session.created' as AuditAction,

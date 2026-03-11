@@ -167,6 +167,8 @@ export type AuditAction =
     | 'user.logout'
     | 'user.signup'
     | 'user.password_reset'
+    | 'user.deleted'
+    | 'user.data_export'
     | 'session.created'
     | 'session.updated'
     | 'session.deleted'

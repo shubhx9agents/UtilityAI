@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { CreditsProvider } from "@/contexts/CreditsContext";
 import { UpgradeModal } from "@/components/ui/UpgradeModal";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-heading" });
@@ -37,6 +38,7 @@ export default function RootLayout({
               <CreditsProvider>
                 {children}
                 <UpgradeModal />
+                <CookieConsentBanner />
               </CreditsProvider>
             </SubscriptionProvider>
           </AuthProvider>

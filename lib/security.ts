@@ -4,13 +4,23 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { Redis } from '@upstash/redis'
 
 // ============================================================================
 // RATE LIMITING
 // ============================================================================
 
-// In-memory rate limit store (for single instance deployments)
-// For production with multiple instances, use Redis or similar
+// Distributed rate limit store via Upstash Redis (serverless-safe)
+// Falls back to in-memory Map when UPSTASH env vars are not configured
+let redis: Redis | null = null
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+}
+
+// In-memory fallback (used only when Redis is not configured)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
 export interface RateLimitConfig {
@@ -62,13 +72,38 @@ export function getClientIp(request: NextRequest): string {
  * Check if request is rate limited
  * Returns true if rate limited, false if allowed
  */
-export function isRateLimited(
+export async function isRateLimited(
     identifier: string,
     config: RateLimitConfig = DEFAULT_RATE_LIMIT
-): { limited: boolean; remaining: number; resetTime: number } {
+): Promise<{ limited: boolean; remaining: number; resetTime: number }> {
     const now = Date.now()
-    const key = identifier
+    const key = `ratelimit:${identifier}`
 
+    // Use Redis if available (distributed, serverless-safe)
+    if (redis) {
+        try {
+            const windowSeconds = Math.ceil(config.windowMs / 1000)
+            // Atomic increment; creates key with value 1 if it doesn't exist
+            const count = await redis.incr(key)
+
+            // Set expiry only on the first request of a new window
+            if (count === 1) {
+                await redis.expire(key, windowSeconds)
+            }
+
+            const limited = count > config.maxRequests
+            const remaining = Math.max(0, config.maxRequests - count)
+            const ttl = await redis.ttl(key)
+            const resetTime = now + (ttl > 0 ? ttl * 1000 : config.windowMs)
+
+            return { limited, remaining, resetTime }
+        } catch (error) {
+            // If Redis fails, fall through to in-memory fallback
+            console.warn('Upstash Redis rate limit error, falling back to in-memory:', error)
+        }
+    }
+
+    // In-memory fallback
     // Get or create rate limit entry
     let entry = rateLimitStore.get(key)
 
@@ -100,15 +135,15 @@ export function isRateLimited(
 /**
  * Rate limit middleware for API routes
  */
-export function rateLimit(
+export async function rateLimit(
     request: NextRequest,
     config: RateLimitConfig = DEFAULT_RATE_LIMIT
-): { allowed: boolean; response?: NextResponse } {
+): Promise<{ allowed: boolean; response?: NextResponse }> {
     const ip = getClientIp(request)
     const path = request.nextUrl.pathname
     const identifier = `${ip}:${path}`
 
-    const result = isRateLimited(identifier, config)
+    const result = await isRateLimited(identifier, config)
 
     if (result.limited) {
         const retryAfter = Math.ceil((result.resetTime - Date.now()) / 1000)
@@ -268,10 +303,12 @@ if (typeof setInterval !== 'undefined') {
     setInterval(() => {
         const now = Date.now()
 
-        // Clean rate limit store
-        for (const [key, entry] of rateLimitStore.entries()) {
-            if (now > entry.resetTime) {
-                rateLimitStore.delete(key)
+        // Clean in-memory rate limit store (only used when Redis is not configured)
+        if (!redis) {
+            for (const [key, entry] of rateLimitStore.entries()) {
+                if (now > entry.resetTime) {
+                    rateLimitStore.delete(key)
+                }
             }
         }
 

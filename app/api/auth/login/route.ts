@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Apply rate limiting for auth endpoints (5 attempts per 15 minutes)
-        const rateLimitResult = rateLimit(request, AUTH_RATE_LIMIT)
+        const rateLimitResult = await rateLimit(request, AUTH_RATE_LIMIT)
         if (!rateLimitResult.allowed) {
             return rateLimitResult.response!
         }

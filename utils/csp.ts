@@ -45,6 +45,7 @@ export const DEFAULT_CSP_DIRECTIVES: CSPDirectives = {
         'https://*.supabase.co',
         'https://*.googleusercontent.com',
         'https://api.groq.com',
+        'https://images.unsplash.com',
     ],
     'font-src': [
         "'self'",
