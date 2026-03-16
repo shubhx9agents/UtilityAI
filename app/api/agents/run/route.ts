@@ -4,6 +4,7 @@ import { aiService } from '@/lib/ai/agents'
 import { AgentType } from '@/types'
 import { preCheckAgentCredit, deductAgentCreditOnSuccess, creditExhaustedResponse } from '@/lib/credits'
 import { getErrorMessage } from '@/lib/types/errors'
+import { generateCacheKey, getCachedGeneration, setCachedGeneration } from '@/lib/cache'
 
 export const maxDuration = 300 // Allow up to 300 seconds for long generation tasks (deep research, book writing)
 
@@ -17,13 +18,24 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { agent_type, input, context = {} } = body
+        const { agent_type, input, context = {}, forceRefresh = false } = body
 
         if (!agent_type || !input) {
             return NextResponse.json(
                 { error: 'Missing required fields: agent_type and input' },
                 { status: 400 }
             )
+        }
+
+        // ── 0. Check Cache (Fast Path) ──
+        const cacheKey = generateCacheKey(user.id, agent_type, input, context)
+        
+        if (!forceRefresh) {
+            const cachedResult = await getCachedGeneration(cacheKey)
+            if (cachedResult) {
+                console.log(`[Cache Hit] Returning cached generation for ${agent_type} (user: ${user.id}). Skipped credit deduction.`)
+                return NextResponse.json(cachedResult)
+            }
         }
 
         // ── 1. Pre-check credit limit (fast read-only gate, no deduction yet) ──
@@ -58,6 +70,9 @@ export async function POST(request: NextRequest) {
                 details: responseText.substring(0, 100)
             }, { status: 500 })
         }
+
+        // ── 3. Save to Cache ──
+        await setCachedGeneration(cacheKey, response)
 
         // ── 4. Deduct credit post-success (atomic re-check under DB lock) ──
         console.log(`[Credits] Deducting 1 credit for successful ${agent_type} run for user ${user.id}`)

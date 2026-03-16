@@ -425,7 +425,7 @@ export class WorkflowExecutionService {
             structuredInput += `CONFIGURATION & CONTEXT:\n${configFields.join('\n')}\n\n`
         }
 
-        // Fallback if no specific structure
+        // 3. Fallback if no specific structure
         if (!structuredInput) {
             structuredInput = inputString
             console.log(`[Workflow Debug] Step ${step.step_id} - Using raw input string`)
@@ -437,7 +437,36 @@ export class WorkflowExecutionService {
         console.log(`[Workflow Debug] Step ${step.step_id} (${step.agent_id}) - Final input object keys:`, Object.keys(input))
         console.log(`[Workflow Debug] Step ${step.step_id} - Structured input preview:`, structuredInput.substring(0, 500))
 
+        // 4. Try to fetch from Redis Cache to save API costs
+        // We do NOT deduct credits here, so cache hits just make it faster/cheaper without changing billing
+        const { generateCacheKey, getCachedGeneration, setCachedGeneration } = await import('@/lib/cache')
+        // Using 'canvas_system' as the userId since Canvas steps run server-side as part of a larger billable workflow
+        const cacheKey = generateCacheKey('canvas_system', agentType, structuredInput || inputString, input)
+        
+        try {
+            const cachedResult = await getCachedGeneration(cacheKey)
+            if (cachedResult) {
+                console.log(`[Canvas Cache Hit] Returning cached generation for ${agentType} at step ${step.step_id}.`)
+                return {
+                    response: cachedResult.response,
+                    refined_prompt: cachedResult.refined_prompt,
+                    agent_type: agentType,
+                    step_id: step.step_id
+                }
+            }
+        } catch (e) {
+            console.log('Cache read failed for canvas step, continuing normally:', e)
+        }
+
+        // 5. Execute API call
         const result = await aiService.runAgent(agentType, structuredInput || inputString, input)
+
+        // 6. Save successful generation to Cache
+        try {
+             await setCachedGeneration(cacheKey, result)
+        } catch (e) {
+             console.log('Cache write failed for canvas step, ignoring:', e)
+        }
 
         return {
             response: result.response,

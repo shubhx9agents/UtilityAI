@@ -264,7 +264,7 @@ function AgentPageContent() {
         }
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent, forceRefresh = false) => {
         e.preventDefault()
         setLoading(true)
         setResponse('')
@@ -316,7 +316,8 @@ function AgentPageContent() {
                 body: JSON.stringify({
                     agent_type: agentId,
                     input: fullInput,
-                    context
+                    context,
+                    forceRefresh
                 }),
             })
 
@@ -1476,6 +1477,24 @@ function AgentPageContent() {
 
                                         <div className="flex flex-col gap-3">
                                             {/* Top row of buttons */}
+                                            <div className="flex gap-2 w-full max-w-sm mt-4">
+                                                <Button
+                                                    className="w-full bg-warm-primary hover:bg-warm-primary/90 text-primary-foreground"
+                                                    onClick={() => setResponse('')}
+                                                >
+                                                    <RotateCcw className="w-4 h-4 mr-2" />
+                                                    Generate New Output
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full"
+                                                    onClick={(e) => handleSubmit(e, true)}
+                                                    disabled={loading}
+                                                >
+                                                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+                                                    Regenerate Exactly
+                                                </Button>
+                                            </div>
                                             <div className="flex gap-3">
                                                 {formStep > 0 && (
                                                     <Button
@@ -1544,6 +1563,15 @@ function AgentPageContent() {
                                                     )}
                                                 </Button>
                                             )}
+                                            <Button
+                                                variant="outline"
+                                                className="w-full flex items-center justify-center gap-2"
+                                                onClick={(e) => handleSubmit(e, true)}
+                                                disabled={loading}
+                                            >
+                                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                                                Regenerate
+                                            </Button>
                                         </div>
                                     </div>
                                 </form>
