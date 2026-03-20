@@ -91,7 +91,7 @@ Do not compress detail.`,
     },
     linkedin_headshot: {
         system_message: 'Generate a professional LinkedIn headshot from any image.',
-        questions: ['User Image', 'Instructional Prompt', 'Image Model'],
+        questions: ['User Image', 'Image Model'],
         image_fields: ['User Image'],
     },
     course_generator: {
@@ -753,50 +753,64 @@ No other text. No explanations.`
 
     private async runLinkedInHeadshot(userInput: string, context: Record<string, any>): Promise<{ response: string; refined_prompt: string }> {
         const groqApiKey = process.env.GROQ_API_KEY
-        const bytePlusKey = process.env.BYTEPLUS_API_KEY
+        // LinkedIn headshot always uses Gemini — aspect ratio always 1:1 Square
         const imageModel = this.resolveImageModel(context)
-        const aspectRatio = context.aspect_ratio || 'Square'
-        const { width, height } = this.getDimensions(aspectRatio)
+        const aspectRatio = 'Square'
 
         if (!groqApiKey) {
             throw new Error('GROQ_API_KEY is missing in .env.local')
         }
 
-        if (this.isBytePlusModel(imageModel) && !bytePlusKey) {
-            throw new Error('BYTEPLUS_API_KEY is missing in .env.local')
-        }
-
         try {
+            // Collect user portrait images from context
+            const contextImages = Object.entries(context)
+                .filter(([key, val]) => {
+                    if (typeof val !== 'string' || !val.startsWith('data:image/')) return false
+                    const k = key.toLowerCase()
+                    return k.includes('user_image') || k.includes('user_photo') || k.includes('headshot') || k === 'user_image'
+                })
+                .map(([, val]) => val as string)
+            // Fallback: use first image in context if none found
+            if (contextImages.length === 0) {
+                const fallback = Object.values(context).find(val => typeof val === 'string' && (val as string).startsWith('data:image/'))
+                if (fallback) contextImages.push(fallback as string)
+            }
+
+            // ── TEMPLATE PATH ────────────────────────────────────────────────
+            // If a template was selected, use it directly — skip Groq entirely
+            const selectedTemplate = typeof context.headshot_template === 'string' ? context.headshot_template.trim() : ''
+            if (selectedTemplate) {
+                console.log(`[Headshot] Using template: "${selectedTemplate.substring(0, 80)}..."`)
+                const imageUrl = await this.runGeminiImageGeneration(selectedTemplate, contextImages, imageModel, aspectRatio)
+                return { response: imageUrl, refined_prompt: selectedTemplate }
+            }
+
+            // ── CUSTOM / ADVANCED PATH ────────────────────────────────────────
+            // No template selected — use Groq to refine based on user preferences
+            console.log(`[Headshot] Using Groq refinement`)
             const backgroundPreference = typeof context.headshot_background === 'string' ? context.headshot_background : ''
             const outfitPreference = typeof context.headshot_outfit === 'string' ? context.headshot_outfit : ''
-            // Also read the instructional_prompt field added to the agent config
-            const instructionalPrompt = typeof context.instructional_prompt === 'string'
-                ? context.instructional_prompt.trim()
-                : (typeof context['Instructional Prompt'] === 'string' ? context['Instructional Prompt'].trim() : '')
             const preferenceNotes = [
-                instructionalPrompt ? `User style request: ${instructionalPrompt}` : '',
                 backgroundPreference ? `Preferred background: ${backgroundPreference}` : '',
                 outfitPreference ? `Preferred attire: ${outfitPreference}` : ''
             ].filter(Boolean).join('\n')
 
-            // 1. Groq Call - Refine the prompt for LinkedIn Professionalism
-            const systemMessage = `
-            You are an expert AI prompt engineer specializing in professional photography and portraiture.
-            Your task is to take a user's image and request, and generate a highly detailed, comprehensive prompt for an AI image generator (BytePlus seedream-4-0).
-            
-            The goal is to create a "Natural LinkedIn Professional Photograph".
-            
-            CRITICAL REQUIREMENTS:
-            1. The user's face MUST NOT CHANGE. It must be perfectly preserved and look very realistic.
-            2. The style must be professional, high-end, and natural (avoid over-retouching).
-            3. If the user provided a style request, follow it as the primary directive for background, attire, and mood.
-            4. Detailed background: Use the user's preferred background if provided. Otherwise pick a neutral office, modern library, or soft-focus minimalist architectural background.
-            5. Lighting: Soft cinematic studio lighting, butterfly lighting, or natural window light.
-            6. Attire: Use the user's preferred attire if provided. Otherwise choose professional business wear (blazer, suit, or smart professional blouse/shirt).
-            7. Resolution: High definition, 8k, sharp focus on the eyes, cinematic quality.
-            
-            Output ONLY the refined prompt text.
-            `.trim()
+            const systemMessage = `You are an expert AI prompt engineer specializing in professional photography and portraiture.
+Your task is to take a user's image and request, and generate a highly detailed, comprehensive prompt for an AI image generator.
+
+The goal is to create a "Natural LinkedIn Professional Photograph".
+
+CRITICAL REQUIREMENTS:
+1. The user's face MUST NOT CHANGE. It must be perfectly preserved and look very realistic.
+2. The style must be professional, high-end, and natural (avoid over-retouching).
+3. If the user provided a style request, follow it as the primary directive for background, attire, and mood.
+4. Detailed background: Use the user's preferred background if provided. Otherwise pick a neutral office, modern library, or soft-focus minimalist architectural background.
+5. Lighting: Soft cinematic studio lighting, butterfly lighting, or natural window light.
+6. Attire: Use the user's preferred attire if provided. Otherwise choose professional business wear (blazer, suit, or smart professional blouse/shirt).
+7. Resolution: High definition, 8k, sharp focus on the eyes, cinematic quality.
+8. Square 1:1 composition — head and shoulders framing, centered.
+
+Output ONLY the refined prompt text.`.trim()
 
             const groqUserInput = preferenceNotes ? `${userInput}\n${preferenceNotes}` : userInput
 
@@ -820,64 +834,11 @@ No other text. No explanations.`
             }
 
             const groqData = await groqRes.json()
-            const refinedPrompt = groqData.choices?.[0]?.message?.content || "Professional LinkedIn headshot, corporate style, high quality"
+            const refinedPrompt = groqData.choices?.[0]?.message?.content || 'Professional LinkedIn headshot, corporate style, high quality'
 
-            // 2. Image Generation (Gemini default, BytePlus optional)
-            // Only pick up user portrait images — NOT base_image/reference_image (those belong to image_generation)
-            const contextImages = Object.entries(context)
-                .filter(([key, val]) => {
-                    if (typeof val !== 'string' || !val.startsWith('data:image/')) return false
-                    const k = key.toLowerCase()
-                    return k.includes('user_image') || k.includes('user_photo') || k.includes('headshot') || k === 'user_image'
-                })
-                .map(([, val]) => val as string)
-            // Fallback: if no specific user portrait field found, use the first image in context
-            if (contextImages.length === 0) {
-                const fallback = Object.values(context).find(val => typeof val === 'string' && (val as string).startsWith('data:image/'))
-                if (fallback) contextImages.push(fallback as string)
-            }
+            const imageUrl = await this.runGeminiImageGeneration(refinedPrompt, contextImages, imageModel, aspectRatio)
 
-            const imageUrl = this.isBytePlusModel(imageModel)
-                ? await (async () => {
-                    const body = {
-                        model: imageModel,
-                        prompt: refinedPrompt,
-                        image: contextImages.length > 0
-                            ? [this.ensureDataUrl(contextImages[0])]
-                            : [this.ensureDataUrl(context.user_image)].filter(Boolean),
-                        response_format: 'url',
-                        size: `${width}x${height}`
-                    }
-                    console.log('[BytePlus LinkedIn Request Body]:', JSON.stringify({ ...body, image: body.image.map(i => i.substring(0, 50) + '...') }))
-
-                    const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${bytePlusKey}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(body)
-                    })
-
-                    if (!bytePlusRes.ok) {
-                        const text = await bytePlusRes.text()
-                        console.error('BytePlus API Error:', text)
-                        throw new Error(`BytePlus API Error: ${bytePlusRes.status} - ${text.substring(0, 200)}`)
-                    }
-
-                    const bytePlusData = await bytePlusRes.json()
-                    const url = bytePlusData.data?.[0]?.url || bytePlusData.url
-                    if (!url) {
-                        throw new Error('Image Generation failed: No URL returned from BytePlus.')
-                    }
-                    return url
-                })()
-                : await this.runGeminiImageGeneration(refinedPrompt, contextImages, imageModel, aspectRatio)
-
-            return {
-                response: imageUrl,
-                refined_prompt: refinedPrompt
-            }
+            return { response: imageUrl, refined_prompt: refinedPrompt }
         } catch (error: unknown) {
             console.error('LinkedIn Headshot error:', error)
             throw error

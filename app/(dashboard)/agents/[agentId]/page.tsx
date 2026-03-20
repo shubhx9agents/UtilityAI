@@ -67,6 +67,8 @@ function AgentPageContent() {
     const [error, setError] = useState('')
     const [headshotBackground, setHeadshotBackground] = useState('')
     const [headshotOutfit, setHeadshotOutfit] = useState('')
+    const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+    const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
     const [imageModel, setImageModel] = useState(DEFAULT_IMAGE_MODEL)
     const [hasAutofilled, setHasAutofilled] = useState(false)
     const [showOnboardingBanner, setShowOnboardingBanner] = useState(false)
@@ -296,7 +298,8 @@ function AgentPageContent() {
                 ...(backgroundTemplate ? { headshot_background: backgroundTemplate } : {}),
                 ...(outfitTemplate ? { headshot_outfit: outfitTemplate } : {}),
                 image_model: formData['Image Model'] || imageModel,
-                aspect_ratio: aspectRatio
+                aspect_ratio: 'Square',
+                ...(selectedTemplate ? { headshot_template: selectedTemplate } : {})
             }
         } else {
             // Construct the input from form data
@@ -1291,7 +1294,7 @@ function AgentPageContent() {
                                     <div className="space-y-6">
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="flex gap-1">
-                                                {Array.from({ length: agentId === 'linkedin_headshot' ? 3 : Math.ceil(agent.questions.length / 3) }).map((_, i) => (
+                                                {Array.from({ length: agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3) }).map((_, i) => (
                                                     <div
                                                         key={i}
                                                         className={`h-1 w-8 rounded-full transition-all duration-300 ${formStep >= i ? 'bg-amber-500' : 'bg-white/10'}`}
@@ -1299,7 +1302,7 @@ function AgentPageContent() {
                                                 ))}
                                             </div>
                                             <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
-                                                Step {formStep + 1} of {agentId === 'linkedin_headshot' ? 3 : Math.ceil(agent.questions.length / 3)}
+                                                Step {formStep + 1} of {agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3)}
                                             </span>
                                         </div>
 
@@ -1351,7 +1354,10 @@ function AgentPageContent() {
                                                                 <SelectValue placeholder="Select high-performance model" />
                                                             </SelectTrigger>
                                                             <SelectContent className="bg-[#0a0a0a] border-white/10 text-white rounded-2xl">
-                                                                {IMAGE_MODEL_OPTIONS.map(option => (
+                                                                {(agentId === 'linkedin_headshot'
+                                                                    ? IMAGE_MODEL_OPTIONS.filter(o => o.value !== 'seedream-4-0-250828')
+                                                                    : IMAGE_MODEL_OPTIONS
+                                                                ).map(option => (
                                                                     <SelectItem key={option.value} value={option.value} className="focus:bg-white/10 rounded-xl my-1">
                                                                         {option.label}
                                                                     </SelectItem>
@@ -1384,59 +1390,147 @@ function AgentPageContent() {
 
                                     {formStep === (agentId === 'linkedin_headshot' ? 2 : Math.ceil(agent.questions.length / 3) - 1) && (
                                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                            {(agentId === 'linkedin_headshot' || agentId === 'image_generation') && (
-                                                <div className="space-y-6 pt-6 border-t border-white/5">
-                                                    {agentId === 'linkedin_headshot' && (
-                                                        <div className="grid gap-6 sm:grid-cols-2">
-                                                            <div className="space-y-3">
-                                                                <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1">Environment</Label>
-                                                                <Select
-                                                                    value={headshotBackground}
-                                                                    onValueChange={(value) => {
-                                                                        setHeadshotBackground(value)
-                                                                        handleInputChange('Background Template', value)
-                                                                    }}
-                                                                >
-                                                                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-12 rounded-2xl">
-                                                                        <SelectValue placeholder="Background" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent className="bg-[#0a0a0a] border-white/10 text-white rounded-xl">
-                                                                        <SelectItem value="Auto (professional neutral)">System Default</SelectItem>
-                                                                        <SelectItem value="Office (modern corporate workspace)">Corporate Office</SelectItem>
-                                                                        <SelectItem value="Office (glass wall modern)">Modern Glass Office</SelectItem>
-                                                                        <SelectItem value="Staircase (modern architectural)">Architectural Stairs</SelectItem>
-                                                                        <SelectItem value="Library (modern professional)">Study/Library</SelectItem>
-                                                                        <SelectItem value="Window (soft natural light)">Natural Window</SelectItem>
-                                                                        <SelectItem value="Meeting room (executive boardroom)">Executive Boardroom</SelectItem>
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </div>
-                                                            <div className="space-y-3">
-                                                                <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1">Attire</Label>
-                                                                <Select
-                                                                    value={headshotOutfit}
-                                                                    onValueChange={(value) => {
-                                                                        setHeadshotOutfit(value)
-                                                                        handleInputChange('Clothing Template', value)
-                                                                    }}
-                                                                >
-                                                                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-12 rounded-2xl">
-                                                                        <SelectValue placeholder="Outfit" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent className="bg-[#0a0a0a] border-white/10 text-white rounded-xl">
-                                                                        <SelectItem value="Auto (professional business wear)">Business Professional</SelectItem>
-                                                                        <SelectItem value="Blazer">Modern Blazer</SelectItem>
-                                                                        <SelectItem value="Suit">Executive Suit</SelectItem>
-                                                                        <SelectItem value="Vest">Formal Vest</SelectItem>
-                                                                        <SelectItem value="Shirt and trousers">Smart Casual Shirt</SelectItem>
-                                                                        <SelectItem value="Blouse">Professional Blouse</SelectItem>
-                                                                        <SelectItem value="Business casual">Relaxed Business</SelectItem>
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </div>
-                                                        </div>
-                                                    )}
 
+                                            {/* ── LinkedIn Headshot: Template Grid + Advanced Options ── */}
+                                            {agentId === 'linkedin_headshot' && (
+                                                <div className="space-y-6 pt-6 border-t border-white/5">
+                                                    {/* Template Grid */}
+                                                    <div className="space-y-3">
+                                                        <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1">Choose a Style Template</Label>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            {[
+                                                                {
+                                                                    id: 'architectural-stairs',
+                                                                    name: 'Architectural Stairs',
+                                                                    badge: 'SaaS Founder',
+                                                                    prompt: `A hyper-realistic, photo-realistic portrait using the uploaded face with 100% facial accuracy and crisp micro-details (no altered features, no altered facial proportions, no chest hair). The subject is seated casually on modern white concrete stairs inside a minimalist architectural space. Strong rectangular sunlight from window slats creates sharp geometric highlights and soft ambient shadows across the wall and steps. Low front-left wide lifestyle angle, capturing the relaxed full-body pose, staircase depth, sunlit wall, and surrounding negative space.\n\nPose: Leaning slightly back against the wall, shoulders relaxed but upright, left arm resting confidently on the stair beside them, right arm casually placed over a bent knee; one leg bent, one extended — composed, decisive, founder-level calm.\n\nOutfit: Matte charcoal, graphite, or deep navy tailored blazer with modern minimal structure (no shine, no heavy padding), premium white or soft off-white cotton shirt (top button open, no tie), tailored dark grey or stone trousers with clean lines. Minimal black or dark brown leather loafers or sleek dress shoes. No flashy accessories. Optional understated silver or steel watch only if it feels intentional.\n\nLighting: Strong natural daylight with crisp-edged horizontal light bands; controlled contrast with soft highlight roll-off on the face; directional shadows sculpting facial structure while keeping skin tones neutral and executive-clean.\n\nEnvironment: Pale grey/white architectural wall, refined concrete stair texture, sharp minimalist geometry. A black or dark leather tech work bag placed subtly on a lower step — modern founder context without distraction.\n\nColor Palette: Cool executive neutrals — charcoal, navy, white, soft greys — restrained palette with subtle cinematic cool shadows and natural skin warmth.\n\nLens & Depth: Moderate depth of field; face, blazer fabric, and upper body razor-sharp; background stairs and wall softly fading; slight foreground stair blur adding depth and realism.\n\nMood: Visionary, intelligent, grounded authority; modern SaaS AI founder energy; minimalist editorial realism that communicates trust, scale, and long-term thinking — authentic, premium, and distinctly non-AI-looking.\n\nQuality: 8K hyper-realistic, true photographic grain, sharp eyes and skin texture, zero AI artifacts, cinematic depth of field. Square 1:1 crop.`
+                                                                },
+                                                                {
+                                                                    id: 'forbes-cover',
+                                                                    name: 'Forbes Cover',
+                                                                    badge: 'Editorial',
+                                                                    prompt: `A hyper-realistic, photo-realistic portrait using the uploaded face with 100% facial accuracy and crisp micro-details (no altered features, no facial distortion, no chest hair). The subject is standing confidently in a refined executive environment designed specifically for magazine cover composition. The framing is vertical, upper-torso dominant, with generous negative space above and to one side.\n\nPose: Upright, composed stance; shoulders squared but relaxed. One hand resting naturally in the trouser pocket or lightly touching the blazer front; the other relaxed by the side. Chin level, gaze direct into the camera — calm authority, strategic confidence.\n\nOutfit: Impeccably tailored charcoal or deep navy blazer with premium matte fabric texture; crisp white or very light grey shirt (top button open, no tie). Clean, modern executive styling — no pocket square, no bold accessories. Optional minimalist luxury wristwatch only.\n\nExpression: Neutral to subtle half-smile — intelligent, measured, visionary. Not aggressive, not casual.\n\nLighting: Editorial magazine lighting. Soft directional key light sculpting the face; controlled fill to preserve detail; subtle rim light for separation. Balanced contrast suitable for print — no blown highlights, no harsh shadows.\n\nBackground: Minimalist, elegant corporate backdrop — smooth textured grey wall or soft architectural gradient. Clean, timeless, and distraction-free. Background slightly defocused to emphasize facial authority.\n\nColor Palette: Forbes-style executive neutrals — charcoal, navy, graphite, white, cool greys — with natural skin tones and restrained cinematic contrast.\n\nLens & Crop: Medium telephoto editorial portrait lens. Face and upper torso razor-sharp; background softly blurred. Framed for square 1:1 with intentional negative space.\n\nMood: Global SaaS AI leader. Visionary, composed, credible. High-end editorial realism suitable for Forbes cover, Bloomberg Businessweek, and international tech leadership profiles — timeless, powerful, and unmistakably human.`
+                                                                },
+                                                                {
+                                                                    id: 'corporate-interior',
+                                                                    name: 'Corporate Interior',
+                                                                    badge: 'Executive',
+                                                                    prompt: `A hyper-realistic, photo-realistic portrait using the uploaded face with 100% facial accuracy and crisp micro-details (no altered features, no facial distortion, no chest hair). The subject is standing confidently inside a refined, modern architectural space designed for executive portraits. The background features a minimalist corporate environment with clean vertical lines, matte concrete or textured stone walls, subtle glass elements, and soft depth — elegant, global, and timeless.\n\nPose: Standing upright with relaxed confidence; shoulders open, posture straight. One hand resting naturally in the trouser pocket, the other relaxed by the side or lightly adjusting the blazer cuff — calm authority, not posed. Chin level, composed expression with subtle, intelligent confidence.\n\nOutfit: Tailored charcoal, deep navy, or graphite blazer with premium fabric texture; crisp white or very light grey shirt (top button open, no tie). Perfectly fitted trousers in a matching or slightly lighter tone. Polished black or dark brown leather dress shoes. No loud accessories. Optional minimalist executive wristwatch only.\n\nLighting: Controlled natural daylight mixed with soft studio fill. Directional key light from the side to sculpt facial structure; subtle rim light separating the subject from the background. No harsh shadows — clean, editorial, executive lighting.\n\nEnvironment: Minimalist corporate interior — neutral-toned wall, soft architectural depth, faint glass or metallic accents. No logos, no text, no distractions. Background slightly out of focus to maintain authority on the subject.\n\nColor Palette: Executive neutrals — charcoal, navy, graphite, white, cool greys — with restrained contrast and natural skin tones. Subtle cinematic cool shadows, zero saturation spikes.\n\nLens & Depth: Medium telephoto portrait lens (editorial style). Face, eyes, and blazer texture razor-sharp; background softly blurred for separation and depth. No wide-angle distortion.\n\nMood: Calm power, global SaaS leadership, strategic intelligence. Modern AI founder energy — credible, visionary, composed. True photographic realism suitable for Forbes, Bloomberg, and international business press. Clean, timeless, unmistakably human — not AI-like.\n\nQuality: 8K hyper-realistic, true photographic detail, zero AI artifacts. Square 1:1 crop.`
+                                                                },
+                                                                {
+                                                                    id: 'rooftop-skyline',
+                                                                    name: 'Rooftop Skyline',
+                                                                    badge: 'Visionary',
+                                                                    prompt: `A hyper-realistic, photo-realistic portrait using the uploaded face with 100% facial accuracy and crisp micro-details (no altered features, no altered facial proportions). The subject is standing on a modern urban rooftop terrace with a blurred city skyline in the golden-hour background. [Pose: standing relaxed with slight contrapposto, arms loosely at sides or one hand in pocket, confident gaze slightly off-camera] [Outfit: tailored dark blazer, well-fitted dark trousers, open-collar shirt] [Lighting: warm golden hour sunlight from behind and to the right creating a natural rim light, soft reflector fill on the face, cinematic bokeh city lights in background] [Environment: clean rooftop parapet, defocused glass buildings and warm city glow, sky transitioning from deep blue to amber] [Mood: Ambitious, forward-thinking, entrepreneurial premium] [Quality: 8K, hyper-realistic, sharp face and eyes, cinematic golden-hour bokeh] Square 1:1 crop, head-and-shoulders framing.`
+                                                                },
+                                                                {
+                                                                    id: 'glass-office',
+                                                                    name: 'Glass Office',
+                                                                    badge: 'Modern Pro',
+                                                                    prompt: `A hyper-realistic, photo-realistic portrait using the uploaded face with 100% facial accuracy and crisp micro-details (no altered features, no altered facial proportions). The subject is standing in front of a large floor-to-ceiling glass wall inside a premium modern office. Outside the glass, a soft urban skyline is visible in diffused daylight. [Pose: standing upright, slight lean against the glass wall, arms crossed loosely or one hand in pocket, confident direct gaze] [Outfit: slim-fit charcoal or midnight blue blazer, white or pale blue fitted shirt, dark dress trousers] [Lighting: soft diffused natural daylight through the glass, clean even illumination on the face, subtle fill from opposite side] [Environment: frameless glass wall, faint reflections, blurred premium city view] [Mood: Modern, sharp, globally connected executive presence] [Quality: 8K, hyper-realistic, sharp face and eyes, cinematic depth of field] Square 1:1 crop, head-and-shoulders framing.`
+                                                                },
+                                                                {
+                                                                    id: 'library-study',
+                                                                    name: 'Library Study',
+                                                                    badge: 'Thought Leader',
+                                                                    prompt: `A hyper-realistic, photo-realistic portrait using the uploaded face with 100% facial accuracy and crisp micro-details (no altered features, no altered facial proportions). The subject is seated in a refined private library or executive study with floor-to-ceiling bookshelves behind them, defocused to a warm bokeh. [Pose: seated upright in a premium leather or dark wood chair, leaning slightly forward with elbows resting on a desk, hands clasped, engaged and thoughtful expression] [Outfit: tailored navy or charcoal blazer, crisp white or pale shirt, no tie] [Lighting: warm directional desk lamp light from the left, soft ambient fill, window light gently rimming the shoulders] [Environment: dark wood bookshelves filled with books, warm leather textures, a clean desk surface with minimal items] [Mood: Intellectual authority, depth, credibility — professor meets CEO] [Quality: 8K, hyper-realistic, sharp face and eyes, warm cinematic tones] Square 1:1 crop, head-and-shoulders framing.`
+                                                                },
+                                                            ].map((template) => (
+                                                                <button
+                                                                    key={template.id}
+                                                                    type="button"
+                                                                    onClick={() => setSelectedTemplate(selectedTemplate === template.prompt ? null : template.prompt)}
+                                                                    className={`relative flex flex-col gap-1.5 rounded-2xl border p-4 text-left transition-all duration-200 ${
+                                                                        selectedTemplate === template.prompt
+                                                                            ? 'border-amber-500/70 bg-amber-500/10 shadow-[0_0_16px_rgba(245,158,11,0.15)]'
+                                                                            : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8'
+                                                                    }`}
+                                                                >
+                                                                    {selectedTemplate === template.prompt && (
+                                                                        <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-amber-500" />
+                                                                    )}
+                                                                    <span className="text-sm font-semibold text-white leading-tight">{template.name}</span>
+                                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500/70">{template.badge}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                        {selectedTemplate && (
+                                                            <p className="text-[11px] text-white/30 ml-1">Template selected — goes direct to Gemini, no prompt rewriting.</p>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Advanced Options collapsible */}
+                                                    <div className="space-y-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowAdvancedOptions(v => !v)}
+                                                            className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/8 transition-all"
+                                                        >
+                                                            <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Advanced Options</span>
+                                                            <svg
+                                                                className={`h-4 w-4 text-white/40 transition-transform duration-200 ${showAdvancedOptions ? 'rotate-180' : ''}`}
+                                                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                                                            >
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                                            </svg>
+                                                        </button>
+                                                        {showAdvancedOptions && (
+                                                            <div className="grid gap-4 sm:grid-cols-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-white/50 text-[10px] font-bold uppercase tracking-widest ml-1">Environment</Label>
+                                                                    <Select
+                                                                        value={headshotBackground}
+                                                                        onValueChange={(value) => {
+                                                                            setHeadshotBackground(value)
+                                                                            handleInputChange('Background Template', value)
+                                                                        }}
+                                                                    >
+                                                                        <SelectTrigger className="bg-white/5 border-white/10 text-white h-11 rounded-xl">
+                                                                            <SelectValue placeholder="Background" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="bg-[#0a0a0a] border-white/10 text-white rounded-xl">
+                                                                            <SelectItem value="Auto (professional neutral)">System Default</SelectItem>
+                                                                            <SelectItem value="Office (modern corporate workspace)">Corporate Office</SelectItem>
+                                                                            <SelectItem value="Office (glass wall modern)">Modern Glass Office</SelectItem>
+                                                                            <SelectItem value="Staircase (modern architectural)">Architectural Stairs</SelectItem>
+                                                                            <SelectItem value="Library (modern professional)">Study/Library</SelectItem>
+                                                                            <SelectItem value="Window (soft natural light)">Natural Window</SelectItem>
+                                                                            <SelectItem value="Meeting room (executive boardroom)">Executive Boardroom</SelectItem>
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-white/50 text-[10px] font-bold uppercase tracking-widest ml-1">Attire</Label>
+                                                                    <Select
+                                                                        value={headshotOutfit}
+                                                                        onValueChange={(value) => {
+                                                                            setHeadshotOutfit(value)
+                                                                            handleInputChange('Clothing Template', value)
+                                                                        }}
+                                                                    >
+                                                                        <SelectTrigger className="bg-white/5 border-white/10 text-white h-11 rounded-xl">
+                                                                            <SelectValue placeholder="Outfit" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="bg-[#0a0a0a] border-white/10 text-white rounded-xl">
+                                                                            <SelectItem value="Auto (professional business wear)">Business Professional</SelectItem>
+                                                                            <SelectItem value="Blazer">Modern Blazer</SelectItem>
+                                                                            <SelectItem value="Suit">Executive Suit</SelectItem>
+                                                                            <SelectItem value="Vest">Formal Vest</SelectItem>
+                                                                            <SelectItem value="Shirt and trousers">Smart Casual Shirt</SelectItem>
+                                                                            <SelectItem value="Blouse">Professional Blouse</SelectItem>
+                                                                            <SelectItem value="Business casual">Relaxed Business</SelectItem>
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* ── Image Generation: Canvas Dimensions ── */}
+                                            {agentId === 'image_generation' && (
+                                                <div className="space-y-6 pt-6 border-t border-white/5">
                                                     <div className="space-y-3">
                                                         <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1">Canvas Dimensions</Label>
                                                         <Select
@@ -1456,7 +1550,7 @@ function AgentPageContent() {
                                                 </div>
                                             )}
 
-                                            {agentId !== 'image_generation' && (
+                                            {agentId !== 'image_generation' && agentId !== 'linkedin_headshot' && (
                                             <div className="space-y-3 pt-4">
                                                 <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1" htmlFor="additional">Refinement Context (Optional)</Label>
                                                 <textarea
@@ -1523,7 +1617,7 @@ function AgentPageContent() {
                                                         <ChevronRight className="h-5 w-5 ml-2" />
                                                     </Button>
                                                 ) : (
-                                                    isPremium && (
+                                                    isPremium && agentId !== 'linkedin_headshot' && (
                                                         <Button
                                                             type="button"
                                                             variant="outline"
