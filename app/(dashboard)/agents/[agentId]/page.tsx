@@ -44,9 +44,10 @@ import { ParticleCard, GlobalSpotlight } from '@/components/ui/MagicBento'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DeepResearchRenderer } from '@/components/deep-research-renderer'
 
-const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
+const DEFAULT_IMAGE_MODEL = 'nano-banana-pro'
 const IMAGE_MODEL_OPTIONS = [
-    { value: 'nano-banana-pro-preview', label: 'Nano Banana Pro (Gemini)' },
+    { value: 'nano-banana-2',   label: 'Nano Banana 2 (Gemini 3.1 Flash — Fast)' },
+    { value: 'nano-banana-pro', label: 'Nano Banana Pro (Gemini 3 Pro — High Fidelity)' },
     { value: 'seedream-4-0-250828', label: 'Seedream 4 (BytePlus)' },
 ]
 
@@ -1455,6 +1456,7 @@ function AgentPageContent() {
                                                 </div>
                                             )}
 
+                                            {agentId !== 'image_generation' && (
                                             <div className="space-y-3 pt-4">
                                                 <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1" htmlFor="additional">Refinement Context (Optional)</Label>
                                                 <textarea
@@ -1466,6 +1468,7 @@ function AgentPageContent() {
                                                     disabled={loading}
                                                 />
                                             </div>
+                                            )}
                                         </div>
                                     )}
 

@@ -132,7 +132,17 @@ Do not compress detail.`,
 }
 
 
-const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
+// ─── Image Model constants ────────────────────────────────────────────────────
+// Nano Banana 2  = Gemini 3.1 Flash Image Preview  (fast, high-volume)
+// Nano Banana Pro = Gemini 3 Pro Image Preview      (high-fidelity, thinking)
+const GEMINI_MODEL_MAP: Record<string, string> = {
+    'nano-banana-2':   'gemini-3.1-flash-image-preview',
+    'nano-banana':     'gemini-3.1-flash-image-preview',   // legacy alias → flash
+    'nano-banana-pro': 'gemini-3-pro-image-preview',
+    'nano-banana-pro-preview': 'gemini-3-pro-image-preview', // legacy alias → pro
+}
+const GEMINI_MODELS = new Set(Object.keys(GEMINI_MODEL_MAP))
+const DEFAULT_IMAGE_MODEL = 'nano-banana-pro'
 const BYTEPLUS_IMAGE_MODELS = new Set(['seedream-4-0-250828'])
 
 export class AIAgentService {
@@ -144,6 +154,15 @@ export class AIAgentService {
             : (typeof context['Image Model'] === 'string' ? context['Image Model'] : '')
         const trimmed = raw.trim()
         return trimmed || DEFAULT_IMAGE_MODEL
+    }
+
+    /** Returns the actual Gemini API model string for a frontend model key, or null if not a Gemini model */
+    private resolveGeminiApiModel(modelKey: string): string | null {
+        return GEMINI_MODEL_MAP[modelKey] ?? null
+    }
+
+    private isGeminiModel(model: string): boolean {
+        return GEMINI_MODELS.has(model)
     }
 
     private isBytePlusModel(model: string): boolean {
@@ -179,55 +198,53 @@ export class AIAgentService {
     }
 
     private getDimensions(aspectRatio: string = 'Square'): { width: number; height: number; geminiRatio: string } {
-        switch (aspectRatio) {
-            case 'Portrait':
-                return { width: 768, height: 1024, geminiRatio: '3:4' }
-            case 'Landscape':
-                return { width: 1024, height: 768, geminiRatio: '4:3' }
-            case 'Square':
-            default:
-                return { width: 1024, height: 1024, geminiRatio: '1:1' }
+        // Accept both short form ("Square") and full label ("Square (1:1)") from the frontend
+        const ar = aspectRatio.toLowerCase()
+        if (ar.startsWith('portrait') || ar.includes('3:4') || ar.includes('9:16')) {
+            return { width: 1792, height: 2400, geminiRatio: '3:4' }
         }
+        if (ar.startsWith('landscape') || ar.includes('4:3') || ar.includes('16:9')) {
+            return { width: 2400, height: 1792, geminiRatio: '4:3' }
+        }
+        // Square or anything else
+        return { width: 2048, height: 2048, geminiRatio: '1:1' }
     }
 
-    private async runGeminiImageGeneration(prompt: string, images: string[], model: string, aspectRatio: string = 'Square'): Promise<string> {
+    private async runGeminiImageGeneration(prompt: string, images: string[], modelKey: string, aspectRatio: string = 'Square'): Promise<string> {
         const geminiApiKey = process.env.GEMINI_API_KEY
         if (!geminiApiKey) {
             throw new Error('GEMINI_API_KEY is missing in .env.local')
         }
 
-        // Add aspect ratio instruction to prompt since Gemini API doesn't support it in config
-        const aspectRatioInstruction = aspectRatio === 'Portrait'
-            ? ' IMPORTANT: Generate the image in PORTRAIT orientation (vertical, 3:4 aspect ratio, taller than wide).'
-            : aspectRatio === 'Landscape'
-                ? ' IMPORTANT: Generate the image in LANDSCAPE orientation (horizontal, 4:3 aspect ratio, wider than tall).'
-                : ' IMPORTANT: Generate the image in SQUARE format (1:1 aspect ratio, equal width and height).';
+        const geminiModel = this.resolveGeminiApiModel(modelKey) ?? modelKey
+        const { geminiRatio } = this.getDimensions(aspectRatio)
 
-        const enhancedPrompt = prompt + aspectRatioInstruction;
+        console.log(`[Gemini Image] Frontend model key: "${modelKey}"`)
+        console.log(`[Gemini Image] Resolved Gemini API model: "${geminiModel}"`)
+        console.log(`[Gemini Image] Aspect ratio: "${aspectRatio}" → imageConfig.aspectRatio: "${geminiRatio}", imageSize: "2K"`)
 
-        const parts = [{ text: enhancedPrompt }, ...this.buildGeminiImageParts(images)]
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+        const parts = [{ text: prompt }, ...this.buildGeminiImageParts(images)]
+
+        const requestBody = {
+            contents: [{ role: 'user', parts }],
+            generationConfig: {
+                responseModalities: ['TEXT', 'IMAGE'],
+                imageConfig: {
+                    aspectRatio: geminiRatio,
+                    imageSize: '2K',
+                },
             },
-            body: JSON.stringify({
-                contents: [{ role: 'user', parts }],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 2048,
-                    // Note: Gemini API might not support aspectRatio in all versions/models yet, 
-                    // but we pass it if supported. If not, prompt engineering or crop might be needed.
-                    // For now, attempting to pass it or rely on prompt instruction if API fails.
-                    // checking docs, aspectRatio is not standard in v1beta... 
-                    // Let's allow prompt to influence it too.
-                }
-            })
+        }
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
         })
 
         if (!res.ok) {
             const text = await res.text()
-            throw new Error(`Gemini API Error: ${text.substring(0, 200)}`)
+            throw new Error(`Gemini API Error (${geminiModel}): ${text.substring(0, 300)}`)
         }
 
         const data = await res.json()
@@ -235,15 +252,17 @@ export class AIAgentService {
         const imagePart = partsOut.find((part: any) => part.inlineData?.data)
         if (imagePart?.inlineData?.data) {
             const mimeType = imagePart.inlineData.mimeType || 'image/png'
+            console.log(`[Gemini Image] Success — received inline image (${mimeType})`)
             return `data:${mimeType};base64,${imagePart.inlineData.data}`
         }
 
         const textPart = partsOut.find((part: any) => typeof part.text === 'string')
         if (textPart?.text && textPart.text.trim().startsWith('http')) {
+            console.log(`[Gemini Image] Success — received URL`)
             return textPart.text.trim()
         }
 
-        throw new Error('Gemini image generation returned no image data.')
+        throw new Error(`Gemini image generation (${geminiModel}) returned no image data.`)
     }
 
     async runAgent(
@@ -388,7 +407,7 @@ Exclusion Rules:
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
+                model: 'meta-llama/llama-4-scout-17b-16e-instruct',
                 messages: [
                     { role: 'system', content: masterSystemPrompt },
                     {
@@ -548,7 +567,7 @@ The user will give you: title, genre, target audience, tone, purpose, page count
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
+                model: 'meta-llama/llama-4-scout-17b-16e-instruct',
                 messages: [
                     { role: 'system', content: masterSystemPrompt },
                     {
@@ -599,6 +618,13 @@ The user will give you: title, genre, target audience, tone, purpose, page count
         const aspectRatio = context.aspect_ratio || 'Square'
         const { width, height } = this.getDimensions(aspectRatio)
 
+        console.log(`[Image Generation] Selected model key: "${imageModel}"`)
+        console.log(`[Image Generation] Is Gemini: ${this.isGeminiModel(imageModel)}, Is BytePlus: ${this.isBytePlusModel(imageModel)}`)
+        if (this.isGeminiModel(imageModel)) {
+            console.log(`[Image Generation] Gemini API model: "${this.resolveGeminiApiModel(imageModel)}"`)
+        }
+        console.log(`[Image Generation] Aspect ratio input: "${aspectRatio}"`)
+
         if (!groqApiKey) {
             throw new Error('GROQ_API_KEY is missing in .env.local')
         }
@@ -609,15 +635,28 @@ The user will give you: title, genre, target audience, tone, purpose, page count
 
         try {
             // 1. Groq Call - Refine prompt for ad/product image generation
-            const systemMessage = `You are an expert AI image prompt engineer specializing in advertisement and product imagery.
-Your task is to take a user's base image and their instructional prompt, and generate a highly detailed, refined prompt for an AI image generator.
+            const systemMessage = `You are an expert Image Editing Prompt Designer. Your job is to convert the user's request into a **clean, simple, professional editing prompt** for an AI image editor.
 
-CRITICAL REQUIREMENTS:
-1. The output must be an AD IMAGE or PRODUCT IMAGE — NOT a portrait or headshot.
-2. Focus on the user's instructional prompt as the primary directive.
-3. If a base image is provided, describe how to incorporate or transform it per the user's instructions.
-4. Include details about composition, lighting, style, and visual quality.
-5. Output ONLY the refined prompt text — no preamble, no explanation.`.trim()
+### RULES
+- Always refer to:
+  - \`First Image\` = the main image to be edited
+  - \`Second Image\` = the PNG/person image (used for replacement if the user requests it)
+- Never include analysis or descriptions of the original image.
+- Do NOT output sections like PRESERVE, MODIFY, ANALYSIS, INTEGRATION.
+- Only output **one final prompt** describing exactly what edits should be made.
+- Keep the wording clean, direct, and production-ready.
+- Never make assumptions beyond the user's request.
+- Ensure all replaced text is spelled EXACTLY as the user wrote.
+- Ensure unchanged elements remain intact.
+- When replacing a person, integrate \`Second Image\` naturally: correct lighting, shadows, size, position, and orientation. Also Second Image should be mentioned properly in bold [So NANOBANANA should not miss this instruction]
+- When editing background, only change what the user requested.
+
+### OUTPUT FORMAT
+Only output the final prompt in this structure:
+
+"Create an edited version of the First Image with the following changes: [list all changes in one clean paragraph]. Keep all other elements intact and maintain professional quality."
+
+No other text. No explanations.`
 
             // Extract instructional prompt from context if provided separately
             const instructionalPrompt = typeof context.instructional_prompt === 'string'
@@ -636,7 +675,8 @@ CRITICAL REQUIREMENTS:
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
+                    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+                    temperature: 1,
                     messages: [
                         { role: 'system', content: systemMessage },
                         { role: 'user', content: groqUserInput }
@@ -767,7 +807,7 @@ CRITICAL REQUIREMENTS:
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
+                    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
                     messages: [
                         { role: 'system', content: systemMessage },
                         { role: 'user', content: groqUserInput }
@@ -1161,7 +1201,7 @@ Output ONLY a single valid JSON object — no markdown, no code fences, no pream
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
+                    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
                     messages: [
                         { role: 'system', content: GROQ_STRUCTURING_SYSTEM },
                         { role: 'user', content: llmInput }
@@ -1410,7 +1450,7 @@ Output Format: Use Markdown with clear headings for each platform and variation.
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
+                    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
                     messages: [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: `REQUEST:\n${adRequest}\n\nRESEARCH DATA:\n${researchData}${explicitPlatforms ? `\n\n⚠️ PLATFORM RESTRICTION (MANDATORY — DO NOT IGNORE):\nYou MUST generate ads ONLY for the following platform(s): ${explicitPlatforms}.\nDo NOT generate ads for any other platform. If the user said "${explicitPlatforms}", output ONLY ${explicitPlatforms} ads. Zero exceptions.` : ''}` }
@@ -1541,7 +1581,7 @@ Generate the complete masterpiece program structure now using the researched dee
             method: 'POST',
             headers: { 'Authorization': `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
+                model: 'meta-llama/llama-4-scout-17b-16e-instruct',
                 messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
                 temperature: 0.6
             })
@@ -1573,7 +1613,7 @@ Generate the complete masterpiece program structure now using the researched dee
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
+                    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
                     messages: [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: userInput }
