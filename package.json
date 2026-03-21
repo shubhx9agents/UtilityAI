@@ -51,6 +51,7 @@
     "react-dom": "18.2.0",
     "react-hook-form": "^7.71.1",
     "react-markdown": "^10.1.0",
+    "react-pageflip": "^2.0.3",
     "reactflow": "^11.11.4",
     "recharts": "^3.7.0",
     "remark-gfm": "^4.0.1",

@@ -12,7 +12,8 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { AgentSessionHistory } from '@/components/agent-session-history'
-import { History } from 'lucide-react'
+import { History, LayoutTemplate, BookText } from 'lucide-react'
+import FlipBookViewer from '@/components/FlipBookViewer'
 
 /* ─── Types ─── */
 interface Book {
@@ -65,6 +66,7 @@ export default function BookWritingWorkflow({ onCreditDeduct }: { onCreditDeduct
     const [isGeneratingChapter, setIsGeneratingChapter] = useState(false)
     const [mergedBook, setMergedBook] = useState('')
     const [pdfFilename, setPdfFilename] = useState('')
+    const [viewMode, setViewMode] = useState<'reader' | '3d'>('reader')
 
     // Session History State
     const [showHistory, setShowHistory] = useState(false)
@@ -701,10 +703,42 @@ ${mdToHtml(mergedBook)}
                         </Button>
                     </div>
 
-                    {/* Full Book in KindleBookReader */}
-                    <div className="w-full min-h-[700px] rounded-3xl overflow-hidden bg-white/[0.02] border border-white/10">
-                        <KindleBookReader content={mergedBook} />
+                    {/* View Toggle */}
+                    <div className="flex justify-center mt-4">
+                        <div className="bg-white/[0.02] border border-white/10 p-1 rounded-2xl flex items-center gap-1">
+                            <Button
+                                onClick={() => setViewMode('reader')}
+                                variant="ghost"
+                                className={`rounded-xl h-10 px-6 font-bold flex items-center gap-2 transition-all ${viewMode === 'reader' ? 'bg-amber-500 text-black hover:bg-amber-400' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <LayoutTemplate className="h-4 w-4" />
+                                Reader View
+                            </Button>
+                            <Button
+                                onClick={() => setViewMode('3d')}
+                                variant="ghost"
+                                className={`rounded-xl h-10 px-6 font-bold flex items-center gap-2 transition-all ${viewMode === '3d' ? 'bg-amber-500 text-black hover:bg-amber-400' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <BookText className="h-4 w-4" />
+                                3D Flipbook
+                            </Button>
+                        </div>
                     </div>
+
+                    {/* Full Book Reader */}
+                    {viewMode === 'reader' ? (
+                        <div className="w-full min-h-[700px] rounded-3xl overflow-hidden bg-white/[0.02] border border-white/10 animate-in fade-in zoom-in-95 duration-500">
+                            <KindleBookReader content={mergedBook} />
+                        </div>
+                    ) : (
+                        <div className="w-full min-h-[700px] rounded-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+                            <FlipBookViewer 
+                                content={mergedBook} 
+                                title={outline.bookTitle} 
+                                subtitle={outline.bookSubtitle} 
+                            />
+                        </div>
+                    )}
                 </div>
             )}
         </div>
