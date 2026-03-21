@@ -26,10 +26,35 @@ const FONT_LABELS = ['S', 'M', 'L', 'XL']
 
 /* ── helpers ── */
 function splitIntoPages(markdown: string): string[] {
+    // 1. Split by explicit --- page breaks (chapters)
     const byHr = markdown.split(/\n---+\n/).map(p => p.trim()).filter(Boolean)
-    if (byHr.length > 1) return byHr
+    if (byHr.length > 1) {
+        // Within each chapter segment, also split at ### subheadings (sections)
+        const subPages: string[] = []
+        for (const segment of byHr) {
+            const byH3 = segment.split(/(?=^### )/m).map(p => p.trim()).filter(Boolean)
+            if (byH3.length > 1) {
+                subPages.push(...byH3)
+            } else {
+                subPages.push(segment)
+            }
+        }
+        return subPages
+    }
+    // 2. Try split by ## headings, then within each by ###
     const byH2 = markdown.split(/(?=^## )/m).map(p => p.trim()).filter(Boolean)
-    if (byH2.length > 1) return byH2
+    if (byH2.length > 1) {
+        const subPages: string[] = []
+        for (const segment of byH2) {
+            const byH3 = segment.split(/(?=^### )/m).map(p => p.trim()).filter(Boolean)
+            if (byH3.length > 1) {
+                subPages.push(...byH3)
+            } else {
+                subPages.push(segment)
+            }
+        }
+        return subPages
+    }
     return [markdown]
 }
 

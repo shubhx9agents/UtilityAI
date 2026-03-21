@@ -43,6 +43,7 @@ import {
 import { ParticleCard, GlobalSpotlight } from '@/components/ui/MagicBento'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DeepResearchRenderer } from '@/components/deep-research-renderer'
+import BookWritingWorkflow from '@/components/BookWritingWorkflow'
 
 const DEFAULT_IMAGE_MODEL = 'nano-banana-pro-preview'
 const IMAGE_MODEL_OPTIONS = [
@@ -80,6 +81,15 @@ function AgentPageContent() {
     const [isOptimizingPrompt, setIsOptimizingPrompt] = useState(false)
     const supabase = createClient()
     const containerRef = useRef<HTMLDivElement>(null)
+
+    // ── Book Writing has its own dedicated workflow UI ──
+    if (agentId === 'book_writing') {
+        return (
+            <ErrorBoundary>
+                <BookWritingWorkflow onCreditDeduct={refetchUsage} />
+            </ErrorBoundary>
+        )
+    }
 
     // Fetch and Autofill Onboarding Data
     useEffect(() => {
@@ -498,106 +508,6 @@ function AgentPageContent() {
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         }
 
-        /* ── Book Writing: build fresh HTML from full markdown ── */
-        if (agentId === 'book_writing') {
-            const mdToHtml = (md: string) => {
-                // Split on chapter separators (--- or ## headings)
-                const parts = md.split(/\n---+\n/)
-                const chapters = parts.length > 1 ? parts : md.split(/(?=^## )/m)
-
-                return chapters
-                    .map((chapter, i) => {
-                        const html = chapter
-                            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-                            .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-                            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-                            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                            .replace(/\*(.+?)\*/g, '<em>$1</em>')
-                            .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
-                            .split(/\n\n+/)
-                            .map(block => block.startsWith('<') ? block : `<p>${block.replace(/\n/g, ' ')}</p>`)
-                            .join('\n')
-                        return i === 0 ? html : `<div style="page-break-before:always;padding-top:32px">${html}</div>`
-                    })
-                    .join('\n')
-            }
-
-            // Render a VISIBLE overlay so html2canvas can capture it
-            const overlay = document.createElement('div')
-            overlay.style.cssText = `
-                position:fixed;top:0;left:0;width:750px;height:auto;min-height:100vh;
-                z-index:99999;background:#fff;overflow:visible;
-                font-family:Georgia,'Times New Roman',serif;
-                color:#1a1a1a;font-size:12pt;line-height:1.8;
-            `
-            overlay.innerHTML = `
-                <div style="padding:48px 56px;background:#fff;width:750px;box-sizing:border-box;">
-                    ${mdToHtml(response)}
-                </div>
-                <style>
-                    h1 {
-                        font-size:24pt;
-                        font-weight:800;
-                        text-align:center;
-                        color:#111;
-                        margin:40px 0 32px;
-                        line-height:1.4;
-                        word-break:break-word;
-                        page-break-after:avoid;
-                    }
-                    h2 {
-                        font-size:16pt;
-                        font-weight:700;
-                        color:#222;
-                        margin-top:30px;
-                        margin-bottom:12px;
-                        page-break-after:avoid;
-                    }
-                    h3 {
-                        font-size:13pt;
-                        font-weight:700;
-                        color:#333;
-                        margin-top:20px;
-                        margin-bottom:8px;
-                        page-break-after:avoid;
-                    }
-                    p, li {
-                        font-size:11pt;
-                        margin-bottom:14px;
-                        line-height:1.85;
-                        color:#1a1a1a;
-                        text-align:left;
-                    }
-                    ul, ol { padding-left:22px; margin-bottom:14px; }
-                    strong { font-weight:bold; }
-                    em { font-style:italic; }
-                </style>
-            `
-            document.body.appendChild(overlay)
-            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
-            try {
-                await html2pdf()
-                    .set({
-                        ...pdfSettings,
-                        pagebreak: {
-                            mode: ['avoid-all', 'css'],
-                            avoid: ['p', 'li', 'h1', 'h2', 'h3'],
-                        },
-                        html2canvas: {
-                            scale: 2,
-                            useCORS: true,
-                            backgroundColor: '#ffffff',
-                            logging: false,
-                            windowWidth: 750,
-                        },
-                    })
-                    .from(overlay.querySelector('div') as HTMLElement)
-                    .save()
-            } finally {
-                document.body.removeChild(overlay)
-            }
-            return
-        }
 
         /* ── Deep Research: build clean HTML from JSON for PDF ── */
         if (agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:')) {
@@ -1485,15 +1395,6 @@ function AgentPageContent() {
                                                     <RotateCcw className="w-4 h-4 mr-2" />
                                                     Generate New Output
                                                 </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    className="w-full"
-                                                    onClick={(e) => handleSubmit(e, true)}
-                                                    disabled={loading}
-                                                >
-                                                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
-                                                    Regenerate Exactly
-                                                </Button>
                                             </div>
                                             <div className="flex gap-3">
                                                 {formStep > 0 && (
@@ -1714,10 +1615,6 @@ function AgentPageContent() {
                                                 <CSVTable csvData={response} />
                                             ) : agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:') ? (
                                                 <DeepResearchRenderer rawResponse={response} />
-                                            ) : agentId === 'book_writing' ? (
-                                                <div className="w-full h-full min-h-[600px] rounded-xl overflow-hidden bg-white/[0.02] border border-white/5 relative">
-                                                    <KindleBookReader content={response} />
-                                                </div>
                                             ) : (
                                                 <div className="markdown-container prose prose-invert prose-amber max-w-none 
                                                     prose-h1:text-3xl prose-h1:font-black prose-h1:text-white prose-h1:mb-10 prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-6
@@ -1892,10 +1789,6 @@ function AgentPageContent() {
                                 <CSVTable csvData={response} />
                             ) : agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:') ? (
                                 <DeepResearchRenderer rawResponse={response} />
-                            ) : agentId === 'book_writing' ? (
-                                <div className="w-full h-full min-h-[600px] rounded-2xl overflow-hidden bg-[#111] border border-white/5 relative">
-                                    <KindleBookReader content={response} />
-                                </div>
                             ) : (
                                 <div className="markdown-container prose prose-invert prose-amber max-w-none">
                                     <ReactMarkdown

@@ -106,15 +106,9 @@ Do not compress detail.`,
         ],
     },
     book_writing: {
-        system_message: 'Generate a complete, high-quality book based on your inputs — fully structured with chapters, storytelling, and a powerful conclusion.',
+        system_message: 'AI-powered research-first book writer — researches the top books on your topic and writes a complete original 50-page book, chapter by chapter.',
         questions: [
-            'Book Title',
-            'Book Genre',
-            'Target Audience',
-            'Tone of Writing',
-            'Purpose of Book',
-            'Number of Pages (5 / 10 / 15)',
-            'Writing Style (Storytelling / Educational / Persuasive / Conversational / Academic)',
+            'Book Topic',
         ],
     },
     webinar_script: {
