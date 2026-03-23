@@ -76,6 +76,16 @@ const agents = [
     bgGlow: 'bg-indigo-500/10',
     href: '/agents/webinar_script',
   },
+  {
+    id: 'reel_script',
+    name: 'Instagram Reel Script Writer',
+    description: 'Generate viral, high-retention Instagram Reel scripts from your ideas and reference content',
+    svgSrc: '/landing_page_webinar.svg',
+    label: 'Content',
+    color: 'from-rose-500 to-pink-600',
+    bgGlow: 'bg-rose-500/10',
+    href: '/agents/reel_script',
+  },
 ]
 
 

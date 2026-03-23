@@ -51,6 +51,136 @@ const IMAGE_MODEL_OPTIONS = [
     { value: 'seedream-4-0-250828', label: 'Seedream 4 (BytePlus)' },
 ]
 
+/* ── Reel Script JSON Renderer ─────────────────────────────────────────────── */
+function ReelScriptRenderer({ raw }: { raw: string }) {
+    let data: Record<string, any> | null = null
+    try {
+        // Strip markdown code fences if model wrapped the JSON
+        const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim()
+        data = JSON.parse(cleaned)
+    } catch {
+        // Fallback: render as plain markdown
+        return (
+            <div className="markdown-container prose prose-invert prose-amber max-w-none prose-p:text-white/60 prose-p:leading-8">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{raw}</ReactMarkdown>
+            </div>
+        )
+    }
+
+    if (!data) return null
+
+    const script: string[] = Array.isArray(data.script) ? data.script : []
+    const directorNotes = data.director_notes || {}
+    const reusePotential = data.reuse_potential || {}
+
+    return (
+        <div className="space-y-8 text-sm">
+
+            {/* HOOK */}
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500/60 mb-3">Hook</p>
+                <p className="text-xl font-bold text-white leading-snug">&ldquo;{data.hook}&rdquo;</p>
+                {data.hook_rationale && (
+                    <p className="mt-3 text-white/50 text-xs leading-relaxed border-t border-white/5 pt-3">{data.hook_rationale}</p>
+                )}
+            </div>
+
+            {/* STRUCTURE */}
+            {(data.structure_used || data.structure_rationale) && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Structure</p>
+                    {data.structure_used && <p className="text-white font-semibold">{data.structure_used}</p>}
+                    {data.structure_rationale && <p className="text-white/50 text-xs mt-1 leading-relaxed">{data.structure_rationale}</p>}
+                </div>
+            )}
+
+            {/* FULL SCRIPT */}
+            {script.length > 0 && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-5">Full Script</p>
+                    <ol className="space-y-3">
+                        {script.map((line, i) => (
+                            <li key={i} className="flex gap-3">
+                                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                                <span className="text-white/80 leading-relaxed">{line}</span>
+                            </li>
+                        ))}
+                    </ol>
+                </div>
+            )}
+
+            {/* DURATION + CTA */}
+            <div className="grid grid-cols-2 gap-4">
+                {data.estimated_duration_seconds > 0 && (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Est. Duration</p>
+                        <p className="text-2xl font-black text-amber-500">{data.estimated_duration_seconds}s</p>
+                    </div>
+                )}
+                {data.cta_type && (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">CTA Type</p>
+                        <p className="text-white font-bold">{data.cta_type}</p>
+                        {data.cta_rationale && <p className="text-white/40 text-xs mt-1 leading-relaxed">{data.cta_rationale}</p>}
+                    </div>
+                )}
+            </div>
+
+            {/* DIRECTOR NOTES */}
+            {Object.keys(directorNotes).length > 0 && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-5">Director Notes</p>
+                    <div className="space-y-4">
+                        {directorNotes.hook_delivery && (
+                            <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500/70 mb-1">Hook Delivery</p>
+                                <p className="text-white/60 leading-relaxed text-xs">{directorNotes.hook_delivery}</p>
+                            </div>
+                        )}
+                        {directorNotes.body_pacing && (
+                            <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500/70 mb-1">Body Pacing</p>
+                                <p className="text-white/60 leading-relaxed text-xs">{directorNotes.body_pacing}</p>
+                            </div>
+                        )}
+                        {directorNotes.cta_delivery && (
+                            <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500/70 mb-1">CTA Delivery</p>
+                                <p className="text-white/60 leading-relaxed text-xs">{directorNotes.cta_delivery}</p>
+                            </div>
+                        )}
+                        {directorNotes.visual_suggestions && (
+                            <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500/70 mb-1">Visual Suggestions</p>
+                                <p className="text-white/60 leading-relaxed text-xs">{directorNotes.visual_suggestions}</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* REUSE POTENTIAL */}
+            {(reusePotential.series_angle || reusePotential.part_2_hook) && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-5">Reuse Potential</p>
+                    {reusePotential.series_angle && (
+                        <div className="mb-4">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500/70 mb-1">Series Angle</p>
+                            <p className="text-white/60 leading-relaxed text-xs">{reusePotential.series_angle}</p>
+                        </div>
+                    )}
+                    {reusePotential.part_2_hook && (
+                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500/70 mb-2">Part 2 Hook</p>
+                            <p className="text-white/80 font-medium leading-snug">&ldquo;{reusePotential.part_2_hook}&rdquo;</p>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+
 function AgentPageContent() {
     const params = useParams()
     const agentId = params.agentId as AgentType
@@ -70,6 +200,10 @@ function AgentPageContent() {
     const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
     const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
     const [imageModel, setImageModel] = useState(DEFAULT_IMAGE_MODEL)
+    // Reel script: up to 5 reference links with scrape status
+    const [reelLinks, setReelLinks] = useState<Array<{ url: string; status: 'idle' | 'loading' | 'ok' | 'error'; content: string; error: string }>>([
+        { url: '', status: 'idle', content: '', error: '' },
+    ])
     const [hasAutofilled, setHasAutofilled] = useState(false)
     const [showOnboardingBanner, setShowOnboardingBanner] = useState(false)
     const [showRenameDialog, setShowRenameDialog] = useState(false)
@@ -267,6 +401,54 @@ function AgentPageContent() {
         }
     }
 
+    // ── Reel Script: scrape a single link ─────────────────────────────────────
+    const scrapeReelLink = async (index: number, url: string) => {
+        if (!url.trim()) return
+        let validUrl: string
+        try {
+            validUrl = new URL(url.trim()).href
+        } catch {
+            setReelLinks(prev => {
+                const next = [...prev]
+                next[index] = { ...next[index], status: 'error', error: 'Invalid URL', content: '' }
+                return next
+            })
+            return
+        }
+        setReelLinks(prev => {
+            const next = [...prev]
+            next[index] = { ...next[index], url: validUrl, status: 'loading', error: '', content: '' }
+            return next
+        })
+        try {
+            const res = await fetch('/api/agents/scrape', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: validUrl }),
+            })
+            const data = await res.json()
+            if (!res.ok || data.error) {
+                setReelLinks(prev => {
+                    const next = [...prev]
+                    next[index] = { ...next[index], status: 'error', error: data.error || 'Failed to scrape', content: '' }
+                    return next
+                })
+            } else {
+                setReelLinks(prev => {
+                    const next = [...prev]
+                    next[index] = { ...next[index], status: 'ok', content: data.content, error: '' }
+                    return next
+                })
+            }
+        } catch {
+            setReelLinks(prev => {
+                const next = [...prev]
+                next[index] = { ...next[index], status: 'error', error: 'Network error', content: '' }
+                return next
+            })
+        }
+    }
+
     const handleSubmit = async (e: React.FormEvent, forceRefresh = false) => {
         e.preventDefault()
         setLoading(true)
@@ -301,6 +483,16 @@ function AgentPageContent() {
                 aspect_ratio: 'Square',
                 ...(selectedTemplate ? { headshot_template: selectedTemplate } : {})
             }
+        } else if (agentId === 'reel_script') {
+            const contentIdea = formData['Content Idea or Topic'] || ''
+            const extras = additionalDetails.trim()
+            fullInput = extras ? `${contentIdea}\n\nAdditional Instructions: ${extras}` : contentIdea
+            context = {}
+            reelLinks.forEach((link, i) => {
+                if (link.status === 'ok' && link.content) {
+                    context[`reference_content_${i + 1}`] = link.content
+                }
+            })
         } else {
             // Construct the input from form data
             const questionAnswers = agent.questions.map((q, idx) => {
@@ -1319,6 +1511,8 @@ function AgentPageContent() {
                                                 question.toLowerCase().includes('mission') ||
                                                 question.toLowerCase().includes('vision') ||
                                                 question.toLowerCase().includes('promise') ||
+                                                question.toLowerCase().includes('idea') ||
+                                                question.toLowerCase().includes('topic') ||
                                                 question.toLowerCase().includes('niche');
 
                                             return (
@@ -1528,9 +1722,105 @@ function AgentPageContent() {
                                                 </div>
                                             )}
 
+                                            {/* ── Reel Script: Reference Links ── */}
+                                            {agentId === 'reel_script' && (
+                                                <div className="space-y-4 pt-6 border-t border-white/5">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1">
+                                                            Reference Links <span className="text-white/30 normal-case tracking-normal font-normal">(optional — up to 5)</span>
+                                                        </Label>
+                                                        {reelLinks.length < 5 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setReelLinks(prev => [...prev, { url: '', status: 'idle', content: '', error: '' }])}
+                                                                className="text-[10px] text-amber-500/70 hover:text-amber-500 font-bold uppercase tracking-widest transition-colors"
+                                                            >
+                                                                + Add Link
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {reelLinks.map((link, i) => (
+                                                            <div key={i} className="flex items-center gap-2">
+                                                                <div className="relative flex-1">
+                                                                    <Input
+                                                                        type="url"
+                                                                        placeholder={`https://example.com/article-${i + 1}`}
+                                                                        value={link.url}
+                                                                        onChange={(e) => {
+                                                                            const val = e.target.value
+                                                                            setReelLinks(prev => {
+                                                                                const next = [...prev]
+                                                                                next[i] = { url: val, status: 'idle', content: '', error: '' }
+                                                                                return next
+                                                                            })
+                                                                        }}
+                                                                        onBlur={(e) => {
+                                                                            if (e.target.value.trim()) scrapeReelLink(i, e.target.value)
+                                                                        }}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter') {
+                                                                                e.preventDefault()
+                                                                                if (link.url.trim()) scrapeReelLink(i, link.url)
+                                                                            }
+                                                                        }}
+                                                                        disabled={loading || link.status === 'loading'}
+                                                                        className={`h-11 rounded-xl bg-white/5 border text-white text-sm placeholder:text-white/20 pr-8 transition-colors ${
+                                                                            link.status === 'ok'
+                                                                                ? 'border-emerald-500/50 focus-visible:ring-emerald-500/30'
+                                                                                : link.status === 'error'
+                                                                                ? 'border-red-500/50 focus-visible:ring-red-500/30'
+                                                                                : 'border-white/10'
+                                                                        }`}
+                                                                    />
+                                                                    {/* Status icon inside input */}
+                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                                        {link.status === 'loading' && <Loader2 className="h-3.5 w-3.5 text-white/40 animate-spin" />}
+                                                                        {link.status === 'ok' && (
+                                                                            <svg className="h-3.5 w-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                            </svg>
+                                                                        )}
+                                                                        {link.status === 'error' && (
+                                                                            <svg className="h-3.5 w-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                                            </svg>
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                                {/* Remove button */}
+                                                                {reelLinks.length > 1 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setReelLinks(prev => prev.filter((_, idx) => idx !== i))}
+                                                                        className="h-8 w-8 flex items-center justify-center rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                                                    >
+                                                                        <XCircle className="h-4 w-4" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    {/* Error messages */}
+                                                    {reelLinks.some(l => l.status === 'error') && (
+                                                        <div className="space-y-1">
+                                                            {reelLinks.map((l, i) => l.status === 'error' && (
+                                                                <p key={i} className="text-[11px] text-red-400/80 ml-1">Link {i + 1}: {l.error}</p>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {/* Success summary */}
+                                                    {reelLinks.some(l => l.status === 'ok') && (
+                                                        <p className="text-[11px] text-emerald-500/70 ml-1">
+                                                            {reelLinks.filter(l => l.status === 'ok').length} link{reelLinks.filter(l => l.status === 'ok').length > 1 ? 's' : ''} scraped — content will be included in the script.
+                                                        </p>
+                                                    )}
+                                                    <p className="text-[11px] text-white/20 ml-1">Paste a link and press Enter or click away — content is scraped automatically.</p>
+                                                </div>
+                                            )}
+
                                             {/* ── Image Generation: Canvas Dimensions ── */}
-                                            {agentId === 'image_generation' && (
-                                                <div className="space-y-6 pt-6 border-t border-white/5">
+                                            {agentId === 'image_generation' && (                                                <div className="space-y-6 pt-6 border-t border-white/5">
                                                     <div className="space-y-3">
                                                         <Label className="text-white/60 text-[10px] font-bold uppercase tracking-widest ml-1">Canvas Dimensions</Label>
                                                         <Select
@@ -1811,6 +2101,8 @@ function AgentPageContent() {
                                                 <CSVTable csvData={response} />
                                             ) : agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:') ? (
                                                 <DeepResearchRenderer rawResponse={response} />
+                                            ) : agentId === 'reel_script' ? (
+                                                <ReelScriptRenderer raw={response} />
                                             ) : agentId === 'book_writing' ? (
                                                 <div className="w-full h-full min-h-[600px] rounded-xl overflow-hidden bg-white/[0.02] border border-white/5 relative">
                                                     <KindleBookReader content={response} />
@@ -1989,6 +2281,8 @@ function AgentPageContent() {
                                 <CSVTable csvData={response} />
                             ) : agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:') ? (
                                 <DeepResearchRenderer rawResponse={response} />
+                            ) : agentId === 'reel_script' ? (
+                                <ReelScriptRenderer raw={response} />
                             ) : agentId === 'book_writing' ? (
                                 <div className="w-full h-full min-h-[600px] rounded-2xl overflow-hidden bg-[#111] border border-white/5 relative">
                                     <KindleBookReader content={response} />

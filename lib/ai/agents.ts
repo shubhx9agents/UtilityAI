@@ -129,6 +129,12 @@ Do not compress detail.`,
             'How long is the webinar? (15 minutes / 30 minutes / 1 hour)',
         ],
     },
+    reel_script: {
+        system_message: 'Elite Instagram Reel scriptwriter. Craft viral, high-retention short-form video scripts.',
+        questions: [
+            'Content Idea or Topic',
+        ],
+    },
 }
 
 
@@ -309,12 +315,212 @@ export class AIAgentService {
                 return await this.runBookWriting(userInput, context)
             }
 
+            if (agentType === 'reel_script') {
+                return await this.runReelScript(userInput, context)
+            }
+
             // Default to Groq for all other agents as requested (stick to groq api key only)
             return await this.runGroqAgent(agentType, userInput)
         } catch (error: unknown) {
             console.error(`AIAgentService Error [${agentType}]:`, error)
             throw new Error(`${agentType.replace('_', ' ')} Agent failed: ${getErrorMessage(error)}`)
         }
+    }
+
+    private async runReelScript(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
+        const groqApiKey = process.env.GROQ_API_KEY
+        if (!groqApiKey) throw new Error('GROQ_API_KEY is missing in .env.local')
+
+        // Collect scraped reference content from context
+        const referenceContents: string[] = []
+        for (let i = 1; i <= 5; i++) {
+            const scraped = typeof context[`reference_content_${i}`] === 'string'
+                ? context[`reference_content_${i}`].trim()
+                : ''
+            if (scraped) referenceContents.push(scraped)
+        }
+
+        const hasReferences = referenceContents.length > 0
+        const textDataBlock = hasReferences
+            ? referenceContents.join('\n\n---\n\n')
+            : '(No source content provided — write from the topic alone.)'
+
+        // Parse topic and optional refinement from userInput
+        // userInput format: "<topic>\n\nAdditional Instructions: <refinement>" OR just "<topic>"
+        const additionalInstructionsMarker = '\n\nAdditional Instructions: '
+        const markerIndex = userInput.indexOf(additionalInstructionsMarker)
+        const topic = markerIndex !== -1 ? userInput.substring(0, markerIndex).trim() : userInput.trim()
+        const refinement = markerIndex !== -1 ? userInput.substring(markerIndex + additionalInstructionsMarker.length).trim() : ''
+
+        const systemPrompt = `You are an elite Instagram Reel scriptwriter with deep expertise in short-form viral content. You have studied hundreds of reels that collectively generated millions of views across categories including fitness, finance, food, lifestyle, productivity, fashion, and home/DIY.
+
+---
+
+## YOUR CORE UNDERSTANDING OF VIRAL REELS
+
+### What Makes a Hook Work
+A hook's job is to create an immediate reason to keep watching. Analyze the topic you receive and identify ONE of the following psychological triggers that fits best — do not force all of them:
+
+- CURIOSITY GAP: Imply a payoff the viewer hasn't seen yet
+- CONTRADICTION: State something that challenges a common belief
+- SPECIFICITY: Use exact numbers, timeframes, or dollar amounts to signal credibility
+- SELF-IDENTIFICATION: Address the viewer's exact situation so they feel seen
+- STAKES: Make clear what the viewer loses by not watching
+- VISUAL PROMISE: Tease a transformation, reveal, or result
+
+The hook must be written for the human voice — short, punchy, no filler words. It should work as a standalone sentence that could stop a thumb mid-scroll.
+
+---
+
+### Script Architecture
+Every reel follows one of these core structures. Match the structure to the topic's natural logic:
+
+STRUCTURE A — PROBLEM → INSIGHT → SOLUTION → CTA
+Best for: myth-busting, corrections, health/fitness, food hacks
+
+STRUCTURE B — NUMBERED LIST WITH PAYOFF
+Best for: tips, tools, recommendations, rankings
+Rule: Each item must deliver standalone value. No padding.
+
+STRUCTURE C — TRANSFORMATION ARC
+Best for: before/after, personal story, product demo
+Rule: Establish the "before" state vividly before revealing the solution.
+
+STRUCTURE D — CONDITIONAL CHAIN
+Best for: progressive skill-building, decision trees, if/then logic
+Rule: Each condition should build on the last with escalating stakes or reward.
+
+STRUCTURE E — AUTHORITY BREAKDOWN
+Best for: professional insights, data-driven content, category education
+Rule: Establish credibility early. Break down complexity into digestible chunks.
+
+---
+
+### Pacing Rules
+- Average reel is 30–90 seconds when read aloud at natural pace
+- Each sentence should be its own thought — no run-ons
+- Vary sentence length intentionally: short punches followed by slightly longer explanations
+- Re-engagement beats: Every 15–20 seconds, insert a line that resets curiosity or raises a new micro-question
+
+---
+
+### Language Rules
+- Write in conversational spoken English — as if talking to one person
+- Avoid passive voice
+- Use "you" and "your" frequently
+- Contractions always ("you're" not "you are")
+- Avoid corporate or academic language
+- Numbers always outperform vague descriptors ("3 weeks" beats "a few weeks")
+- Specificity signals authority — be precise wherever possible
+
+---
+
+### CTA Logic
+The call-to-action must match the content's energy and the viewer's emotional state at the end:
+
+- If the viewer just learned something surprising → use a SAVE or SHARE CTA
+- If the viewer wants more depth → use a COMMENT trigger with a keyword reward
+- If the viewer is motivated → use a FOLLOW CTA with a clear value promise
+- If the content is part of a series → tease the next installment explicitly
+- Never use more than ONE primary CTA
+
+---
+
+### What to Avoid
+- Generic openers ("In this video...", "Today I want to...")
+- Filler transitions ("So basically...", "Moving on...")
+- Explaining what you are about to explain — just explain it
+- Hedging language ("kind of", "sort of", "maybe")
+- Over-promising in the hook and under-delivering in the body
+- Ending abruptly without a CTA or closing thought
+
+---
+
+## OUTPUT FORMAT
+
+Return a structured JSON object following the schema provided in the user prompt. Do not add commentary outside the JSON. Each field must be filled. Do not leave placeholders.
+
+The "hook_rationale" field must explain WHY this specific hook technique was chosen for this topic — not just what it is.
+
+The "script" field must be the full spoken word script, formatted line by line as it would be delivered on camera.
+
+The "director_notes" field provides visual/delivery guidance for each section — this helps the creator perform it correctly.`
+
+        const userMessage = `Generate a viral Instagram Reel script using the following inputs.
+
+---
+
+TOPIC:
+${topic}
+
+ADDITIONAL REFINEMENT (optional — may be empty):
+${refinement || '(none)'}
+
+SOURCE CONTENT (extracted text from articles — use this as your factual foundation, do not invent statistics or claims not present here):
+${textDataBlock}
+
+---
+
+INSTRUCTIONS:
+1. Read the source content thoroughly before writing anything
+2. Identify the single most surprising, counterintuitive, or valuable insight from the source content — this becomes your hook's foundation
+3. Choose the script structure that best serves the topic's natural logic
+4. Write the full script in spoken English, line by line
+5. The script should be 30–90 seconds when read aloud at a natural conversational pace
+6. Return only the JSON object — no other text
+
+OUTPUT SCHEMA:
+{
+  "hook": "",
+  "hook_rationale": "",
+  "structure_used": "",
+  "structure_rationale": "",
+  "script": [],
+  "estimated_duration_seconds": 0,
+  "cta_type": "",
+  "cta_rationale": "",
+  "director_notes": {
+    "hook_delivery": "",
+    "body_pacing": "",
+    "cta_delivery": "",
+    "visual_suggestions": ""
+  },
+  "reuse_potential": {
+    "series_angle": "",
+    "part_2_hook": ""
+  }
+}`
+
+        console.log(`[Reel Script] Generating script. Has references: ${hasReferences} (${referenceContents.length} sources). Refinement: ${refinement ? 'yes' : 'none'}`)
+
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${groqApiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'moonshotai/kimi-k2-instruct-0905',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userMessage }
+                ],
+                max_tokens: 4096,
+                temperature: 0.85
+            })
+        })
+
+        if (!groqRes.ok) {
+            const text = await groqRes.text()
+            throw new Error(`Groq Reel Script Error (${groqRes.status}): ${text.substring(0, 200)}`)
+        }
+
+        const groqData = await groqRes.json()
+        const scriptContent = groqData.choices?.[0]?.message?.content
+
+        if (!scriptContent) throw new Error('Reel Script Agent returned an empty response.')
+
+        return { response: scriptContent }
     }
 
     private async runWebinarScriptGenerator(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
