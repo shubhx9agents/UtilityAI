@@ -2002,10 +2002,6 @@ function AgentPageContent() {
                                                 <DeepResearchRenderer rawResponse={response} />
                                             ) : agentId === 'reel_script' ? (
                                                 <ReelScriptRenderer raw={response} />
-                                            ) : agentId === 'book_writing' ? (
-                                                <div className="w-full h-full min-h-[600px] rounded-xl overflow-hidden bg-white/[0.02] border border-white/5 relative">
-                                                    <KindleBookReader content={response} />
-                                                </div>
                                             ) : (
                                                 <div className="markdown-container prose prose-invert prose-amber max-w-none 
                                                     prose-h1:text-3xl prose-h1:font-black prose-h1:text-white prose-h1:mb-10 prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-6
@@ -2182,10 +2178,6 @@ function AgentPageContent() {
                                 <DeepResearchRenderer rawResponse={response} />
                             ) : agentId === 'reel_script' ? (
                                 <ReelScriptRenderer raw={response} />
-                            ) : agentId === 'book_writing' ? (
-                                <div className="w-full h-full min-h-[600px] rounded-2xl overflow-hidden bg-[#111] border border-white/5 relative">
-                                    <KindleBookReader content={response} />
-                                </div>
                             ) : (
                                 <div className="markdown-container prose prose-invert prose-amber max-w-none">
                                     <ReactMarkdown
