@@ -99,6 +99,7 @@ export type AgentType =
     | 'book_writing'
     | 'course_generator'
     | 'webinar_script'
+    | 'reel_script'
 
 export interface AgentConfig {
     system_message: string
