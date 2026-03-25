@@ -1,5 +1,6 @@
 import { AgentType, AgentConfig } from '@/types'
 import { getErrorMessage } from '@/lib/types/errors'
+import { mapToMetaAdsCSV, AdVariation } from './meta-ads-mapping'
 
 export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     business_snapshot: {
@@ -136,8 +137,8 @@ Do not compress detail.`,
 // Nano Banana 2  = Gemini 3.1 Flash Image Preview  (fast, high-volume)
 // Nano Banana Pro = Gemini 3 Pro Image Preview      (high-fidelity, thinking)
 const GEMINI_MODEL_MAP: Record<string, string> = {
-    'nano-banana-2':   'gemini-3.1-flash-image-preview',
-    'nano-banana':     'gemini-3.1-flash-image-preview',   // legacy alias → flash
+    'nano-banana-2': 'gemini-3.1-flash-image-preview',
+    'nano-banana': 'gemini-3.1-flash-image-preview',   // legacy alias → flash
     'nano-banana-pro': 'gemini-3-pro-image-preview',
     'nano-banana-pro-preview': 'gemini-3-pro-image-preview', // legacy alias → pro
 }
@@ -269,7 +270,7 @@ export class AIAgentService {
         agentType: AgentType,
         userInput: string,
         context: Record<string, any> = {}
-    ): Promise<{ response: string; refined_prompt?: string }> {
+    ): Promise<{ response: string; meta_csv?: string; refined_prompt?: string }> {
         if (!AGENT_CONFIGS[agentType]) {
             throw new Error(`Unknown agent type: ${agentType}`)
         }
@@ -1400,7 +1401,7 @@ Output ONLY a single valid JSON object — no markdown, no code fences, no pream
     }
 
 
-    private async runAdCopy(userInput: string, context: Record<string, any> = {}): Promise<{ response: string }> {
+    private async runAdCopy(userInput: string, context: Record<string, any> = {}): Promise<{ response: string; meta_csv?: string }> {
         const perplexityApiKey = process.env.PERPLEXITY_API_KEY
         const groqApiKey = process.env.GROQ_API_KEY
 
@@ -1602,7 +1603,17 @@ QUANTITY REQUIREMENT (CRITICAL):
 - Generate at least 3 distinct variations per platform.
 - Each variation must use a different hook and psychological angle.
 
-Output Format: Use Markdown with clear headings for each platform and variation.`
+Output Format: Output ONLY a JSON array of objects. Each object represents an ad variation.
+Format:
+[
+  {
+    "platform": "Platform Name",
+    "angle": "Psychological Angle",
+    "headline": "Ad Headline",
+    "body": "Ad Primary Text",
+    "cta": "Call to Action"
+  }
+]`
 
             const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
@@ -1616,7 +1627,8 @@ Output Format: Use Markdown with clear headings for each platform and variation.
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: `REQUEST:\n${adRequest}\n\nRESEARCH DATA:\n${researchData}${explicitPlatforms ? `\n\n⚠️ PLATFORM RESTRICTION (MANDATORY — DO NOT IGNORE):\nYou MUST generate ads ONLY for the following platform(s): ${explicitPlatforms}.\nDo NOT generate ads for any other platform. If the user said "${explicitPlatforms}", output ONLY ${explicitPlatforms} ads. Zero exceptions.` : ''}` }
                     ],
-                    temperature: 0.8
+                    temperature: 0.8,
+                    response_format: { type: "json_object" }
                 })
             })
 
@@ -1626,7 +1638,53 @@ Output Format: Use Markdown with clear headings for each platform and variation.
             }
 
             const groqData = await groqRes.json()
-            return { response: groqData.choices?.[0]?.message?.content || researchData }
+            const content = groqData.choices?.[0]?.message?.content || ''
+
+            let adVariations: AdVariation[] = []
+            try {
+                // If the model wrapped in a JSON object, try to extract the array
+                const parsed = JSON.parse(content)
+                adVariations = Array.isArray(parsed) ? parsed : (parsed.ads || parsed.variations || [])
+            } catch (e) {
+                console.error('Failed to parse Groq ad copy JSON:', e)
+                return { response: content || researchData }
+            }
+
+            // Sanitize ad variations to ensure all properties are strings
+            adVariations = adVariations.map(v => ({
+                platform: String(v.platform || ''),
+                angle: String(v.angle || ''),
+                headline: String(v.headline || ''),
+                body: String(v.body || ''),
+                cta: String(v.cta || '')
+            }));
+
+            // 3. Convert to CSV formats
+            // Legacy CSV: Platform, Angle, Headline, Body, CTA
+            const legacyHeaders = ['Platform', 'Angle', 'Headline', 'Body', 'CTA']
+            const escape = (val: string | null | undefined) => {
+                const s = String(val || '');
+                return `"${s.replace(/"/g, '""')}"`;
+            }
+            const legacyCsv = [
+                legacyHeaders.join(','),
+                ...adVariations.map(v => [
+                    escape(v.platform || ''),
+                    escape(v.angle || ''),
+                    escape(v.headline || ''),
+                    escape(v.body || ''),
+                    escape(v.cta || '')
+                ].join(','))
+            ].join('\n')
+
+            // Meta Ads CSV
+            const businessName = context.business_name || context['Business name'] || 'My Business'
+            const metaCsv = mapToMetaAdsCSV(adVariations, businessName)
+
+            return {
+                response: legacyCsv,
+                meta_csv: metaCsv
+            }
 
         } catch (error: unknown) {
             console.error('Ad Copy multi-step error:', error)

@@ -193,6 +193,8 @@ function AgentPageContent() {
     const [formData, setFormData] = useState<Record<string, string>>({})
     const [additionalDetails, setAdditionalDetails] = useState('')
     const [response, setResponse] = useState('')
+    const [metaCsv, setMetaCsv] = useState('')
+    const [activeTab, setActiveTab] = useState<'standard' | 'meta'>('standard')
     const [refinedPrompt, setRefinedPrompt] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -536,6 +538,9 @@ function AgentPageContent() {
 
             if (data.response) {
                 setResponse(data.response)
+                if (data.meta_csv) {
+                    setMetaCsv(data.meta_csv)
+                }
                 if (data.refined_prompt) {
                     setRefinedPrompt(data.refined_prompt)
                 }
@@ -681,7 +686,8 @@ function AgentPageContent() {
     const downloadAsFile = (type: 'md' | 'csv', customFilename?: string) => {
         const element = document.createElement('a')
         const blobType = type === 'md' ? 'text/markdown' : 'text/csv'
-        const file = new Blob([response], { type: blobType })
+        const content = (type === 'csv' && activeTab === 'meta' && metaCsv) ? metaCsv : response
+        const file = new Blob([content], { type: blobType })
         element.href = URL.createObjectURL(file)
         element.download = customFilename ? `${customFilename}.${type}` : `${agentId}-report.${type}`
         document.body.appendChild(element)
@@ -1232,6 +1238,8 @@ function AgentPageContent() {
         setHeadshotOutfit(session.form_data?.['Clothing Template'] || '')
         setImageModel(session.form_data?.['Image Model'] || DEFAULT_IMAGE_MODEL)
         setResponse(session.response || '')
+        // Extract meta_csv if stored in metadata or reconstructed (simplified for now: session might not have it yet)
+        setMetaCsv('')
         setRefinedPrompt(session.refined_prompt || '')
         setChatMessages(session.chat_messages || [])
         setCurrentSessionId(session.id)
@@ -1545,8 +1553,8 @@ function AgentPageContent() {
                                                                     type="button"
                                                                     onClick={() => setSelectedTemplate(selectedTemplate === template.prompt ? null : template.prompt)}
                                                                     className={`relative flex flex-col gap-1.5 rounded-2xl border p-4 text-left transition-all duration-200 ${selectedTemplate === template.prompt
-                                                                            ? 'border-amber-500/70 bg-amber-500/10 shadow-[0_0_16px_rgba(245,158,11,0.15)]'
-                                                                            : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8'
+                                                                        ? 'border-amber-500/70 bg-amber-500/10 shadow-[0_0_16px_rgba(245,158,11,0.15)]'
+                                                                        : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8'
                                                                         }`}
                                                                 >
                                                                     {selectedTemplate === template.prompt && (
@@ -1675,10 +1683,10 @@ function AgentPageContent() {
                                                                         }}
                                                                         disabled={loading || link.status === 'loading'}
                                                                         className={`h-11 rounded-xl bg-white/5 border text-white text-sm placeholder:text-white/20 pr-8 transition-colors ${link.status === 'ok'
-                                                                                ? 'border-emerald-500/50 focus-visible:ring-emerald-500/30'
-                                                                                : link.status === 'error'
-                                                                                    ? 'border-red-500/50 focus-visible:ring-red-500/30'
-                                                                                    : 'border-white/10'
+                                                                            ? 'border-emerald-500/50 focus-visible:ring-emerald-500/30'
+                                                                            : link.status === 'error'
+                                                                                ? 'border-red-500/50 focus-visible:ring-red-500/30'
+                                                                                : 'border-white/10'
                                                                             }`}
                                                                     />
                                                                     {/* Status icon inside input */}
@@ -1900,21 +1908,40 @@ function AgentPageContent() {
                                         <div className="h-8 w-[1px] bg-white/10 hidden sm:block mx-1" />
 
                                         {agentId === 'ad_copy' ? (
-                                            <>
+                                            <div className="flex items-center gap-3">
+                                                {metaCsv && (
+                                                    <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 mr-1">
+                                                        <button
+                                                            onClick={() => setActiveTab('standard')}
+                                                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'standard' ? 'bg-amber-500 text-black' : 'text-white/40 hover:text-white'}`}
+                                                        >
+                                                            Standard
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setActiveTab('meta')}
+                                                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'meta' ? 'bg-amber-500 text-black' : 'text-white/40 hover:text-white'}`}
+                                                        >
+                                                            Meta Ads
+                                                        </button>
+                                                    </div>
+                                                )}
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => {
-                                                        setCustomFilename(`${agentId}-report`)
+                                                        const suffix = activeTab === 'meta' ? '-meta-template' : '-standard'
+                                                        setCustomFilename(`${agentId}-report${suffix}`)
                                                         setDownloadFormat('csv')
                                                         setShowRenameDialog(true)
                                                     }}
                                                     className="bg-amber-500 text-black hover:bg-amber-400 hover:text-black rounded-xl h-10 px-6 font-bold transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
                                                 >
                                                     <Download className="h-4 w-4" />
-                                                    <span className="text-[10px] uppercase tracking-widest">Download CSV</span>
+                                                    <span className="text-[10px] uppercase tracking-widest">
+                                                        {activeTab === 'meta' ? 'Download Meta Bulk CSV' : 'Download Standard CSV'}
+                                                    </span>
                                                 </Button>
-                                            </>
+                                            </div>
                                         ) : agentId === 'image_generation' || agentId === 'linkedin_headshot' ? (
                                             <Button
                                                 variant="ghost"
@@ -1997,7 +2024,7 @@ function AgentPageContent() {
                                                     </div>
                                                 </div>
                                             ) : agentId === 'ad_copy' ? (
-                                                <CSVTable csvData={response} />
+                                                <CSVTable csvData={activeTab === 'meta' && metaCsv ? metaCsv : response} />
                                             ) : agentId === 'deep_research' && response.startsWith('DEEP_RESEARCH_JSON:') ? (
                                                 <DeepResearchRenderer rawResponse={response} />
                                             ) : agentId === 'reel_script' ? (
@@ -2035,7 +2062,7 @@ function AgentPageContent() {
                         </div>
                     </ParticleCard>
                 </div>
-            </div>
+            </div >
 
             {isChatEnabled && response && (
                 <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
@@ -2125,13 +2152,16 @@ function AgentPageContent() {
                         )}
                     </Card>
                 </div>
-            )}
+            )
+            }
 
-            {!response && !['deep_research', 'ad_copy', 'image_generation', 'linkedin_headshot', 'course_generator', 'book_writing'].includes(agentId) && (
-                <div className="pt-20 border-t border-white/5">
-                    <Footer />
-                </div>
-            )}
+            {
+                !response && !['deep_research', 'ad_copy', 'image_generation', 'linkedin_headshot', 'course_generator', 'book_writing'].includes(agentId) && (
+                    <div className="pt-20 border-t border-white/5">
+                        <Footer />
+                    </div>
+                )
+            }
 
             <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
                 <DialogContent className="sm:max-w-md bg-[#0a0a0a] border-white/10 text-white rounded-3xl">
@@ -2194,7 +2224,7 @@ function AgentPageContent() {
                     </div>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     )
 }
 
