@@ -22,6 +22,8 @@ import {
   Crown,
 } from 'lucide-react'
 import { ParticleCard, BentoCardGrid, GlobalSpotlight } from '@/components/ui/MagicBento'
+import { createClient } from '@/lib/supabase/client'
+import { useEffect, useState } from 'react'
 
 const quickActions = [
   {
@@ -44,10 +46,7 @@ const quickActions = [
   },
 ]
 
-const stats = [
-  { name: 'AI Agents', value: '7', icon: Box, label: 'Resources', color: 'text-blue-400' },
-  { name: 'Active Sessions', value: '12', icon: Activity, label: 'Activity', color: 'text-emerald-400' },
-]
+// Dynamic stats are inside the component now
 
 const agentsList = [
   {
@@ -112,6 +111,15 @@ const agentsList = [
     svgSrc: '/landing_page_deep_research.svg',
     color: 'from-indigo-500 to-blue-600',
     bgGlow: 'bg-indigo-500/10'
+  },
+  {
+    name: 'Reel Script Generator',
+    href: '/agents/reel_script',
+    desc: 'Viral IG Reels',
+    label: 'Social',
+    svgSrc: '/landing_page_ad_copy.svg',
+    color: 'from-fuchsia-500 to-pink-600',
+    bgGlow: 'bg-fuchsia-500/10'
   }
 ]
 
@@ -126,6 +134,29 @@ export default function DashboardPage() {
   const { isPremium, upgrade } = useSubscription()
   const { usage, limits } = useCredits()
   const gridRef = useRef<HTMLDivElement>(null)
+  
+  const [activeSessions, setActiveSessions] = useState('0')
+
+  useEffect(() => {
+    const fetchSessionCount = async () => {
+      if (!user?.id) return
+      const supabase = createClient()
+      const { count } = await supabase
+        .from('agent_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+      
+      if (count !== null) {
+        setActiveSessions(count.toString())
+      }
+    }
+    fetchSessionCount()
+  }, [user?.id])
+
+  const stats = [
+    { name: 'AI Agents', value: agentsList.length.toString(), icon: Box, label: 'Resources', color: 'text-blue-400' },
+    { name: 'Active Sessions', value: activeSessions, icon: Activity, label: 'Activity', color: 'text-emerald-400' },
+  ]
 
   const displayName =
     user?.user_metadata?.name ||

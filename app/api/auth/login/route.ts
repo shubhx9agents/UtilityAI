@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 import { loginSchema, validateInput, validationErrorResponse } from '@/lib/validations'
 import { sanitizeEmail } from '@/utils/sanitize'
@@ -38,7 +38,23 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid email format' }, { status: 400 })
         }
 
-        const supabase = await createClient()
+        // Collect cookies that Supabase wants to set so we can attach them to the response
+        const cookiesToSet: { name: string; value: string; options: any }[] = []
+
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    getAll() {
+                        return request.cookies.getAll()
+                    },
+                    setAll(cookies) {
+                        cookiesToSet.push(...cookies)
+                    },
+                },
+            }
+        )
 
         const { data, error } = await supabase.auth.signInWithPassword({
             email: sanitizedEmail,
@@ -77,7 +93,13 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        return NextResponse.json({ data })
+        // Build response with auth cookies properly set on the response
+        const response = NextResponse.json({ data })
+        cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+        })
+
+        return response
     } catch (error: unknown) {
         console.error('Login API error:', error)
         return NextResponse.json(

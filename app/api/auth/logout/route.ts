@@ -1,11 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 import { getErrorMessage } from '@/lib/types/errors'
 
 export async function POST(request: NextRequest) {
     try {
-        const supabase = await createClient()
+        // Collect cookies that Supabase wants to set so we can attach them to the response
+        const cookiesToSet: { name: string; value: string; options: any }[] = []
+
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    getAll() {
+                        return request.cookies.getAll()
+                    },
+                    setAll(cookies) {
+                        cookiesToSet.push(...cookies)
+                    },
+                },
+            }
+        )
 
         // Get current user before logout
         const { data: { user } } = await supabase.auth.getUser()
@@ -30,7 +46,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 })
         }
 
-        return NextResponse.json({ success: true })
+        // Build response with auth cookies (cleared) properly set on the response
+        const response = NextResponse.json({ success: true })
+        cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+        })
+
+        return response
     } catch (error: unknown) {
         console.error('Logout API error:', error)
         return NextResponse.json(

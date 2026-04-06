@@ -49,6 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!res.ok) {
                 return { error: new Error(data.error || 'Login failed') }
             }
+            // Refresh the client-side session from the newly set cookies
+            await supabase.auth.getSession()
             return { error: null }
         } catch (error: any) {
             return { error }
@@ -66,6 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!res.ok) {
                 return { error: new Error(data.error || 'Registration failed') }
             }
+            // Refresh the client-side session from the newly set cookies
+            await supabase.auth.getSession()
             return { error: null }
         } catch (error: any) {
             return { error }

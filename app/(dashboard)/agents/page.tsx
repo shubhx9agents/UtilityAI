@@ -97,7 +97,7 @@ export default function AgentsPage() {
           AI Agents
         </h1>
         <p className="text-white/50">
-          Choose from 7 specialized AI agents to accelerate your business.
+          Choose from 8 specialized AI agents to accelerate your business.
         </p>
       </div>
 

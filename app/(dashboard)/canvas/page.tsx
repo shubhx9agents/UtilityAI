@@ -284,6 +284,18 @@ const AGENT_NODE_LIBRARY: Record<string, { inputs: string[]; outputs: string[] }
         inputs: ['user_input', 'program_title', 'target_audience', 'duration'],
         outputs: ['program_json'],
     },
+    webinar_script: {
+        inputs: ['user_input', 'webinar_topic', 'target_audience', 'goal', 'duration'],
+        outputs: ['script_markdown'],
+    },
+    book_writing: {
+        inputs: ['user_input', 'book_topic'],
+        outputs: ['book_markdown'],
+    },
+    reel_script: {
+        inputs: ['user_input', 'content_idea'],
+        outputs: ['reel_script_json'],
+    },
 }
 
 const getStatusClassName = (status: StepStatus) => {

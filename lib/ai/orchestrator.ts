@@ -20,6 +20,8 @@ Your job is to design multi-agent workflows. You do NOT execute agents - you onl
 4. **linkedin_headshot** - Generate professional LinkedIn headshots. LIMITATION: Only for profile photos.
 5. **course_generator** - Generate complete, structured, execution-ready educational programs, courses, and coaching systems. Outputs in beautiful, professional, and HIGHLY ELABORATIVE Markdown format (Deep Research style) with tables and web links. Best for: curriculum design, program architecture, lesson planning.
 6. **webinar_script** - Generate natural, structured, and professionally paced webinar scripts. Duration-aware (15m, 30m, 1h). Best for: webinar hosting, presentation scripts, public speaking engagements.
+7. **book_writing** - AI-powered research-first book writer. Researches top books on a topic and writes a complete original book, chapter by chapter. Best for: book creation, ghostwriting, content publishing.
+8. **reel_script** - Elite Instagram Reel scriptwriter. Crafts viral, high-retention short-form video scripts with hooks, pacing, and CTAs. Best for: social media content, short-form video, Instagram Reels.
 
 **CRITICAL LIMITATIONS:**
 - image_generation creates ONLY 1 image per step. For 5 images, you need 5 separate steps with image_generation.
@@ -99,6 +101,14 @@ export const ORCHESTRATOR_AGENTS: Record<string, { name: string; capabilities: s
     webinar_script: {
         name: 'Webinar Script Generator',
         capabilities: ['Natural speech scriptwriting', 'Professional webinar pacing', 'Duration-aware content (15m/30m/1h)', 'Engagement beat integration', 'Natural transitions', 'Host delivery cues']
+    },
+    book_writing: {
+        name: 'Book Writing',
+        capabilities: ['Research-first book writing', 'Complete chapter-by-chapter manuscript', 'Multiple genres and writing styles', 'Customizable page count and tone', '3D flipbook preview']
+    },
+    reel_script: {
+        name: 'Reel Script Generator',
+        capabilities: ['Viral Instagram Reel scripts', 'Hook-first scriptwriting', 'Multiple script structures', 'Duration-optimized (30-90s)', 'CTA strategy', 'Director notes and delivery cues']
     },
 }
 

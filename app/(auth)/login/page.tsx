@@ -8,12 +8,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowRight, Mail, Lock, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, Mail, Lock, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import { Logo } from '@/components/landing/Logo'
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const { signIn, signInWithGoogle } = useAuth()
@@ -135,14 +136,22 @@ export default function LoginPage() {
                                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
                                     <Input
                                         id="password"
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         placeholder="••••••••"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         required
                                         disabled={loading}
-                                        className="pl-10 bg-zinc-950/50 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:ring-amber-500/20"
+                                        className="pl-10 pr-10 bg-zinc-950/50 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:ring-amber-500/20"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                                        tabIndex={-1}
+                                    >
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
                                 </div>
                             </div>
                             <div className="flex items-center justify-between text-sm">
@@ -150,7 +159,7 @@ export default function LoginPage() {
                                     <input type="checkbox" className="rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500/20" />
                                     <span>Remember me</span>
                                 </label>
-                                <Link href="#" className="text-amber-500 hover:text-amber-400 transition-colors font-medium">
+                                <Link href="/forgot-password" className="text-amber-500 hover:text-amber-400 transition-colors font-medium">
                                     Forgot password?
                                 </Link>
                             </div>
