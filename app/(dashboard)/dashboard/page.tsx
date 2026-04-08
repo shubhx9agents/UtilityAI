@@ -123,35 +123,57 @@ const agentsList = [
   }
 ]
 
-const gettingStartedSteps = [
-  { step: 'Complete onboarding', action: 'Start', href: '/onboarding', status: 'Pending', icon: Rocket, progress: 0 },
-  { step: 'Try an AI agent', action: 'Explore', href: '/agents', status: 'Recommended', icon: Sparkles, progress: 0 },
-  { step: 'Explore premium features', action: 'View Plans', href: '/upgrade', status: 'Pro', icon: Star, progress: 0 },
-]
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const { isPremium, upgrade } = useSubscription()
   const { usage, limits } = useCredits()
   const gridRef = useRef<HTMLDivElement>(null)
-  
+
   const [activeSessions, setActiveSessions] = useState('0')
+  const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(false)
 
   useEffect(() => {
-    const fetchSessionCount = async () => {
+    const fetchDashboardData = async () => {
       if (!user?.id) return
       const supabase = createClient()
+
+      // Fetch session count
       const { count } = await supabase
         .from('agent_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-      
+
       if (count !== null) {
         setActiveSessions(count.toString())
       }
+
+      // Fetch onboarding status
+      const { data: onboardingData } = await supabase
+        .from('onboarding_progress')
+        .select('current_step')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (onboardingData?.current_step === 5) {
+        setIsOnboardingCompleted(true)
+      }
     }
-    fetchSessionCount()
+    fetchDashboardData()
   }, [user?.id])
+
+  const gettingStartedSteps = [
+    {
+      step: 'Complete onboarding',
+      action: isOnboardingCompleted ? 'Update' : 'Start',
+      href: '/onboarding',
+      status: isOnboardingCompleted ? 'Completed' : 'Pending',
+      icon: Rocket,
+      progress: isOnboardingCompleted ? 1 : 0
+    },
+    { step: 'Try an AI agent', action: 'Explore', href: '/agents', status: 'Recommended', icon: Sparkles, progress: 0 },
+    { step: 'Explore premium features', action: 'View Plans', href: '/upgrade', status: 'Pro', icon: Star, progress: 0 },
+  ]
 
   const stats = [
     { name: 'AI Agents', value: agentsList.length.toString(), icon: Box, label: 'Resources', color: 'text-blue-400' },
@@ -407,15 +429,6 @@ export default function DashboardPage() {
           <div>
             <h2 className="font-heading text-xl font-bold text-white">Getting Started</h2>
             <p className="text-sm text-white/50">Complete these steps to maximize your productivity.</p>
-          </div>
-          {/* Progress indicator */}
-          <div className="ml-auto hidden sm:flex items-center gap-3">
-            <div className="text-xs text-white/40">0 of 3 completed</div>
-            <div className="flex gap-1">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-1.5 w-6 rounded-full bg-white/10" />
-              ))}
-            </div>
           </div>
         </div>
 
