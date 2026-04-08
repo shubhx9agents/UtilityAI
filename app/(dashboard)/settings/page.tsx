@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/contexts/AuthContext'
-import { User, Bell, Shield, Lock, ExternalLink, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { User, Shield, Lock, ExternalLink, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function SettingsPage() {
@@ -205,33 +205,6 @@ export default function SettingsPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="border-[#262626] bg-[#030303] shadow-sm lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-white">
-                            <Bell className="h-5 w-5 text-amber-500" />
-                            <span>Notifications</span>
-                        </CardTitle>
-                        <CardDescription className="text-white/50">
-                            Configure your notification preferences
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between rounded-lg border border-[#262626] p-4 bg-white/5">
-                            <div>
-                                <p className="font-medium text-white">Email Notifications</p>
-                                <p className="text-sm text-white/50">Receive updates via email</p>
-                            </div>
-                            <Button variant="outline" size="sm" className="rounded-lg border-[#262626] text-white hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all font-bold">Enable</Button>
-                        </div>
-                        <div className="flex items-center justify-between rounded-lg border border-[#262626] p-4 bg-white/5">
-                            <div>
-                                <p className="font-medium text-white">AI Agent Updates</p>
-                                <p className="text-sm text-white/50">Get notified about new AI features</p>
-                            </div>
-                            <Button variant="outline" size="sm" className="rounded-lg border-[#262626] text-white hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all font-bold">Enable</Button>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
         </div>
     )

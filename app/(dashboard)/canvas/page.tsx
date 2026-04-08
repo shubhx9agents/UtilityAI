@@ -241,6 +241,59 @@ const serializeJsonTemplate = (value: unknown): string => {
     }
 }
 
+const RESULT_IMAGE_KEYS = ['image_url', 'headshot_url', 'output_image', 'generated_image', 'url', 'response']
+
+const extractImageFromResult = (value: unknown, seen = new Set<unknown>()): string | null => {
+    if (value === null || value === undefined) return null
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+        if (!trimmed) return null
+
+        if (trimmed.startsWith('data:image/') || /^https?:\/\//i.test(trimmed)) {
+            return trimmed
+        }
+
+        const markdownImage = trimmed.match(/!\[[^\]]*]\((data:image\/[^\s)]+|https?:\/\/[^\s)]+)\)/i)
+        if (markdownImage?.[1]) return markdownImage[1]
+
+        try {
+            const parsed = JSON.parse(trimmed)
+            const fromParsed = extractImageFromResult(parsed, seen)
+            if (fromParsed) return fromParsed
+        } catch {
+            // Not JSON
+        }
+
+        const fallbackUrl = trimmed.match(/(data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+|https?:\/\/[^\s"'<>`]+)/i)
+        return fallbackUrl?.[1] ?? null
+    }
+
+    if (typeof value !== 'object') return null
+    if (seen.has(value)) return null
+    seen.add(value)
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            const found = extractImageFromResult(item, seen)
+            if (found) return found
+        }
+        return null
+    }
+
+    const record = value as Record<string, unknown>
+    for (const key of RESULT_IMAGE_KEYS) {
+        const found = extractImageFromResult(record[key], seen)
+        if (found) return found
+    }
+
+    for (const nestedValue of Object.values(record)) {
+        const found = extractImageFromResult(nestedValue, seen)
+        if (found) return found
+    }
+
+    return null
+}
+
 type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
 type StepDisplayMeta = {
     index: number
@@ -3488,8 +3541,10 @@ function CanvasPageContent() {
                                         : isSummary
                                             ? 'Workflow Summary'
                                             : (selectedResultStepId ? getReadableStepLabel(selectedResultStepId, agentType) : 'Step Output')
-                                    const isImage = (agentType === 'image_generation' || agentType === 'linkedin_headshot' || isSummary) &&
-                                        (typeof content === 'string' && (content.startsWith('http') || content.startsWith('data:image/')))
+                                    const imageArtifact = (agentType === 'image_generation' || agentType === 'linkedin_headshot' || isSummary)
+                                        ? extractImageFromResult(result?.output_data ?? result?.output ?? result?.response ?? result?.summary ?? content)
+                                        : null
+                                    const isImage = Boolean(imageArtifact)
                                     const isAdCopy = agentType === 'ad_copy'
                                     const isSpecializedText = isSummary || agentType === 'deep_research' || isInputs
 
@@ -3511,7 +3566,7 @@ function CanvasPageContent() {
                                                             </Button>
                                                         )}
                                                         {isImage ? (
-                                                            <Button variant="outline" size="sm" onClick={() => downloadAsFile(content, selectedResultStepId as string, 'jpeg')}>
+                                                            <Button variant="outline" size="sm" onClick={() => downloadAsFile(imageArtifact || content, selectedResultStepId as string, 'jpeg')}>
                                                                 <Download className="h-4 w-4 mr-2" />
                                                                 Download
                                                             </Button>
@@ -3596,7 +3651,7 @@ function CanvasPageContent() {
                                                 <ScrollArea className="h-full">
                                                     {isImage ? (
                                                         <div className="flex justify-center items-center h-full">
-                                                            <img src={content} alt="Generated Asset" className="max-w-full max-h-full rounded-lg shadow-lg object-contain" />
+                                                            <img src={imageArtifact || content} alt="Generated Asset" className="max-w-full max-h-full rounded-lg shadow-lg object-contain" />
                                                         </div>
                                                     ) : isInputs ? (
                                                         <div className="space-y-6">

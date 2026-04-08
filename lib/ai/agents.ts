@@ -1593,11 +1593,15 @@ STRICT PLATFORM RULE:
 
 PLATFORM CHARACTER LIMITS (STRICT):
 - Facebook: Headline (max 40), Body (max 125)
-- Instagram: Body (max 125)
+- Instagram: Headline (max 40), Body (max 125)
 - LinkedIn: Headline (max 70), Body (max 600)
 - Google Search: Headline (max 30), Description (max 90)
 
 REQUIRED ANGLES: Problem-Solution, Benefit-Driven, Emotional, Urgency, Social Proof.
+
+HEADLINE REQUIREMENT (CRITICAL):
+- Every variation MUST include a non-empty "headline", including Instagram.
+- If needed, derive a short hook-style headline from the ad body.
 
 QUANTITY REQUIREMENT (CRITICAL):
 - Generate at least 3 distinct variations per platform.
@@ -1642,22 +1646,99 @@ Format:
 
             let adVariations: AdVariation[] = []
             try {
-                // If the model wrapped in a JSON object, try to extract the array
                 const parsed = JSON.parse(content)
-                adVariations = Array.isArray(parsed) ? parsed : (parsed.ads || parsed.variations || [])
+                const candidateArrays: Array<Array<Record<string, unknown>>> = []
+                const pushCandidate = (value: unknown) => {
+                    if (!Array.isArray(value)) return
+                    const records = value.filter(item => item && typeof item === 'object') as Array<Record<string, unknown>>
+                    if (records.length > 0) candidateArrays.push(records)
+                }
+
+                if (Array.isArray(parsed)) {
+                    pushCandidate(parsed)
+                } else if (parsed && typeof parsed === 'object') {
+                    const parsedObj = parsed as Record<string, unknown>
+                    const knownArrayKeys = ['ads', 'variations', 'results', 'items', 'data', 'ad_copies', 'ad_variations', 'copies']
+                    knownArrayKeys.forEach(key => pushCandidate(parsedObj[key]))
+
+                    // Handle grouped payloads such as { facebook: [...], linkedin: [...] }
+                    for (const [key, value] of Object.entries(parsedObj)) {
+                        if (!Array.isArray(value)) continue
+                        const records = value.filter(item => item && typeof item === 'object') as Array<Record<string, unknown>>
+                        if (records.length === 0) continue
+                        candidateArrays.push(records.map(record => ({
+                            __platform_hint: key,
+                            ...record,
+                        })))
+                    }
+                }
+
+                const rawVariations = candidateArrays.flat()
+                const normalizeKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '')
+                const pickField = (record: Record<string, unknown>, aliases: string[]) => {
+                    const aliasSet = new Set(aliases.map(normalizeKey))
+                    for (const [key, value] of Object.entries(record)) {
+                        if (!aliasSet.has(normalizeKey(key))) continue
+                        if (typeof value === 'string' && value.trim()) return value.trim()
+                        if (typeof value === 'number') return String(value)
+                    }
+                    return ''
+                }
+                const normalizePlatform = (platform: string) => {
+                    const lower = platform.toLowerCase().trim()
+                    if (!lower) return ''
+                    if (lower.includes('facebook') || lower === 'fb') return 'Facebook'
+                    if (lower.includes('instagram') || lower === 'ig') return 'Instagram'
+                    if (lower.includes('linkedin')) return 'LinkedIn'
+                    if (lower.includes('google')) return 'Google Search'
+                    if (lower.includes('meta')) return 'Meta'
+                    return platform.trim()
+                }
+                const deriveHeadline = (body: string, angle: string, platform: string) => {
+                    const bodySource = (body || '').replace(/\s+/g, ' ').trim()
+                    const firstSentence = bodySource.split(/[.!?]/).find(chunk => chunk.trim().length > 0)?.trim() || ''
+                    const platformLimit = (() => {
+                        const p = platform.toLowerCase()
+                        if (p.includes('linkedin')) return 70
+                        if (p.includes('google')) return 30
+                        return 40
+                    })()
+                    const seed = firstSentence || angle || 'High-Converting Offer'
+                    return seed.slice(0, platformLimit).trim() || 'High-Converting Offer'
+                }
+
+                adVariations = rawVariations.map((record): AdVariation => {
+                    const platform = normalizePlatform(
+                        pickField(record, ['platform', 'channel', 'network']) ||
+                        pickField(record, ['__platform_hint'])
+                    )
+                    const angle = pickField(record, ['angle', 'theme', 'approach']) || 'Benefit-Driven'
+                    const body = pickField(record, ['body', 'primary_text', 'text', 'description', 'copy', 'ad_copy'])
+                    const headline = pickField(record, ['headline', 'title', 'hook', 'header']) || deriveHeadline(body, angle, platform)
+                    const cta = pickField(record, ['cta', 'call_to_action', 'call to action', 'action']) || 'Learn More'
+
+                    return {
+                        platform,
+                        angle,
+                        headline,
+                        body,
+                        cta,
+                    }
+                }).filter(v => v.platform || v.headline || v.body)
             } catch (e) {
                 console.error('Failed to parse Groq ad copy JSON:', e)
                 return { response: content || researchData }
             }
 
-            // Sanitize ad variations to ensure all properties are strings
-            adVariations = adVariations.map(v => ({
-                platform: String(v.platform || ''),
-                angle: String(v.angle || ''),
-                headline: String(v.headline || ''),
-                body: String(v.body || ''),
-                cta: String(v.cta || '')
-            }));
+            // Final sanitization (defensive) to ensure all fields are populated strings
+            adVariations = adVariations.map(v => {
+                const platform = String(v.platform || '').trim()
+                const angle = String(v.angle || '').trim() || 'Benefit-Driven'
+                const body = String(v.body || '').trim()
+                const headline = String(v.headline || '').trim() || (body ? body.slice(0, 40) : `${angle} Ad`)
+                const cta = String(v.cta || '').trim() || 'Learn More'
+                return { platform, angle, headline, body, cta }
+            })
 
             // 3. Convert to CSV formats
             // Legacy CSV: Platform, Angle, Headline, Body, CTA

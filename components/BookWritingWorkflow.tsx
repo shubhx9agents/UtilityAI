@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/types/errors'
-import { Sparkles, BookOpen, CheckCircle2, RotateCcw, Loader2, ChevronRight, ArrowLeft, Download, Copy, FileText } from 'lucide-react'
+import { Sparkles, BookOpen, CheckCircle2, RotateCcw, Loader2, ChevronRight, ArrowLeft, Download, Copy, FileText, MessageCircle, Send } from 'lucide-react'
 import KindleBookReader from '@/components/KindleBookReader'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
@@ -14,6 +14,7 @@ import remarkGfm from 'remark-gfm'
 import { AgentSessionHistory } from '@/components/agent-session-history'
 import { History, LayoutTemplate, BookText } from 'lucide-react'
 import FlipBookViewer from '@/components/FlipBookViewer'
+import { AgentSession } from '@/types'
 
 /* ─── Types ─── */
 interface Book {
@@ -72,8 +73,16 @@ export default function BookWritingWorkflow({ onCreditDeduct }: { onCreditDeduct
     const [showHistory, setShowHistory] = useState(false)
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
     const [sessionKey, setSessionKey] = useState(0)
+    const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([])
+    const [chatInput, setChatInput] = useState('')
+    const [chatLoading, setChatLoading] = useState(false)
+    const [showChat, setShowChat] = useState(false)
 
-    const saveBookSession = async (finalBook: string, bookOutline: Outline) => {
+    const saveBookSession = async (
+        finalBook: string,
+        bookOutline: Outline,
+        messages?: Array<{ role: 'user' | 'assistant'; content: string }>
+    ) => {
         try {
             const res = await fetch('/api/agents/sessions', {
                 method: 'POST',
@@ -86,6 +95,7 @@ export default function BookWritingWorkflow({ onCreditDeduct }: { onCreditDeduct
                     },
                     response: finalBook,
                     refined_prompt: bookOutline.bookTitle,
+                    chat_messages: messages || chatMessages,
                 }),
             })
 
@@ -99,11 +109,13 @@ export default function BookWritingWorkflow({ onCreditDeduct }: { onCreditDeduct
         }
     }
 
-    const handleSessionRestore = (session: any) => {
+    const handleSessionRestore = (session: AgentSession) => {
         setPhase('complete')
         setTopic(session.form_data?.['Book Topic'] || '')
         setOutline(session.form_data?.outline || null)
         setMergedBook(session.response || '')
+        setChatMessages(session.chat_messages || [])
+        setShowChat(Boolean(session.chat_messages && session.chat_messages.length > 0))
         setCurrentSessionId(session.id)
         setShowHistory(false)
         setPdfFilename(session.form_data?.outline?.bookTitle || session.refined_prompt || '')
@@ -118,6 +130,9 @@ export default function BookWritingWorkflow({ onCreditDeduct }: { onCreditDeduct
             toast.error('Please enter a book topic first')
             return
         }
+        setChatMessages([])
+        setShowChat(false)
+        setCurrentSessionId(null)
         setPhase('researching')
         setResearchStatus('🔍 Searching the web for top books on this topic...')
         try {
@@ -378,6 +393,61 @@ ${mdToHtml(mergedBook)}
     /* ────────────────────────────────────────────
        RENDER
     ──────────────────────────────────────────── */
+
+    const updateSessionChat = async (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+        if (!currentSessionId) return
+        try {
+            await fetch(`/api/agents/sessions/${currentSessionId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_messages: messages }),
+            })
+        } catch (error) {
+            console.error('Failed to update book chat session:', error)
+        }
+    }
+
+    const handleBookChatSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
+        if (!chatInput.trim() || !mergedBook) return
+
+        const userMessage = chatInput.trim()
+        setChatInput('')
+        setShowChat(true)
+
+        const nextMessages = [...chatMessages, { role: 'user' as const, content: userMessage }]
+        setChatMessages(nextMessages)
+        setChatLoading(true)
+
+        try {
+            const res = await fetch('/api/agents/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: nextMessages,
+                    agent_type: 'book_writing',
+                    initialContext: mergedBook,
+                }),
+            })
+
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to get chat response')
+
+            const updatedMessages = [...nextMessages, { role: 'assistant' as const, content: data.response }]
+            setChatMessages(updatedMessages)
+
+            if (currentSessionId) {
+                await updateSessionChat(updatedMessages)
+            } else if (outline) {
+                await saveBookSession(mergedBook, outline, updatedMessages)
+            }
+        } catch (error) {
+            toast.error(getErrorMessage(error))
+        } finally {
+            setChatLoading(false)
+        }
+    }
+
     return (
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
@@ -448,7 +518,7 @@ ${mdToHtml(mergedBook)}
                             </div>
                             <div>
                                 <h2 className="text-2xl font-bold text-white">What should your book be about?</h2>
-                                <p className="text-white/40 text-sm mt-1">We'll research the best books on this topic and write an original 50-page book.</p>
+                                <p className="text-white/40 text-sm mt-1">We&apos;ll research the best books on this topic and write an original 50-page book.</p>
                             </div>
                         </div>
                         <div className="space-y-3">
@@ -484,7 +554,7 @@ ${mdToHtml(mergedBook)}
                             <div className="absolute -inset-4 bg-amber-500/10 blur-3xl rounded-full" />
                         </div>
                         <div className="space-y-3">
-                            <h2 className="text-2xl font-bold text-white">Researching "{topic}"</h2>
+                            <h2 className="text-2xl font-bold text-white">Researching &ldquo;{topic}&rdquo;</h2>
                             <p className="text-amber-400 text-sm font-medium animate-pulse">{researchStatus}</p>
                         </div>
                         <div className="space-y-2 w-full max-w-sm">
@@ -566,7 +636,6 @@ ${mdToHtml(mergedBook)}
                             {outline.chapters.map((ch, i) => {
                                 const isApproved = approvedChapters[i]
                                 const isCurrent = i === currentChapterIdx && !isApproved
-                                const isPending = i > currentChapterIdx
                                 return (
                                     <div key={i} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isCurrent ? 'bg-amber-500/10 border border-amber-500/20' : isApproved ? 'bg-green-500/5 border border-green-500/20' : 'border border-transparent'}`}>
                                         <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isApproved ? 'bg-green-500/20' : isCurrent ? 'bg-amber-500/20' : 'bg-white/5'}`}>
@@ -739,8 +808,84 @@ ${mdToHtml(mergedBook)}
                             />
                         </div>
                     )}
+
+                    <div className="border border-white/10 bg-[#030303] rounded-3xl overflow-hidden">
+                        <div className="px-6 sm:px-8 py-6 border-b border-white/5 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                                    <MessageCircle className="h-5 w-5 text-amber-500" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-white">Refinement Oracle</h3>
+                                    <p className="text-white/40 text-sm">Chat directly with the agent to fine-tune your report</p>
+                                </div>
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowChat(prev => !prev)}
+                                className="border-white/10 bg-white/5 text-white hover:bg-white/10 rounded-xl"
+                            >
+                                {showChat ? 'Minimize Interface' : 'Open Conversation'}
+                            </Button>
+                        </div>
+
+                        {showChat && (
+                            <div className="p-6 sm:p-8 space-y-4">
+                                <ScrollArea className="h-[360px] rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                                    {chatMessages.length === 0 ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-center text-white/40 px-6">
+                                            <MessageCircle className="h-10 w-10 mb-3 text-white/25" />
+                                            <p className="text-sm leading-relaxed">Ask for chapter rewrites, tone changes, structural edits, or stronger hooks.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4 pb-2">
+                                            {chatMessages.map((msg, idx) => (
+                                                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                                    <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-amber-500 text-black font-semibold' : 'bg-white/5 border border-white/10 text-white/90'}`}>
+                                                        {msg.role === 'assistant' ? (
+                                                            <div className="prose prose-invert prose-sm max-w-none prose-p:text-white/80">
+                                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {chatLoading && (
+                                                <div className="flex justify-start">
+                                                    <div className="rounded-2xl px-4 py-3 bg-white/5 border border-white/10 flex items-center gap-2 text-amber-500 text-xs font-bold uppercase tracking-wider">
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                        Thinking
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </ScrollArea>
+
+                                <form onSubmit={handleBookChatSubmit} className="flex gap-3">
+                                    <Input
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        placeholder="Ask for refinements to your book..."
+                                        disabled={chatLoading}
+                                        className="h-12 bg-white/5 border-white/10 text-white rounded-xl"
+                                    />
+                                    <Button
+                                        type="submit"
+                                        disabled={chatLoading || !chatInput.trim()}
+                                        className="h-12 w-12 p-0 rounded-xl bg-amber-500 text-black hover:bg-amber-400"
+                                    >
+                                        <Send className="h-5 w-5" />
+                                    </Button>
+                                </form>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
     )
 }
+

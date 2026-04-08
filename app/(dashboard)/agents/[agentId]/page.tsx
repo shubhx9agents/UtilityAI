@@ -46,6 +46,67 @@ import { DeepResearchRenderer } from '@/components/deep-research-renderer'
 import BookWritingWorkflow from '@/components/BookWritingWorkflow'
 
 const DEFAULT_IMAGE_MODEL = 'nano-banana-pro'
+const IMAGE_RESPONSE_KEYS = [
+    'image_url',
+    'headshot_url',
+    'output_image',
+    'generated_image',
+    'url',
+    'response',
+]
+
+const extractImageFromUnknown = (value: unknown, seen = new Set<unknown>()): string | null => {
+    if (value === null || value === undefined) return null
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+        if (!trimmed) return null
+
+        if (trimmed.startsWith('data:image/') || /^https?:\/\//i.test(trimmed)) {
+            return trimmed
+        }
+
+        const markdownImage = trimmed.match(/!\[[^\]]*]\((data:image\/[^\s)]+|https?:\/\/[^\s)]+)\)/i)
+        if (markdownImage?.[1]) {
+            return markdownImage[1]
+        }
+
+        try {
+            const parsed = JSON.parse(trimmed)
+            const fromParsed = extractImageFromUnknown(parsed, seen)
+            if (fromParsed) return fromParsed
+        } catch {
+            // not a JSON payload
+        }
+
+        const fallbackUrl = trimmed.match(/(data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+|https?:\/\/[^\s"'<>`]+)/i)
+        return fallbackUrl?.[1] ?? null
+    }
+
+    if (typeof value !== 'object') return null
+    if (seen.has(value)) return null
+    seen.add(value)
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            const found = extractImageFromUnknown(item, seen)
+            if (found) return found
+        }
+        return null
+    }
+
+    const record = value as Record<string, unknown>
+    for (const key of IMAGE_RESPONSE_KEYS) {
+        const found = extractImageFromUnknown(record[key], seen)
+        if (found) return found
+    }
+
+    for (const nestedValue of Object.values(record)) {
+        const found = extractImageFromUnknown(nestedValue, seen)
+        if (found) return found
+    }
+
+    return null
+}
 const IMAGE_MODEL_OPTIONS = [
     { value: 'nano-banana-2', label: 'Nano Banana 2 (Gemini 3.1 Flash — Fast)' },
     { value: 'nano-banana-pro', label: 'Nano Banana Pro (Gemini 3 Pro — High Fidelity)' },
@@ -360,6 +421,68 @@ function AgentPageContent() {
         }
     }
 
+    const isImageAgent = agentId === 'image_generation' || agentId === 'linkedin_headshot'
+    const renderedImage = isImageAgent ? extractImageFromUnknown(response) : null
+
+    const convertBlobToDataUrl = (blob: Blob): Promise<string> => (
+        new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.onerror = () => reject(new Error('Failed to convert blob to data URL'))
+            reader.readAsDataURL(blob)
+        })
+    )
+
+    const resolveImageSourceForChat = async (imageSource: string): Promise<string | null> => {
+        if (!imageSource) return null
+        if (imageSource.startsWith('data:image/')) return imageSource
+
+        const imgRes = await fetch(`/api/download?url=${encodeURIComponent(imageSource)}`)
+        if (!imgRes.ok) throw new Error('Proxy fetch failed')
+        const blob = await imgRes.blob()
+        const dataUrl = await convertBlobToDataUrl(blob)
+        return dataUrl.startsWith('data:image/') ? dataUrl : null
+    }
+
+    const cacheGeneratedImageForChat = async (imageSource: string | null) => {
+        if (!imageSource || !isImageAgent) return
+
+        try {
+            const resolvedImage = await resolveImageSourceForChat(imageSource)
+            if (resolvedImage) {
+                setUploadedImages({ 'Generated Output': resolvedImage })
+            } else {
+                setUploadedImages({})
+            }
+        } catch (error) {
+            console.error('Failed to fetch generated image for chat analysis via proxy:', error)
+            setUploadedImages({})
+        }
+    }
+
+    const getVisionImagesForChat = async (): Promise<Record<string, string> | undefined> => {
+        const validUploadedImages = Object.fromEntries(
+            Object.entries(uploadedImages).filter(([, value]) => typeof value === 'string' && value.startsWith('data:image/'))
+        ) as Record<string, string>
+
+        if (Object.keys(validUploadedImages).length > 0) {
+            return validUploadedImages
+        }
+
+        if (!isImageAgent || !renderedImage) return undefined
+
+        try {
+            const resolvedImage = await resolveImageSourceForChat(renderedImage)
+            if (!resolvedImage) return undefined
+            const preparedImages = { 'Generated Output': resolvedImage }
+            setUploadedImages(preparedImages)
+            return preparedImages
+        } catch (error) {
+            console.error('Failed to prepare rendered image for vision chat:', error)
+            return undefined
+        }
+    }
+
     const isChatEnabled = true
 
     if (!agent) {
@@ -550,28 +673,10 @@ function AgentPageContent() {
                 // Clear uploaded images after generation
                 setUploadedImages({})
 
-                // For image-based agents, fetch and convert the generated image to base64 for chat analysis
-                if ((agentId === 'linkedin_headshot' || agentId === 'image_generation') &&
-                    (data.response.startsWith('http') || data.response.startsWith('data:image/'))) {
-
-                    if (data.response.startsWith('data:image/')) {
-                        // Already base64, store directly
-                        setUploadedImages({ 'Generated Output': data.response })
-                    } else {
-                        // Fetch the image URL and convert to base64
-                        try {
-                            const imgRes = await fetch(`/api/download?url=${encodeURIComponent(data.response)}`)
-                            if (!imgRes.ok) throw new Error('Proxy fetch failed')
-                            const blob = await imgRes.blob()
-                            const reader = new FileReader()
-                            reader.onloadend = () => {
-                                setUploadedImages({ 'Generated Output': reader.result as string })
-                            }
-                            reader.readAsDataURL(blob)
-                        } catch (error) {
-                            console.error('Failed to fetch generated image for chat analysis via proxy:', error)
-                        }
-                    }
+                // For image agents, store generated output as chat vision context
+                if (isImageAgent) {
+                    const generatedImage = extractImageFromUnknown(data.response)
+                    await cacheGeneratedImageForChat(generatedImage)
                 }
 
                 // Auto-save session after successful response
@@ -662,9 +767,15 @@ function AgentPageContent() {
     const downloadImage = (customFilename?: string) => {
         try {
             const filename = customFilename ? `${customFilename}.png` : `${agentId}-image.png`
-            if (response.startsWith('data:image/')) {
+            const imageArtifact = extractImageFromUnknown(response)
+            if (!imageArtifact) {
+                toast.error('No generated image found to download')
+                return
+            }
+
+            if (imageArtifact.startsWith('data:image/')) {
                 const link = document.createElement('a')
-                link.href = response
+                link.href = imageArtifact
                 link.download = filename
                 document.body.appendChild(link)
                 link.click()
@@ -674,7 +785,7 @@ function AgentPageContent() {
             }
 
             // Use our proxy endpoint to bypass CORS and force download
-            const downloadUrl = `/api/download?url=${encodeURIComponent(response)}&filename=${encodeURIComponent(filename)}`
+            const downloadUrl = `/api/download?url=${encodeURIComponent(imageArtifact)}&filename=${encodeURIComponent(filename)}`
             window.location.href = downloadUrl
             toast.success('Download started')
         } catch (error) {
@@ -1164,19 +1275,25 @@ function AgentPageContent() {
         setChatLoading(true)
 
         try {
+            const visionImages = await getVisionImagesForChat()
             const res = await fetch('/api/agents/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages: newMessages,
                     agent_type: agentId,
-                    initialContext: response,
-                    uploadedImages: Object.keys(uploadedImages).length > 0 ? uploadedImages : undefined
+                    initialContext: renderedImage || response,
+                    uploadedImages: visionImages
                 }),
             })
 
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Failed to get response')
+            if (!res.ok) {
+                const detail = typeof data.details === 'string' && data.details.trim()
+                    ? ` (${data.details.substring(0, 180)})`
+                    : ''
+                throw new Error(`${data.error || 'Failed to get response'}${detail}`)
+            }
 
             const updatedMessages = [...newMessages, { role: 'assistant' as const, content: data.response }]
             setChatMessages(updatedMessages)
@@ -1237,13 +1354,19 @@ function AgentPageContent() {
         setHeadshotBackground(session.form_data?.['Background Template'] || '')
         setHeadshotOutfit(session.form_data?.['Clothing Template'] || '')
         setImageModel(session.form_data?.['Image Model'] || DEFAULT_IMAGE_MODEL)
-        setResponse(session.response || '')
+        const restoredResponse = session.response || ''
+        setResponse(restoredResponse)
         // Extract meta_csv if stored in metadata or reconstructed (simplified for now: session might not have it yet)
         setMetaCsv('')
         setRefinedPrompt(session.refined_prompt || '')
         setChatMessages(session.chat_messages || [])
         setCurrentSessionId(session.id)
         setShowChat(session.chat_messages && session.chat_messages.length > 0)
+        setUploadedImages({})
+        if (isImageAgent) {
+            const restoredImage = extractImageFromUnknown(restoredResponse)
+            void cacheGeneratedImageForChat(restoredImage)
+        }
         toast.success('Session restored')
     }
 
@@ -2012,12 +2135,12 @@ function AgentPageContent() {
                                 ) : response ? (
                                     <div className="h-full flex flex-col min-h-0">
                                         <ScrollArea id="report-content" className="flex-1 rounded-3xl border border-white/5 bg-white/[0.01] p-6 sm:p-10">
-                                            {(agentId === 'image_generation' || agentId === 'linkedin_headshot') && (response.startsWith('http') || response.startsWith('data:image/')) ? (
+                                            {isImageAgent && renderedImage ? (
                                                 <div className="flex justify-center h-full items-center py-10">
                                                     <div className="relative group">
                                                         <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
                                                         <img
-                                                            src={response}
+                                                            src={renderedImage}
                                                             alt="Generated Asset"
                                                             className="relative max-w-full rounded-2xl shadow-2xl border border-white/10"
                                                         />
@@ -2198,9 +2321,9 @@ function AgentPageContent() {
                     </DialogHeader>
                     <div className="flex-1 overflow-hidden p-6 sm:p-10">
                         <ScrollArea className="h-full">
-                            {(agentId === 'image_generation' || agentId === 'linkedin_headshot') && (response.startsWith('http') || response.startsWith('data:image/')) ? (
+                            {isImageAgent && renderedImage ? (
                                 <div className="flex justify-center h-full items-center">
-                                    <img src={response} alt="Generated Asset" className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain" />
+                                    <img src={renderedImage} alt="Generated Asset" className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain" />
                                 </div>
                             ) : agentId === 'ad_copy' ? (
                                 <CSVTable csvData={response} />

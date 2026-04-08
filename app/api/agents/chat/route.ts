@@ -4,7 +4,6 @@ import { sanitizeText } from '@/utils/sanitize'
 import { preCheckAgentCredit, deductAgentCreditOnSuccess, creditExhaustedResponse } from '@/lib/credits'
 import { getErrorMessage } from '@/lib/types/errors'
 
-// Build Gemini image parts from base64 data
 function buildGeminiImageParts(images: Record<string, string>): Array<{ inlineData: { mimeType: string; data: string } }> {
     const parts: Array<{ inlineData: { mimeType: string; data: string } }> = []
     for (const imageData of Object.values(images)) {
@@ -18,6 +17,101 @@ function buildGeminiImageParts(images: Record<string, string>): Array<{ inlineDa
         })
     }
     return parts
+}
+
+type GeminiTextPart = { text?: string }
+type GeminiCandidate = { content?: { parts?: GeminiTextPart[] } }
+type GeminiGenerateResponse = { candidates?: GeminiCandidate[] }
+
+const DEFAULT_GEMINI_VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash']
+const DEFAULT_VISION_RETRIES_PER_MODEL = 3
+const RETRYABLE_GEMINI_STATUSES = new Set([429, 500, 502, 503, 504])
+
+const getVisionModelFallbacks = (): string[] => {
+    const envModels = (process.env.GEMINI_VISION_MODELS || '')
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean)
+
+    const merged = envModels.length > 0 ? envModels : DEFAULT_GEMINI_VISION_MODELS
+    return Array.from(new Set(merged))
+}
+
+const getVisionRetryCount = (): number => {
+    const raw = Number(process.env.GEMINI_VISION_RETRIES_PER_MODEL || DEFAULT_VISION_RETRIES_PER_MODEL)
+    if (!Number.isFinite(raw)) return DEFAULT_VISION_RETRIES_PER_MODEL
+    const rounded = Math.floor(raw)
+    return Math.min(Math.max(1, rounded), 6)
+}
+
+const wait = async (ms: number) => {
+    await new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+const retryBackoffMs = (attempt: number) => Math.min(3500, 500 * Math.pow(2, attempt))
+
+const extractGeminiText = (payload: GeminiGenerateResponse): string | null => {
+    const parts = payload.candidates?.[0]?.content?.parts
+    if (!parts || parts.length === 0) return null
+    const textPart = parts.find((part) => typeof part?.text === 'string')
+    const text = textPart?.text?.trim()
+    return text && text.length >= 5 ? text : null
+}
+
+async function runGeminiVisionWithFallback(
+    geminiApiKey: string,
+    geminiMessages: Array<{ role: string; parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> }>
+): Promise<string> {
+    let lastError = 'No response from any model'
+    const retriesPerModel = getVisionRetryCount()
+
+    for (const model of getVisionModelFallbacks()) {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+        for (let attempt = 0; attempt < retriesPerModel; attempt++) {
+            try {
+                const geminiRes = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'x-goog-api-key': geminiApiKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ contents: geminiMessages })
+                })
+
+                if (!geminiRes.ok) {
+                    const status = geminiRes.status
+                    const errorText = await geminiRes.text()
+                    const isRetryable = RETRYABLE_GEMINI_STATUSES.has(status)
+                    lastError = `[${model}] status=${status} ${errorText}`
+
+                    if (isRetryable && attempt < retriesPerModel - 1) {
+                        await wait(retryBackoffMs(attempt))
+                        continue
+                    }
+                    break
+                }
+
+                const geminiData = await geminiRes.json() as GeminiGenerateResponse
+                const response = extractGeminiText(geminiData)
+                if (response) return response
+
+                lastError = `[${model}] No valid response from model`
+                if (attempt < retriesPerModel - 1) {
+                    await wait(retryBackoffMs(attempt))
+                    continue
+                }
+                break
+            } catch (error) {
+                lastError = `[${model}] ${getErrorMessage(error)}`
+                if (attempt < retriesPerModel - 1) {
+                    await wait(retryBackoffMs(attempt))
+                    continue
+                }
+                break
+            }
+        }
+    }
+    throw new Error(`Gemini vision failed after model fallback: ${lastError}`)
 }
 
 export async function POST(request: NextRequest) {
@@ -35,18 +129,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid messages format' }, { status: 400 })
         }
 
-        // ── 1. Pre-check aggregate credit limit (no deduction yet) ──
         const preCheck = await preCheckAgentCredit(user.id)
         if (!preCheck.allowed) {
             return NextResponse.json(creditExhaustedResponse(preCheck), { status: 402 })
         }
 
-        // System messages for different agent types
         const systemMessages: Record<string, string> = {
             deep_research: 'You are a strategic market research expert. Provide actionable insights and analysis.',
             ad_copy: 'You are a direct response copywriting expert. Help refine and improve ad copy.',
             image_generation: 'You are an AI image generation expert. Help users refine their image prompts and provide feedback.',
             linkedin_headshot: 'You are a professional photography and personal branding expert. Analyze headshot photos and provide constructive feedback on lighting, composition, expression, attire, and overall professional appearance. Be specific and actionable.',
+            book_writing: 'You are an experienced book editor and writing coach. Give precise, chapter-aware revisions while preserving the author voice.',
             default: 'You are a helpful AI assistant specialized in marketing and business strategy.'
         }
 
@@ -56,66 +149,55 @@ export async function POST(request: NextRequest) {
             systemMessage += `\n\nCONTEXT FROM AGENT OUTPUT:\nThe user has just generated the following content using the ${agent_type} agent. Use this context to answer any follow-up questions:\n\n${initialContext.substring(0, 10000)}`
         }
 
-        const sanitizedMessages = messages.map((msg: any) => ({
+        const sanitizedMessages = messages.map((msg: { role?: string; content?: string }) => ({
             role: msg.role,
-            content: sanitizeText(msg.content)
+            content: sanitizeText(typeof msg.content === 'string' ? msg.content : '')
         }))
 
         const lastUserMessage = sanitizedMessages[sanitizedMessages.length - 1]?.content || ''
         const agentKey = agent_type ? `${agent_type}_chat` : 'chat'
 
-        // ── 2. Call the LLM (Gemini for images, Groq for text) ──
-
         if (uploadedImages && Object.keys(uploadedImages).length > 0) {
-            const geminiApiKey = process.env.GEMINI_API_KEY
-            if (!geminiApiKey) {
-                return NextResponse.json({ error: 'GEMINI_API_KEY is missing' }, { status: 500 })
-            }
-
-            const imageParts = buildGeminiImageParts(uploadedImages)
-            const geminiMessages = [
-                {
-                    role: 'user',
-                    parts: [
-                        { text: systemMessage },
-                        ...imageParts,
-                        { text: `Here are the uploaded images for analysis. ${lastUserMessage}` }
-                    ]
+            try {
+                const geminiApiKey = process.env.GEMINI_API_KEY
+                if (!geminiApiKey) {
+                    throw new Error('GEMINI_API_KEY is missing')
                 }
-            ]
 
-            const geminiRes = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'x-goog-api-key': geminiApiKey,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ contents: geminiMessages })
+                const imageParts = buildGeminiImageParts(uploadedImages)
+                if (imageParts.length === 0) {
+                    throw new Error('No valid base64 image payloads for vision analysis')
                 }
-            )
 
-            if (!geminiRes.ok) {
-                const errorText = await geminiRes.text()
-                console.error('Gemini Vision API Error:', errorText)
-                // No credit deducted — API failure
-                return NextResponse.json({ error: 'Failed to analyze image' }, { status: 500 })
+                const geminiMessages = [
+                    {
+                        role: 'user',
+                        parts: [
+                            { text: systemMessage },
+                            ...imageParts,
+                            { text: `Here are the uploaded images for analysis. ${lastUserMessage}` }
+                        ]
+                    }
+                ]
+                const response = await runGeminiVisionWithFallback(geminiApiKey, geminiMessages)
+                await deductAgentCreditOnSuccess(user.id, agentKey)
+                return NextResponse.json({ response })
+            } catch (visionError) {
+                console.error('Vision chat failed:', visionError)
+                const isImageSpecificAgent = agent_type === 'image_generation' || agent_type === 'linkedin_headshot'
+                if (isImageSpecificAgent) {
+                    const details = process.env.NODE_ENV !== 'production'
+                        ? getErrorMessage(visionError)
+                        : undefined
+                    return NextResponse.json(
+                        { error: 'Image analysis failed for this chat turn. Please retry in a few seconds.', details },
+                        { status: 502 }
+                    )
+                }
+                systemMessage += '\n\nNOTE: Image analysis was unavailable for this turn. Use the textual context to answer as helpfully as possible.'
             }
-
-            const geminiData = await geminiRes.json()
-            const response = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
-
-            // ── 3. Validate & deduct only on valid response ──
-            if (!response || response.trim().length < 5) {
-                return NextResponse.json({ error: 'No valid response from vision model' }, { status: 500 })
-            }
-
-            await deductAgentCreditOnSuccess(user.id, agentKey)
-            return NextResponse.json({ response })
         }
 
-        // Text-only path — Groq
         const groqApiKey = process.env.GROQ_API_KEY
         if (!groqApiKey) {
             return NextResponse.json({ error: 'GROQ_API_KEY is missing' }, { status: 500 })
@@ -139,14 +221,12 @@ export async function POST(request: NextRequest) {
         if (!groqRes.ok) {
             const errorText = await groqRes.text()
             console.error('Groq API Error:', errorText)
-            // No credit deducted — API failure
             return NextResponse.json({ error: 'Failed to get chat response' }, { status: 500 })
         }
 
         const groqData = await groqRes.json()
         const response = groqData.choices?.[0]?.message?.content
 
-        // ── 3. Validate & deduct only on valid response ──
         if (!response || response.trim().length < 5) {
             return NextResponse.json({ error: 'No valid response generated' }, { status: 500 })
         }
@@ -156,7 +236,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error: unknown) {
         console.error('Chat API Error:', error)
-        // No credit deducted — uncaught error
         return NextResponse.json(
             { error: getErrorMessage(error) },
             { status: 500 }
