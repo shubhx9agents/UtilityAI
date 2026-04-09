@@ -23,18 +23,19 @@ export async function POST(request: NextRequest) {
             chapterTitle,
             chapterDescription,
             keyPoints,
-            previousChapterTitles = [] as string[]
+            previousChapterTitles = [] as string[],
+            forceRefresh = false
         } = body
-
+ 
         if (!topic || !chapterNumber || !chapterTitle) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
-
+ 
         const isFirstChapter = chapterNumber === 1
-
+ 
         // ── Check Cache ──
         const cacheKey = generateCacheKey(user.id, 'book_writing_chapter', `${topic}:${chapterNumber}`, { chapterTitle })
-        const cachedResult = await getCachedGeneration(cacheKey)
+        const cachedResult = !forceRefresh ? await getCachedGeneration(cacheKey) : null
         if (cachedResult) {
             console.log(`[Cache Hit] Returning cached chapter ${chapterNumber} for topic: ${topic}`)
             return NextResponse.json(cachedResult)

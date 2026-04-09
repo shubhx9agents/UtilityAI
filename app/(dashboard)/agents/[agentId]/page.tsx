@@ -705,7 +705,13 @@ function AgentPageContent() {
                 question.includes('mission') ||
                 question.includes('vision') ||
                 question.includes('promise') ||
-                question.includes('niche');
+                question.includes('niche') ||
+                question.includes('topic') ||
+                question.includes('content') ||
+                question.includes('idea') ||
+                question.includes('subject') ||
+                question.includes('goal') ||
+                question.includes('curriculum');
         });
 
         const filledQuestions = questionsToOptimize.filter(q => (formData[q] || '').trim().length > 0);
@@ -829,7 +835,11 @@ function AgentPageContent() {
             try { drData = JSON.parse(jsonStr) } catch { }
             if (!drData) { toast.error('Failed to parse research data for PDF'); return }
 
-            const esc = (s: string | null | undefined) => (s ?? '—').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            const esc = (s: any) => {
+                if (s === null || s === undefined) return '—'
+                const str = typeof s === 'string' ? s : String(s)
+                return str.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            }
 
             const buildCompetitorsHtml = (comps: any[]) => {
                 let html = '<h2>01 — Competitive Landscape</h2>'
@@ -1905,6 +1915,7 @@ function AgentPageContent() {
                                             {/* Top row of buttons */}
                                             <div className="flex gap-2 w-full max-w-sm mt-4">
                                                 <Button
+                                                    type="button"
                                                     className="w-full bg-warm-primary hover:bg-warm-primary/90 text-primary-foreground"
                                                     onClick={() => setResponse('')}
                                                 >
@@ -1980,15 +1991,18 @@ function AgentPageContent() {
                                                     )}
                                                 </Button>
                                             )}
-                                            <Button
-                                                variant="outline"
-                                                className="w-full flex items-center justify-center gap-2"
-                                                onClick={(e) => handleSubmit(e, true)}
-                                                disabled={loading}
-                                            >
-                                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-                                                Regenerate
-                                            </Button>
+                                            {response && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="w-full flex items-center justify-center gap-2"
+                                                    onClick={(e) => handleSubmit(e, true)}
+                                                    disabled={loading}
+                                                >
+                                                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                                                    Regenerate
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
                                 </form>

@@ -477,6 +477,7 @@ function CanvasPageContent() {
     const [selectedResultStepId, setSelectedResultStepId] = useState<string | null>(null)
     const [showStepJsonDialog, setShowStepJsonDialog] = useState(false)
     const [isOptimizingPrompt, setIsOptimizingPrompt] = useState(false)
+    const [forcedMarkdownSteps, setForcedMarkdownSteps] = useState<Set<string>>(new Set())
 
     // Progress tracking state
     const [executionProgress, setExecutionProgress] = useState(0)
@@ -3668,8 +3669,15 @@ function CanvasPageContent() {
                                                                 ))}
                                                             </div>
                                                         </div>
-                                                    ) : agentType === 'deep_research' && typeof content === 'string' && content.startsWith('DEEP_RESEARCH_JSON:') ? (
-                                                        <DeepResearchRenderer rawResponse={content} />
+                                                    ) : agentType === 'deep_research' && typeof content === 'string' && content.startsWith('DEEP_RESEARCH_JSON:') && !forcedMarkdownSteps.has(selectedResultStepId as string) ? (
+                                                        <DeepResearchRenderer 
+                                                            rawResponse={content} 
+                                                            onForceMarkdown={() => {
+                                                                const next = new Set(forcedMarkdownSteps)
+                                                                next.add(selectedResultStepId as string)
+                                                                setForcedMarkdownSteps(next)
+                                                            }}
+                                                        />
                                                     ) : (
                                                         <div className="markdown-container prose dark:prose-invert max-w-none prose-base pr-3">
                                                             {isSummary && (

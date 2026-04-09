@@ -165,7 +165,7 @@ export default function BookWritingWorkflow({ onCreditDeduct }: { onCreditDeduct
     /* ────────────────────────────────────────────
        PHASE 2 — Generate a chapter
     ──────────────────────────────────────────── */
-    const handleGenerateChapter = async (chapterIdx: number) => {
+    const handleGenerateChapter = async (chapterIdx: number, forceRefresh = false) => {
         if (!outline) return
         setIsGeneratingChapter(true)
         setCurrentChapterContent('')
@@ -189,7 +189,8 @@ export default function BookWritingWorkflow({ onCreditDeduct }: { onCreditDeduct
                     chapterTitle: chapter.title,
                     chapterDescription: chapter.description,
                     keyPoints: chapter.keyPoints,
-                    previousChapterTitles
+                    previousChapterTitles,
+                    forceRefresh
                 })
             })
 
@@ -257,7 +258,7 @@ export default function BookWritingWorkflow({ onCreditDeduct }: { onCreditDeduct
 
     /* Regenerate current chapter */
     const handleRegenerateChapter = async () => {
-        await handleGenerateChapter(currentChapterIdx)
+        await handleGenerateChapter(currentChapterIdx, true)
     }
 
     /* ────────────────────────────────────────────

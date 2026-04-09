@@ -1290,29 +1290,25 @@ ${rawOutput}
 
 === END_OF_INPUT ===`.trim()
 
-            const GROQ_STRUCTURING_SYSTEM = `You are an expert competitive intelligence analyst and market research formatter.
+            const GROQ_STRUCTURING_SYSTEM = `You are an expert competitive intelligence analyst.
+Your task is to transform raw research into a HIGHLY STRUCTURED JSON object.
 
-Your task is to transform raw competitive analysis data into a structured JSON object.
+CORE RULES:
+1. Parse EVERY piece of data. Do NOT summarize or omit. 
+2. Match the schema EXACTLY.
+3. If a specific field is missing in the raw text, use "Not specified" or null rather than omitting the key.
+4. For arrays like "key_features", ensure they are cleaned of markdown bullets.
+5. In "funnel_stages", map the raw funnel description into the sub-keys: tofu, mofu, bofu, retention.
 
-Parse EVERY piece of data from the input. Do NOT summarize. Do NOT omit. Preserve verbatim text.
-
-Output ONLY a single valid JSON object — no markdown, no code fences, no preamble — matching this exact schema:
-
+JSON SCHEMA:
 {
-  "meta_information": {
-    "research_id": string,
-    "model": string,
-    "timestamp": string,
-    "usage_stats": { "prompt_tokens": number, "completion_tokens": number, "total_tokens": number, "search_context_size": string, "total_cost": number },
-    "citations": string[]
-  },
+  "meta_information": { "research_id": string, "citations": string[] },
   "competitors": [{
     "name": string, "website": string,
     "profile": { "niche": string, "target_audience": string, "geography": string },
     "offerings": { "what_they_sell": string, "key_features": string[], "core_promise": string, "usp": string },
     "funnel": { "type": string, "stages": string[], "lead_magnet": string | null },
-    "pricing": { "model": string, "estimated_range": string | null, "publicly_listed": boolean },
-    "metrics": { "resolution_rate": string | null, "automation_level": string | null }
+    "pricing": { "model": string, "estimated_range": string | null, "publicly_listed": boolean }
   }],
   "ad_research": [{
     "competitor": string, "platform": string, "ad_library_url": string,

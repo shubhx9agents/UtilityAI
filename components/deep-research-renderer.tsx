@@ -1,11 +1,18 @@
-﻿'use client'
+'use client'
 
 import React from 'react'
 
 // --- Helpers: safe type coercion for LLM output ---
 function toArr(v: unknown): string[] {
     if (Array.isArray(v)) return v.map(x => toStr(x))
-    if (typeof v === 'string' && v.trim()) return [v]
+    if (typeof v === 'string' && v.trim()) {
+        const str = v.trim()
+        // If it looks like a comma/semicolon/newline separated list, split it
+        if (str.includes('\n')) return str.split('\n').map(s => s.trim().replace(/^[-*•]\s+/, '')).filter(Boolean)
+        if (str.includes(';')) return str.split(';').map(s => s.trim()).filter(Boolean)
+        if (str.includes(',') && str.split(',').length > 2) return str.split(',').map(s => s.trim()).filter(Boolean)
+        return [str]
+    }
     if (v && typeof v === 'object') {
         try { return Object.values(v).map(x => toStr(x)) } catch { return [] }
     }
@@ -16,6 +23,15 @@ function toStr(v: unknown): string {
     if (v === null || v === undefined) return '—'
     if (typeof v === 'number' || typeof v === 'boolean') return String(v)
     try { return JSON.stringify(v) } catch { return '—' }
+}
+function sanitizeUrl(url: string | null | undefined): string {
+    if (!url) return '#'
+    let sanitized = url.trim()
+    if (!sanitized) return '#'
+    if (!sanitized.startsWith('http://') && !sanitized.startsWith('https://')) {
+        sanitized = 'https://' + sanitized
+    }
+    return sanitized
 }
 
 // --- Types ---
@@ -170,7 +186,7 @@ function CompetitorsSection({ data }: { data: Competitor[] }) {
                 <table className="w-full text-sm min-w-[640px]">
                     <thead>
                         <tr className="border-b border-white/[0.05] bg-white/[0.015]">
-                            {['Company', 'Geography', 'Funnel Type', 'Pricing', 'Lead Magnet'].map((h) => (
+                            {['Company', 'Geography', 'Funnel Type', 'Pricing', 'Key Features'].map((h) => (
                                 <th key={h} className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-white/25">{h}</th>
                             ))}
                         </tr>
@@ -179,7 +195,7 @@ function CompetitorsSection({ data }: { data: Competitor[] }) {
                         {data.map((c, i) => (
                             <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
                                 <td className="px-5 py-3.5">
-                                    <a href={c.website} target="_blank" rel="noopener noreferrer"
+                                    <a href={sanitizeUrl(c.website)} target="_blank" rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1.5 text-amber-400 font-bold text-sm hover:text-amber-300 transition-colors group">
                                         {toStr(c.name)}
                                         <svg className="w-3 h-3 opacity-40 group-hover:opacity-80 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -194,8 +210,16 @@ function CompetitorsSection({ data }: { data: Competitor[] }) {
                                 </td>
                                 <td className="px-5 py-3.5 text-white/40 text-xs">{toStr(c.funnel?.type)}</td>
                                 <td className="px-5 py-3.5 text-white/60 text-xs font-semibold">{toStr(c.pricing?.estimated_range ?? c.pricing?.model)}</td>
-                                <td className="px-5 py-3.5 text-white/35 text-xs leading-relaxed">
-                                    {c.funnel?.lead_magnet ? (toStr(c.funnel.lead_magnet).length > 50 ? toStr(c.funnel.lead_magnet).substring(0, 50) + '…' : toStr(c.funnel.lead_magnet)) : '—'}
+                                <td className="px-5 py-3.5">
+                                    <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                        {toArr(c.offerings?.key_features).slice(0, 3).map((f, fi) => (
+                                            <span key={fi} className="text-[9px] bg-white/5 border border-white/10 text-white/40 px-1.5 py-0.5 rounded-md whitespace-nowrap overflow-hidden text-ellipsis max-w-[80px]">
+                                                {f}
+                                            </span>
+                                        ))}
+                                        {toArr(c.offerings?.key_features).length > 3 && <span className="text-[9px] text-white/20">+{toArr(c.offerings.key_features).length - 3}</span>}
+                                        {toArr(c.offerings?.key_features).length === 0 && <span className="text-white/20 text-[10px]">Not specified</span>}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -213,7 +237,7 @@ function CompetitorsSection({ data }: { data: Competitor[] }) {
                             </div>
                             <div className="flex items-center gap-3">
                                 <span className="text-white/30 text-xs font-semibold">{toStr(c.pricing?.estimated_range ?? c.pricing?.model ?? 'Custom')}</span>
-                                <a href={c.website} target="_blank" rel="noopener noreferrer"
+                                <a href={sanitizeUrl(c.website)} target="_blank" rel="noopener noreferrer"
                                     className="text-[10px] font-bold text-amber-500/50 hover:text-amber-400 border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 transition-all px-3 py-1.5 rounded-xl flex items-center gap-1.5">
                                     Visit Site
                                     <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -279,7 +303,7 @@ function AdResearchSection({ data }: { data: AdResearch[] }) {
                                 <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400/70 text-[10px] font-bold px-2 py-0.5 rounded-md">{toStr(entry.platform)}</span>
                             </div>
                             {entry.ad_library_url && (
-                                <a href={entry.ad_library_url} target="_blank" rel="noopener noreferrer"
+                                <a href={sanitizeUrl(entry.ad_library_url)} target="_blank" rel="noopener noreferrer"
                                     className="inline-flex items-center gap-2 bg-blue-600/10 border border-blue-500/30 hover:bg-blue-600/20 hover:border-blue-500/50 transition-all text-blue-400/80 hover:text-blue-300 text-[11px] font-bold px-4 py-2 rounded-xl">
                                     <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
@@ -340,7 +364,7 @@ function LandingPagesSection({ data }: { data: LandingPage[] }) {
                         <div className="flex items-center justify-between px-6 py-4 bg-white/[0.02] border-b border-white/[0.05] flex-wrap gap-3">
                             <h3 className="text-sm font-black text-white">{toStr(page.competitor)}</h3>
                             {page.url && (
-                                <a href={page.url} target="_blank" rel="noopener noreferrer"
+                                <a href={sanitizeUrl(page.url)} target="_blank" rel="noopener noreferrer"
                                     className="inline-flex items-center gap-2 text-[11px] font-semibold text-white/35 hover:text-amber-400 border border-white/[0.08] hover:border-amber-500/30 bg-transparent hover:bg-amber-500/5 transition-all px-3 py-1.5 rounded-xl"
                                     title={page.url}>
                                     <span className="truncate max-w-[300px]">{toStr(page.url)}</span>
@@ -616,22 +640,34 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
         {
             key: 'tofu', label: 'TOFU — Top of Funnel',
             borderColor: 'border-sky-500/20', bgColor: 'bg-sky-500/[0.04]', labelColor: 'text-sky-400/60',
-            content: data.funnel_stages?.tofu ? [data.funnel_stages.tofu.ad, data.funnel_stages.tofu.lead_magnet] : [],
+            content: data.funnel_stages?.tofu ? [
+                data.funnel_stages.tofu.ad || (data.funnel_stages.tofu as any).top_of_funnel_ad,
+                data.funnel_stages.tofu.lead_magnet || (data.funnel_stages.tofu as any).leadMagnet
+            ] : [],
         },
         {
             key: 'mofu', label: 'MOFU — Middle of Funnel',
             borderColor: 'border-amber-500/20', bgColor: 'bg-amber-500/[0.04]', labelColor: 'text-amber-400/60',
-            content: data.funnel_stages?.mofu ? [data.funnel_stages.mofu.content, data.funnel_stages.mofu.conversion] : [],
+            content: data.funnel_stages?.mofu ? [
+                data.funnel_stages.mofu.content || (data.funnel_stages.mofu as any).middle_of_funnel_content,
+                data.funnel_stages.mofu.conversion || (data.funnel_stages.mofu as any).middle_of_funnel_conversion
+            ] : [],
         },
         {
             key: 'bofu', label: 'BOFU — Bottom of Funnel',
             borderColor: 'border-emerald-500/20', bgColor: 'bg-emerald-500/[0.04]', labelColor: 'text-emerald-400/60',
-            content: data.funnel_stages?.bofu ? [data.funnel_stages.bofu.action, data.funnel_stages.bofu.offer] : [],
+            content: data.funnel_stages?.bofu ? [
+                data.funnel_stages.bofu.action || (data.funnel_stages.bofu as any).bottom_of_funnel_action,
+                data.funnel_stages.bofu.offer || (data.funnel_stages.bofu as any).bottom_of_funnel_offer
+            ] : [],
         },
         {
             key: 'retention', label: 'RETENTION',
             borderColor: 'border-violet-500/20', bgColor: 'bg-violet-500/[0.04]', labelColor: 'text-violet-400/60',
-            content: data.funnel_stages?.retention ? [data.funnel_stages.retention.nurture, data.funnel_stages.retention.downsell] : [],
+            content: data.funnel_stages?.retention ? [
+                data.funnel_stages.retention.nurture || (data.funnel_stages.retention as any).nurture_strategy,
+                data.funnel_stages.retention.downsell || (data.funnel_stages.retention as any).downsell_offer
+            ] : [],
         },
     ]
 
@@ -705,7 +741,7 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
 
 // --- Main Renderer ---
 
-export function DeepResearchRenderer({ rawResponse }: { rawResponse: string }) {
+export function DeepResearchRenderer({ rawResponse, onForceMarkdown }: { rawResponse: string, onForceMarkdown?: () => void }) {
     const jsonStr = rawResponse.startsWith('DEEP_RESEARCH_JSON:')
         ? rawResponse.slice('DEEP_RESEARCH_JSON:'.length)
         : rawResponse
@@ -714,33 +750,60 @@ export function DeepResearchRenderer({ rawResponse }: { rawResponse: string }) {
     try {
         data = JSON.parse(jsonStr)
     } catch {
-        return null
+        return (
+            <div className="p-8 text-center border border-dashed border-red-500/20 rounded-2xl bg-red-500/5">
+                <p className="text-red-400 text-sm font-semibold">Failed to parse research data.</p>
+                <p className="text-white/40 text-xs mt-2">The AI output may be in an unexpected format.</p>
+                <button 
+                    type="button"
+                    className="text-amber-500/60 text-[10px] uppercase font-bold tracking-widest mt-4 cursor-pointer hover:text-amber-400 transition-colors" 
+                    onClick={() => onForceMarkdown?.()}
+                >
+                    View raw report instead
+                </button>
+            </div>
+        )
     }
 
-    if (!data) return null
+    const d = data
+    if (!d || (!d.competitors?.length && !d.ad_research?.length && !d.landing_pages?.length)) {
+        return (
+            <div className="p-8 text-center border border-dashed border-amber-500/20 rounded-2xl bg-amber-500/5">
+                <p className="text-amber-400 text-sm font-semibold">Incomplete research data.</p>
+                <p className="text-white/40 text-xs mt-2">The report was generated but could not be fully structured.</p>
+                <button 
+                    type="button"
+                    className="text-amber-500/60 text-[10px] uppercase font-bold tracking-widest mt-4 cursor-pointer hover:text-amber-400 transition-colors" 
+                    onClick={() => onForceMarkdown?.()}
+                >
+                    View raw report instead
+                </button>
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-0 text-sm" id="deep-research-content">
-            {data.competitors && data.competitors.length > 0 && (
-                <><CompetitorsSection data={data.competitors} /><Divider /></>
+            {d.competitors && d.competitors.length > 0 && (
+                <><CompetitorsSection data={d.competitors} /><Divider /></>
             )}
-            {data.ad_research && data.ad_research.length > 0 && (
-                <><AdResearchSection data={data.ad_research} /><Divider /></>
+            {d.ad_research && d.ad_research.length > 0 && (
+                <><AdResearchSection data={d.ad_research} /><Divider /></>
             )}
-            {data.landing_pages && data.landing_pages.length > 0 && (
-                <><LandingPagesSection data={data.landing_pages} /><Divider /></>
+            {d.landing_pages && d.landing_pages.length > 0 && (
+                <><LandingPagesSection data={d.landing_pages} /><Divider /></>
             )}
-            {data.messaging_patterns && (
-                <><MessagingSection data={data.messaging_patterns} /><Divider /></>
+            {d.messaging_patterns && (
+                <><MessagingSection data={d.messaging_patterns} /><Divider /></>
             )}
-            {data.customer_insights && (
-                <><CustomerInsightsSection data={data.customer_insights} /><Divider /></>
+            {d.customer_insights && (
+                <><CustomerInsightsSection data={d.customer_insights} /><Divider /></>
             )}
-            {data.gap_analysis && (
-                <><GapAnalysisSection data={data.gap_analysis} /><Divider /></>
+            {d.gap_analysis && (
+                <><GapAnalysisSection data={d.gap_analysis} /><Divider /></>
             )}
-            {data.funnel_strategy && (
-                <FunnelStrategySection data={data.funnel_strategy} />
+            {d.funnel_strategy && (
+                <FunnelStrategySection data={d.funnel_strategy} />
             )}
         </div>
     )
