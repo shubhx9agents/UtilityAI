@@ -9,7 +9,7 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     },
     ad_copy: {
         system_message: 'High-converting ad variations for various platforms.',
-        questions: ['Product/Service Name', 'Main Features/Benefits', 'Target Audience', 'Ad Tone (e.g. funny, professional, urgent)', 'Specific Platforms (e.g. Facebook, Instagram, LinkedIn, Google)'],
+        questions: ['Product/Service Name', 'Main Features/Benefits', 'Target Audience', 'Ad Tone (e.g. funny, professional, urgent)', 'Specific Platforms (e.g. Facebook, Instagram, LinkedIn, Google)', 'Image Model', 'Aspect Ratio'],
     },
     graphics: {
         system_message: 'AI-ready image and logo prompts.',
@@ -1150,6 +1150,7 @@ Follow this exact structure:
    For each competitor:
    - Name, Website, Niche, Audience
    - What they sell
+   - Key features (top 3-5)
    - Funnel type
    - Core promise & USP
    - Pricing
@@ -1758,10 +1759,36 @@ Format:
             const businessName = context.business_name || context['Business name'] || 'My Business'
             const metaCsv = mapToMetaAdsCSV(adVariations, businessName)
 
-            return {
+            const baseResult = {
                 response: legacyCsv,
                 meta_csv: metaCsv
             }
+
+            // ── IMAGE GENERATION (OPTIONAL) ──────────────────────────────────
+            // If an image model was selected, generate one based on the first ad variant
+            const imageModel = this.resolveImageModel(context)
+            if (imageModel && imageModel !== 'none' && adVariations.length > 0) {
+                console.log(`[Ad Copy] Image generation requested with model: ${imageModel}`)
+                try {
+                    const firstAd = adVariations[0]
+                    const visualPrompt = `A high-quality advertisement image for ${firstAd.platform}. 
+                        Angle: ${firstAd.angle}. 
+                        Headline: ${firstAd.headline}. 
+                        Body: ${firstAd.body}. 
+                        The style should be professional, appealing, and optimized for conversions.`
+
+                    const { response: imageUrl } = await this.runImageGeneration(visualPrompt, context)
+                    return {
+                        ...baseResult,
+                        response: `${legacyCsv}\n\nIMAGE_URL: ${imageUrl}`
+                    }
+                } catch (imgError) {
+                    console.error('[Ad Copy] Image generation failed:', imgError)
+                    // Continue with just the text results if image generation fails
+                }
+            }
+
+            return baseResult
 
         } catch (error: unknown) {
             console.error('Ad Copy multi-step error:', error)

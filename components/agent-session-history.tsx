@@ -44,6 +44,21 @@ export function AgentSessionHistory({ agentType, onSessionRestore, currentSessio
 
     useEffect(() => {
         fetchSessions()
+
+        // Sync history across tabs/components
+        const channel = new BroadcastChannel('agent_sessions_sync')
+        channel.onmessage = (event) => {
+            if (event.data.type === 'SESSION_CREATED') {
+                // If it's the same agent type, refresh the list
+                if (event.data.agentType === agentType) {
+                    fetchSessions()
+                }
+            }
+        }
+
+        return () => {
+            channel.close()
+        }
     }, [agentType, refreshKey])
 
     const fetchSessions = async () => {
@@ -191,7 +206,8 @@ export function AgentSessionHistory({ agentType, onSessionRestore, currentSessio
                                                                     })}
                                                                 </p>
                                                                 {session.response && (
-                                                                    (agentType === 'linkedin_headshot' || agentType === 'image_generation') && session.response.startsWith('http') ? (
+                                                                    (agentType === 'linkedin_headshot' || agentType === 'image_generation' || agentType === 'ad_copy') &&
+                                                                        (session.response.includes('http') || session.response.includes('data:image/')) ? (
                                                                         <div className="mt-2 rounded-md overflow-hidden border border-border bg-muted/50 flex items-center justify-start p-1 w-fit">
                                                                             <img
                                                                                 src={session.response}

@@ -421,8 +421,8 @@ function AgentPageContent() {
         }
     }
 
-    const isImageAgent = agentId === 'image_generation' || agentId === 'linkedin_headshot'
-    const renderedImage = isImageAgent ? extractImageFromUnknown(response) : null
+    const isImageAgent = agentId === 'image_generation' || agentId === 'linkedin_headshot' || agentId === 'ad_copy'
+    const renderedImage = extractImageFromUnknown(response)
 
     const convertBlobToDataUrl = (blob: Blob): Promise<string> => (
         new Promise((resolve, reject) => {
@@ -1339,6 +1339,15 @@ function AgentPageContent() {
             if (res.ok && data.data) {
                 setCurrentSessionId(data.data.id)
                 setSessionKey(prev => prev + 1)
+
+                // Broadcast update to other tabs/components
+                try {
+                    const channel = new BroadcastChannel('agent_sessions_sync')
+                    channel.postMessage({ type: 'SESSION_CREATED', agentType: agentId })
+                    channel.close()
+                } catch (e) {
+                    console.error('BroadcastChannel error:', e)
+                }
                 toast.success('Session saved')
             }
         } catch (error) {
