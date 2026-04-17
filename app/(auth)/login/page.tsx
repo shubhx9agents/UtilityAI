@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,12 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false)
     const { signIn, signInWithGoogle } = useAuth()
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const approvalRequiredError =
+        searchParams.get('error') === 'approval_required'
+            ? 'Your account is pending admin approval. Please request access and wait for approval.'
+            : ''
+    const displayError = error || approvalRequiredError
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -109,9 +115,9 @@ export default function LoginPage() {
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">
-                            {error && (
+                            {displayError && (
                                 <div className="p-3 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg backdrop-blur-sm animate-shake">
-                                    {error}
+                                    {displayError}
                                 </div>
                             )}
                             <div className="space-y-2">
@@ -223,7 +229,7 @@ export default function LoginPage() {
                                 Continue with Google
                             </Button>
                             <div className="text-sm text-center text-zinc-400">
-                                Don't have an account?{' '}
+                                Don&apos;t have an account?{' '}
                                 <Link href="/register" className="text-amber-500 hover:text-amber-400 font-medium transition-colors">
                                     Sign up for free
                                 </Link>

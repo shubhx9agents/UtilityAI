@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 export async function GET(request: Request) {
     const requestUrl = new URL(request.url)
@@ -56,6 +57,54 @@ export async function GET(request: Request) {
             } = await supabase.auth.getUser()
 
             if (user) {
+                // Block unapproved Google OAuth users from completing login.
+                if (user.app_metadata?.provider === 'google' && user.email) {
+                    const normalizedEmail = user.email.trim().toLowerCase()
+                    let isApproved = false
+
+                    try {
+                        const supabaseAdmin = createServiceRoleClient()
+                        const { data: approvedRequest, error: approvalError } = await supabaseAdmin
+                            .from('account_requests')
+                            .select('id')
+                            .ilike('email', normalizedEmail)
+                            .eq('status', 'approved')
+                            .maybeSingle()
+
+                        isApproved = Boolean(approvedRequest) && !approvalError
+                    } catch {
+                        isApproved = false
+                    }
+
+                    if (!isApproved) {
+                        await logAuditEvent({
+                            userId: user.id,
+                            userEmail: user.email || undefined,
+                            action: AUDIT_ACTIONS.LOGIN_FAILED,
+                            resourceType: 'user',
+                            resourceId: user.id,
+                            details: {
+                                method: 'oauth',
+                                provider: 'google',
+                                reason: 'Account is not approved',
+                                email: user.email,
+                            },
+                            request,
+                            supabase,
+                        })
+
+                        await supabase.auth.signOut()
+
+                        const blockedResponse = NextResponse.redirect(
+                            `${origin}/login?error=approval_required`
+                        )
+                        for (const { name, value, options } of cookiesToSet) {
+                            blockedResponse.cookies.set(name, value, options)
+                        }
+                        return blockedResponse
+                    }
+                }
+
                 await logAuditEvent({
                     userId: user.id,
                     userEmail: user.email || undefined,
