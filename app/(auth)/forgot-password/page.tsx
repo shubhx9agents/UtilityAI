@@ -67,7 +67,7 @@ export default function ForgotPasswordPage() {
                         </div>
                         <CardTitle className="font-heading text-2xl text-zinc-100">Enter Verification Code</CardTitle>
                         <CardDescription className="text-zinc-400 mt-2">
-                            We've sent a 6-digit code to <span className="text-zinc-200 font-medium">{email}</span>. Please enter it below.
+                            We've sent a verification code to <span className="text-zinc-200 font-medium">{email}</span>. Please enter it below.
                         </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleVerifyOtp}>
@@ -78,17 +78,17 @@ export default function ForgotPasswordPage() {
                                 </div>
                             )}
                             <div className="space-y-2">
-                                <Label htmlFor="otp" className="text-zinc-300">6-Digit Code</Label>
+                                <Label htmlFor="otp" className="text-zinc-300">Verification Code</Label>
                                 <div className="relative">
                                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
                                     <Input
                                         id="otp"
                                         type="text"
-                                        placeholder="123456"
+                                        placeholder="Enter code"
                                         value={otp}
                                         onChange={(e) => setOtp(e.target.value)}
                                         required
-                                        maxLength={6}
+                                        maxLength={8}
                                         disabled={loading}
                                         className="pl-10 bg-zinc-950/50 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:ring-amber-500/20 tracking-widest"
                                     />
