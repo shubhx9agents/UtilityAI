@@ -904,19 +904,23 @@ No other text. No explanations.`
 
             const imageUrl = this.isBytePlusModel(imageModel)
                 ? await (async () => {
-                    const body = {
+                    const imagesToUse = contextImages.length > 0
+                        ? contextImages.slice(0, 2).map(img => this.cleanBase64(img))
+                        : [
+                            this.cleanBase64(context.base_image),
+                            this.cleanBase64(context.reference_image)
+                        ].filter(Boolean);
+
+                    const body: Record<string, any> = {
                         model: imageModel,
                         prompt: refinedPrompt,
-                        image: contextImages.length > 0
-                            ? contextImages.slice(0, 2).map(img => this.ensureDataUrl(img))
-                            : [
-                                this.ensureDataUrl(context.base_image),
-                                this.ensureDataUrl(context.reference_image)
-                            ].filter(Boolean),
-                        response_format: 'url',
+                        response_format: 'b64_json',
                         size: `${width}x${height}`
                     }
-                    console.log('[BytePlus Request Body]:', JSON.stringify({ ...body, image: body.image.map(i => i.substring(0, 50) + '...') }))
+                    if (imagesToUse.length > 0) {
+                        body.image = imagesToUse;
+                    }
+                    console.log('[BytePlus Request Body]:', JSON.stringify({ ...body, image: (body.image as string[] | undefined)?.map(i => i.substring(0, 50) + '...') }))
 
                     const bytePlusRes = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/images/generations', {
                         method: 'POST',
@@ -935,10 +939,15 @@ No other text. No explanations.`
 
                     const bytePlusData = await bytePlusRes.json()
                     const url = bytePlusData.data?.[0]?.url || bytePlusData.url
-                    if (!url) {
-                        throw new Error('Image Generation failed: No URL returned from BytePlus.')
+                    const b64 = bytePlusData.data?.[0]?.b64_json
+
+                    if (b64) {
+                        return `data:image/png;base64,${b64}`
                     }
-                    return url
+                    if (url) {
+                        return url
+                    }
+                    throw new Error('Image Generation failed: No image data returned from BytePlus.')
                 })()
                 : await this.runGeminiImageGeneration(refinedPrompt, contextImages, imageModel, aspectRatio)
 

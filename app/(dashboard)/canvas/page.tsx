@@ -253,6 +253,10 @@ const extractImageFromResult = (value: unknown, seen = new Set<unknown>()): stri
             return trimmed
         }
 
+        // Look for the specific IMAGE_URL: marker first
+        const markerMatch = trimmed.match(/IMAGE_URL:\s*(data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+|https?:\/\/[^\s"'<>`]+)/i)
+        if (markerMatch?.[1]) return markerMatch[1]
+
         const markdownImage = trimmed.match(/!\[[^\]]*]\((data:image\/[^\s)]+|https?:\/\/[^\s)]+)\)/i)
         if (markdownImage?.[1]) return markdownImage[1]
 
@@ -3670,8 +3674,8 @@ function CanvasPageContent() {
                                                             </div>
                                                         </div>
                                                     ) : agentType === 'deep_research' && typeof content === 'string' && content.startsWith('DEEP_RESEARCH_JSON:') && !forcedMarkdownSteps.has(selectedResultStepId as string) ? (
-                                                        <DeepResearchRenderer 
-                                                            rawResponse={content} 
+                                                        <DeepResearchRenderer
+                                                            rawResponse={content}
                                                             onForceMarkdown={() => {
                                                                 const next = new Set(forcedMarkdownSteps)
                                                                 next.add(selectedResultStepId as string)
