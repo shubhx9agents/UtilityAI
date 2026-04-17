@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -19,12 +19,85 @@ export default function ResetPasswordPage() {
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
+    const [initializingSession, setInitializingSession] = useState(true)
+    const [sessionReady, setSessionReady] = useState(false)
     const router = useRouter()
+    const supabase = useMemo(() => createClient(), [])
+
+    useEffect(() => {
+        let isMounted = true
+
+        const initializeRecoverySession = async () => {
+            try {
+                const currentUrl = new URL(window.location.href)
+                const code = currentUrl.searchParams.get('code')
+                const tokenHash = currentUrl.searchParams.get('token_hash')
+                const queryType = currentUrl.searchParams.get('type')
+                const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+                const accessToken = hashParams.get('access_token')
+                const refreshToken = hashParams.get('refresh_token')
+                const hashType = hashParams.get('type')
+
+                if (code) {
+                    await supabase.auth.exchangeCodeForSession(code)
+                } else if (tokenHash && (queryType === 'recovery' || queryType === 'invite')) {
+                    await supabase.auth.verifyOtp({
+                        token_hash: tokenHash,
+                        type: queryType,
+                    })
+                } else if (accessToken && refreshToken && (hashType === 'recovery' || hashType === 'invite')) {
+                    await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    })
+                }
+
+                const {
+                    data: { session },
+                } = await supabase.auth.getSession()
+
+                if (!isMounted) return
+
+                if (session) {
+                    setSessionReady(true)
+                    // Remove sensitive auth params from URL once session is persisted.
+                    window.history.replaceState({}, document.title, '/reset-password')
+                } else {
+                    setSessionReady(false)
+                    setError('Invalid or expired reset link. Please request a new one.')
+                }
+            } catch (sessionError: unknown) {
+                if (!isMounted) return
+                setSessionReady(false)
+                setError(
+                    sessionError instanceof Error
+                        ? sessionError.message
+                        : 'Unable to validate reset link. Please try again.'
+                )
+            } finally {
+                if (isMounted) {
+                    setInitializingSession(false)
+                }
+            }
+        }
+
+        initializeRecoverySession()
+
+        return () => {
+            isMounted = false
+        }
+    }, [supabase])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
         setLoading(true)
+
+        if (!sessionReady) {
+            setError('Reset session is missing. Please open the latest email link again.')
+            setLoading(false)
+            return
+        }
 
         // Validation
         if (password !== confirmPassword) {
@@ -45,10 +118,12 @@ export default function ResetPasswordPage() {
             return
         }
 
-        const supabase = createClient()
-        const { data: { user }, error: authError } = await supabase.auth.updateUser({ 
-            password, 
-            data: { must_change_password: false } 
+        const {
+            data: { user },
+            error: authError,
+        } = await supabase.auth.updateUser({
+            password,
+            data: { must_change_password: false },
         })
 
         if (authError) {
@@ -57,10 +132,7 @@ export default function ResetPasswordPage() {
         } else {
             // Also update the profile to clear must_change_password
             if (user) {
-                await supabase
-                    .from('profiles')
-                    .update({ must_change_password: false })
-                    .eq('id', user.id)
+                await supabase.from('profiles').update({ must_change_password: false }).eq('id', user.id)
             }
 
             setSuccess(true)
@@ -100,9 +172,7 @@ export default function ResetPasswordPage() {
                     <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-amber-500/10 flex items-center justify-center animate-pulse">
                         <Lock className="h-8 w-8 text-amber-500" />
                     </div>
-                    <CardTitle className="font-heading text-3xl font-bold text-zinc-100">
-                        Create New Password
-                    </CardTitle>
+                    <CardTitle className="font-heading text-3xl font-bold text-zinc-100">Create New Password</CardTitle>
                     <CardDescription className="text-zinc-400">
                         Enter your new secure password below to regain access to your account.
                     </CardDescription>
@@ -115,17 +185,19 @@ export default function ResetPasswordPage() {
                             </div>
                         )}
                         <div className="space-y-2">
-                            <Label htmlFor="password" className="text-zinc-300">New Password</Label>
+                            <Label htmlFor="password" className="text-zinc-300">
+                                New Password
+                            </Label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
                                 <Input
                                     id="password"
-                                    type={showPassword ? "text" : "password"}
-                                    placeholder="••••••••"
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="********"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
-                                    disabled={loading}
+                                    disabled={loading || initializingSession}
                                     className="pl-10 pr-10 bg-zinc-950/50 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:ring-amber-500/20"
                                 />
                                 <button
@@ -139,17 +211,19 @@ export default function ResetPasswordPage() {
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="confirmPassword" className="text-zinc-300">Confirm New Password</Label>
+                            <Label htmlFor="confirmPassword" className="text-zinc-300">
+                                Confirm New Password
+                            </Label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
                                 <Input
                                     id="confirmPassword"
-                                    type={showConfirmPassword ? "text" : "password"}
-                                    placeholder="••••••••"
+                                    type={showConfirmPassword ? 'text' : 'password'}
+                                    placeholder="********"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     required
-                                    disabled={loading}
+                                    disabled={loading || initializingSession}
                                     className="pl-10 pr-10 bg-zinc-950/50 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:ring-amber-500/20"
                                 />
                                 <button
@@ -167,15 +241,15 @@ export default function ResetPasswordPage() {
                         <Button
                             type="submit"
                             className="w-full bg-amber-500 text-zinc-900 hover:bg-amber-600 font-semibold shadow-lg shadow-amber-500/20 transition-all duration-300 group"
-                            disabled={loading}
+                            disabled={loading || initializingSession || !sessionReady}
                         >
-                            {loading ? (
+                            {loading || initializingSession ? (
                                 <span className="flex items-center">
                                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-zinc-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
-                                    Updating Password...
+                                    {initializingSession ? 'Validating Link...' : 'Updating Password...'}
                                 </span>
                             ) : (
                                 <span className="flex items-center justify-center">

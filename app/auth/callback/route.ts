@@ -6,13 +6,22 @@ import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit'
 export async function GET(request: Request) {
     const requestUrl = new URL(request.url)
     const code = requestUrl.searchParams.get('code')
+    const tokenHash = requestUrl.searchParams.get('token_hash')
+    const type = requestUrl.searchParams.get('type')
     const origin = requestUrl.origin
-    const next = requestUrl.searchParams.get('next') || '/dashboard'
+    const nextParam = requestUrl.searchParams.get('next')
+    const next = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard'
+    const isOtpCallback = tokenHash && (type === 'recovery' || type === 'invite')
 
-    if (code) {
-        // Collect cookies that Supabase sets during code exchange
+    if (code || isOtpCallback) {
+        // Collect cookies that Supabase sets during session exchange/verification.
         const cookieStore = await cookies()
-        const cookiesToSet: { name: string; value: string; options: any }[] = []
+        type CookieToSet = {
+            name: string
+            value: string
+            options?: Parameters<(typeof cookieStore)['set']>[2]
+        }
+        const cookiesToSet: CookieToSet[] = []
 
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,21 +32,28 @@ export async function GET(request: Request) {
                         return cookieStore.getAll()
                     },
                     setAll(cookiesArr) {
-                        // Collect all cookies — we'll apply them to the redirect response
                         cookiesToSet.push(...cookiesArr)
-                        // Also set on the cookieStore so subsequent calls (getUser) can read them
                         cookiesArr.forEach(({ name, value, options }) => {
-                            try { cookieStore.set(name, value, options) } catch {}
+                            try {
+                                cookieStore.set(name, value, options)
+                            } catch {}
                         })
                     },
                 },
             }
         )
 
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        const { error } = code
+            ? await supabase.auth.exchangeCodeForSession(code)
+            : await supabase.auth.verifyOtp({
+                  token_hash: tokenHash!,
+                  type: type as 'recovery' | 'invite',
+              })
 
         if (!error) {
-            const { data: { user } } = await supabase.auth.getUser()
+            const {
+                data: { user },
+            } = await supabase.auth.getUser()
 
             if (user) {
                 await logAuditEvent({
@@ -47,9 +63,9 @@ export async function GET(request: Request) {
                     resourceType: 'user',
                     resourceId: user.id,
                     details: {
-                        method: 'oauth',
+                        method: isOtpCallback ? 'email_link' : 'oauth',
                         provider: 'callback',
-                        email: user.email
+                        email: user.email,
                     },
                     request,
                     supabase,
@@ -57,7 +73,6 @@ export async function GET(request: Request) {
             }
         }
 
-        // Create redirect response and manually propagate all session cookies
         const redirectResponse = NextResponse.redirect(`${origin}${next}`)
         for (const { name, value, options } of cookiesToSet) {
             redirectResponse.cookies.set(name, value, options)
@@ -65,6 +80,5 @@ export async function GET(request: Request) {
         return redirectResponse
     }
 
-    // No code provided — just redirect
     return NextResponse.redirect(`${origin}${next}`)
 }
