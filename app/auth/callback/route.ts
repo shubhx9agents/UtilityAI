@@ -60,8 +60,6 @@ export async function GET(request: Request) {
                 // Block unapproved Google OAuth users from completing login.
                 if (user.app_metadata?.provider === 'google' && user.email) {
                     const normalizedEmail = user.email.trim().toLowerCase()
-                    let isApproved = false
-
                     try {
                         const supabaseAdmin = createServiceRoleClient()
                         const { data: approvedRequest, error: approvalError } = await supabaseAdmin
@@ -71,12 +69,65 @@ export async function GET(request: Request) {
                             .eq('status', 'approved')
                             .maybeSingle()
 
-                        isApproved = Boolean(approvedRequest) && !approvalError
-                    } catch {
-                        isApproved = false
-                    }
+                        if (approvalError) {
+                            await logAuditEvent({
+                                userId: user.id,
+                                userEmail: user.email || undefined,
+                                action: AUDIT_ACTIONS.LOGIN_FAILED,
+                                resourceType: 'user',
+                                resourceId: user.id,
+                                details: {
+                                    method: 'oauth',
+                                    provider: 'google',
+                                    reason: 'Approval lookup failed',
+                                    email: user.email,
+                                },
+                                request,
+                                supabase,
+                            })
 
-                    if (!isApproved) {
+                            await supabase.auth.signOut()
+
+                            const blockedResponse = NextResponse.redirect(
+                                `${origin}/login?error=oauth_verification_failed`
+                            )
+                            for (const { name, value, options } of cookiesToSet) {
+                                blockedResponse.cookies.set(name, value, options)
+                            }
+                            return blockedResponse
+                        }
+
+                        if (!approvedRequest) {
+                            await logAuditEvent({
+                                userId: user.id,
+                                userEmail: user.email || undefined,
+                                action: AUDIT_ACTIONS.LOGIN_FAILED,
+                                resourceType: 'user',
+                                resourceId: user.id,
+                                details: {
+                                    method: 'oauth',
+                                    provider: 'google',
+                                    reason: 'Account is not approved',
+                                    email: user.email,
+                                },
+                                request,
+                                supabase,
+                            })
+
+                            // OAuth can auto-create auth.users entries before callback.
+                            // Remove unapproved accounts so admin invite flow doesn't get blocked.
+                            await supabaseAdmin.auth.admin.deleteUser(user.id)
+                            await supabase.auth.signOut()
+
+                            const blockedResponse = NextResponse.redirect(
+                                `${origin}/login?error=approval_required`
+                            )
+                            for (const { name, value, options } of cookiesToSet) {
+                                blockedResponse.cookies.set(name, value, options)
+                            }
+                            return blockedResponse
+                        }
+                    } catch {
                         await logAuditEvent({
                             userId: user.id,
                             userEmail: user.email || undefined,
@@ -86,7 +137,7 @@ export async function GET(request: Request) {
                             details: {
                                 method: 'oauth',
                                 provider: 'google',
-                                reason: 'Account is not approved',
+                                reason: 'Approval check exception',
                                 email: user.email,
                             },
                             request,
@@ -96,7 +147,7 @@ export async function GET(request: Request) {
                         await supabase.auth.signOut()
 
                         const blockedResponse = NextResponse.redirect(
-                            `${origin}/login?error=approval_required`
+                            `${origin}/login?error=oauth_verification_failed`
                         )
                         for (const { name, value, options } of cookiesToSet) {
                             blockedResponse.cookies.set(name, value, options)

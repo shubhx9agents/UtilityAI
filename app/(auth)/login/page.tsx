@@ -20,11 +20,14 @@ export default function LoginPage() {
     const { signIn, signInWithGoogle } = useAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
-    const approvalRequiredError =
-        searchParams.get('error') === 'approval_required'
+    const errorCode = searchParams.get('error')
+    const oauthErrorMessage =
+        errorCode === 'approval_required'
             ? 'Your account is pending admin approval. Please request access and wait for approval.'
-            : ''
-    const displayError = error || approvalRequiredError
+            : errorCode === 'oauth_verification_failed'
+              ? 'We could not verify your approval status. Please try again in a moment.'
+              : ''
+    const displayError = error || oauthErrorMessage
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
