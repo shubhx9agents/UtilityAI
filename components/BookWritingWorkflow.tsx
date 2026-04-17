@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/types/errors'
-import { Sparkles, BookOpen, CheckCircle2, RotateCcw, Loader2, ChevronRight, ArrowLeft, Download, Copy, FileText, MessageCircle, Send } from 'lucide-react'
+import { Sparkles, BookOpen, CheckCircle2, RotateCcw, Loader2, ChevronRight, ArrowLeft, Download, Copy, FileText, MessageCircle, Send, Pencil } from 'lucide-react'
 import KindleBookReader from '@/components/KindleBookReader'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
@@ -573,12 +573,45 @@ ${mdToHtml(mergedBook)}
             {/* ── PHASE: OUTLINE ── */}
             {phase === 'outline' && outline && (
                 <div className="space-y-8">
-                    {/* Book Title */}
-                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-8 text-center">
-                        <p className="text-amber-500 text-xs font-bold uppercase tracking-widest mb-3">Your Book Title</p>
-                        <h2 className="text-4xl font-black text-white mb-2">{outline.bookTitle}</h2>
-                        <p className="text-white/50 text-lg">{outline.bookSubtitle}</p>
-                        <p className="text-white/30 text-sm mt-4 max-w-2xl mx-auto">{outline.introduction}</p>
+                    {/* Editable Book Title & Subtitle */}
+                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-8 text-center space-y-6">
+                        <div className="max-w-3xl mx-auto space-y-4">
+                            <div className="relative group">
+                                <label className="text-amber-500 text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-2">
+                                    <Pencil className="h-3 w-3" /> Book Title (Editable)
+                                </label>
+                                <Input
+                                    value={outline.bookTitle}
+                                    onChange={(e) => {
+                                        setOutline({ ...outline, bookTitle: e.target.value })
+                                        setPdfFilename(e.target.value)
+                                    }}
+                                    className="text-3xl sm:text-4xl font-black text-white bg-white/5 border-white/10 text-center h-16 sm:h-20 rounded-2xl focus:border-amber-500/50"
+                                />
+                            </div>
+
+                            <div className="relative group">
+                                <label className="text-amber-400 text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-2">
+                                    <Pencil className="h-3 w-3" /> Subtitle (Editable)
+                                </label>
+                                <Input
+                                    value={outline.bookSubtitle}
+                                    onChange={(e) => setOutline({ ...outline, bookSubtitle: e.target.value })}
+                                    className="text-white/70 text-lg bg-white/5 border-white/10 text-center h-12 sm:h-14 rounded-xl focus:border-amber-500/50"
+                                />
+                            </div>
+
+                            <div className="relative group">
+                                <label className="text-white/30 text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-2">
+                                    <Pencil className="h-3 w-3" /> Introduction (Editable)
+                                </label>
+                                <textarea
+                                    value={outline.introduction}
+                                    onChange={(e) => setOutline({ ...outline, introduction: e.target.value })}
+                                    className="w-full bg-white/5 border border-white/10 text-white/40 text-sm p-4 rounded-xl focus:border-amber-500/50 focus:outline-none min-h-[100px] transition-all text-center"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {/* Top 10 Books Grid */}
@@ -600,15 +633,34 @@ ${mdToHtml(mergedBook)}
                     {/* Chapter Outline */}
                     <div>
                         <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-4">📖 10-Chapter Outline (50 Pages)</h3>
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             {outline.chapters.map((ch, i) => (
-                                <div key={i} className="bg-white/[0.02] border border-white/8 rounded-2xl p-5 flex items-start gap-4 hover:border-white/15 transition-all">
+                                <div key={i} className="bg-white/[0.02] border border-white/8 rounded-2xl p-6 flex flex-col sm:flex-row items-start gap-4 hover:border-amber-500/20 transition-all">
                                     <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 shrink-0">
                                         <span className="text-white/60 text-xs font-black">{ch.number}</span>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-white font-bold text-sm">{ch.title}</p>
-                                        <p className="text-white/40 text-xs mt-1 leading-relaxed">{ch.description}</p>
+                                    <div className="flex-1 min-w-0 space-y-3 w-full">
+                                        <div className="flex items-center gap-2">
+                                            <Pencil className="h-3 w-3 text-amber-500/40" />
+                                            <Input
+                                                value={ch.title}
+                                                onChange={(e) => {
+                                                    const newChapters = [...outline.chapters]
+                                                    newChapters[i] = { ...ch, title: e.target.value }
+                                                    setOutline({ ...outline, chapters: newChapters })
+                                                }}
+                                                className="bg-white/5 border-white/10 text-white font-bold h-10 px-4 rounded-xl focus:border-amber-500/50"
+                                            />
+                                        </div>
+                                        <textarea
+                                            value={ch.description}
+                                            onChange={(e) => {
+                                                const newChapters = [...outline.chapters]
+                                                newChapters[i] = { ...ch, description: e.target.value }
+                                                setOutline({ ...outline, chapters: newChapters })
+                                            }}
+                                            className="w-full bg-white/[0.01] border border-white/5 text-white/40 text-xs p-3 rounded-xl focus:border-amber-500/50 focus:outline-none min-h-[60px] resize-none"
+                                        />
                                     </div>
                                 </div>
                             ))}
@@ -802,10 +854,10 @@ ${mdToHtml(mergedBook)}
                         </div>
                     ) : (
                         <div className="w-full min-h-[700px] rounded-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
-                            <FlipBookViewer 
-                                content={mergedBook} 
-                                title={outline.bookTitle} 
-                                subtitle={outline.bookSubtitle} 
+                            <FlipBookViewer
+                                content={mergedBook}
+                                title={outline.bookTitle}
+                                subtitle={outline.bookSubtitle}
                             />
                         </div>
                     )}
