@@ -1394,8 +1394,18 @@ JSON SCHEMA:
 
             // Validate it's real JSON before returning — prefix with DEEP_RESEARCH_JSON: so frontend can detect it
             try {
-                JSON.parse(structuredContent)
-                return { response: `DEEP_RESEARCH_JSON:${structuredContent}` }
+                const structuredData = JSON.parse(structuredContent)
+
+                // Source Audit Layer
+                try {
+                    const auditReport = await this.runSourceAuditor(structuredContent, citations)
+                    structuredData.source_verification_report = auditReport
+                    const finalJson = JSON.stringify(structuredData)
+                    return { response: `DEEP_RESEARCH_JSON:${finalJson}` }
+                } catch (auditError) {
+                    console.error('[Deep Research] Source audit failed:', auditError)
+                    return { response: `DEEP_RESEARCH_JSON:${structuredContent}` }
+                }
             } catch {
                 return { response: rawOutput }
             }
@@ -1972,6 +1982,139 @@ Generate the complete masterpiece program structure now using the researched dee
             console.error(`Groq Agent Error [${agentType}]:`, error)
             throw error
         }
+    }
+
+    private async fetchUrlMetadata(url: string): Promise<{ title: string; description: string; status: number }> {
+        try {
+            const controller = new AbortController()
+            const id = setTimeout(() => controller.abort(), 4000)
+
+            const res = await fetch(url, {
+                signal: controller.signal,
+                headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SourceAuditor/1.0)' }
+            })
+            clearTimeout(id)
+
+            if (!res.ok) return { title: 'Error', description: `HTTP ${res.status}`, status: res.status }
+
+            const text = await res.text()
+            const titleMatch = text.match(/<title>(.*?)<\/title>/i)
+            const title = titleMatch ? titleMatch[1].trim() : 'No title found'
+
+            const descMatch = text.match(/<meta name="description" content="(.*?)"/i) || text.match(/<meta property="og:description" content="(.*?)"/i)
+            const description = descMatch ? descMatch[1].trim() : 'No description found'
+
+            return { title, description, status: res.status }
+        } catch (error) {
+            console.warn(`[Source Auditor] Failed to fetch metadata for ${url}:`, error)
+            return { title: 'Failed to fetch', description: String(error), status: 0 }
+        }
+    }
+
+    private async runSourceAuditor(reportContent: string, citations: string[]): Promise<string> {
+        const groqApiKey = process.env.GROQ_API_KEY
+        if (!groqApiKey) throw new Error('GROQ_API_KEY is missing in .env.local')
+
+        if (!citations || citations.length === 0) {
+            return 'No sources provided for verification.'
+        }
+
+        console.log(`[Source Auditor] Starting audit for ${citations.length} sources...`)
+
+        // 1. Fetch metadata for each citation (limited to first 10 for performance)
+        const sourcesToAudit = citations.slice(0, 10)
+        const sourceMetadata = await Promise.all(sourcesToAudit.map(async (url) => {
+            const meta = await this.fetchUrlMetadata(url)
+            return { url, ...meta }
+        }))
+
+        const systemPrompt = `You are a Source Verification and Accuracy Auditor AI integrated as the final validation layer in a Deep Research system.
+
+Your task is NOT to generate new research. Your ONLY responsibility is to rigorously verify, validate, and rate the quality of the sources (links, citations, references) provided based on the research report.
+
+BEHAVIOR MODE:
+- You are an auditor, not an assistant.
+- You question everything.
+- You trust nothing without verification.
+- Precision > politeness.
+
+STRICT RULES:
+- DO NOT assume sources are correct — VERIFY everything.
+- DO NOT fabricate validation — if unsure, mark as WEAK.
+- DO NOT leave mismatches unaddressed — always suggest fixes.
+- DO NOT be lenient — be critical and skeptical.
+- DO NOT summarize research — focus only on source integrity.
+- KEEP OUTPUT STRUCTURED AND CONSISTENT.
+
+OBJECTIVES:
+1. LINK VALIDATION: Check if each URL corresponds to claimed content (using provided metadata: title, description, status). Detect misleading/broken links.
+2. CONTENT MATCHING: Verify if source supports the claim. Classify as EXACT, PARTIAL, WEAK, MISMATCH, or INVALID.
+3. AUTHORITY & TRUST SCORING: Evaluate domain authority (gov, edu, reputed orgs > blogs), author expertise, recency, etc.
+4. LINK CORRECTION: If not EXACT, suggest better links.
+5. DUPLICATE & REDUNDANCY CHECK: Reduce redundancy.
+
+OUTPUT FORMAT (STRICT):
+For EACH source:
+
+[Source #N]
+- Original URL:
+- Status: (EXACT / PARTIAL / WEAK / MISMATCH / INVALID)
+- Trust Score: X/10
+- Relevance Score: X/10
+- Issues Found: (if any)
+- Verdict: (Keep / Replace / Remove)
+
+If replaced:
+- Suggested Correct URL:
+- Reason for Replacement:
+
+----------------------------------------
+FINAL SUMMARY (MANDATORY):
+At the VERY END of the report, provide:
+
+1. OVERALL SOURCE ACCURACY SCORE: X/10
+2. SOURCE DISTRIBUTION:
+   - Exact Matches: X%
+   - Partial Matches: X%
+   - Weak Matches: X%
+   - Mismatches: X%
+   - Invalid: X%
+3. TRUST QUALITY RATING: X/10
+4. CORRECTION RATE: X%
+5. CONFIDENCE LEVEL: (High / Medium / Low)`
+
+        const userPrompt = `
+INPUT DATA:
+The following is the structured research report and the metadata fetched for the top sources.
+
+RESEARCH REPORT:
+${reportContent.substring(0, 8000)}
+
+SOURCES & METADATA (FETCHED):
+${JSON.stringify(sourceMetadata, null, 2)}
+
+TASK: Perform the audit according to the strict rules and output format.`
+
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${groqApiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.1
+            })
+        })
+
+        if (!res.ok) {
+            const text = await res.text()
+            throw new Error(`Groq Auditor Error: ${res.status} - ${text.substring(0, 200)}`)
+        }
+
+        const data = await res.json()
+        return data.choices?.[0]?.message?.content || 'Source audit failed to generate.'
     }
 
     getAgentQuestions(agentType: AgentType): string[] {

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
         // ── 0. Check Cache (Fast Path) ──
         const cacheKey = generateCacheKey(user.id, agent_type, input, context)
-        
+
         if (!forceRefresh) {
             const cachedResult = await getCachedGeneration(cacheKey)
             if (cachedResult) {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
         // All agent types (text, image) place their output in the `response` field
         const responseText = response?.response || ''
-        const errorKeywords = ['error:', 'failed:', 'denied', 'unauthorized', 'bad request', 'invalid']
+        const errorKeywords = ['error:', 'failed:', 'denied', 'unauthorized', 'bad request']
         const isActuallyError = errorKeywords.some(kw => responseText.toLowerCase().includes(kw))
 
         const hasValidOutput = response &&

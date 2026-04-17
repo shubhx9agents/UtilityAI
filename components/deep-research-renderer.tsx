@@ -131,6 +131,7 @@ interface DeepResearchData {
     customer_insights?: CustomerInsights
     gap_analysis?: GapAnalysis
     funnel_strategy?: FunnelStrategy
+    source_verification_report?: string
 }
 
 // --- Helpers ---
@@ -739,6 +740,175 @@ function FunnelStrategySection({ data }: { data: FunnelStrategy }) {
     )
 }
 
+// --- Section: Source Verification ---
+
+function SourceVerificationSection({ report }: { report: string }) {
+    if (!report) return null
+
+    // Parser for the Auditor's text output
+    const parseAuditReport = (text: string) => {
+        const sources: any[] = []
+        const summary: any = {}
+
+        // Split into source blocks and everything else
+        const parts = text.split(/\[Source #\d+\]/g)
+        const preamble = parts[0]
+        const sourceBlocks = parts.slice(1)
+
+        sourceBlocks.forEach((block, i) => {
+            const lines = block.split('\n').map(l => l.trim())
+            const url = lines.find(l => l.includes('Original URL:'))?.split('Original URL:')[1]?.trim()
+            const status = lines.find(l => l.includes('Status:'))?.split('Status:')[1]?.trim()
+            const trust = lines.find(l => l.includes('Trust Score:'))?.split('Trust Score:')[1]?.trim()
+            const relevance = lines.find(l => l.includes('Relevance Score:'))?.split('Relevance Score:')[1]?.trim()
+            const issues = lines.find(l => l.includes('Issues Found:'))?.split('Issues Found:')[1]?.trim()
+            const verdict = lines.find(l => l.includes('Verdict:'))?.split('Verdict:')[1]?.trim()
+
+            // Check for suggested URL in current or subsequent lines
+            let suggestedUrl = lines.find(l => l.includes('Suggested Correct URL:'))?.split('Suggested Correct URL:')[1]?.trim()
+            if (!suggestedUrl) {
+                // Try bracketed format
+                const bracketMatch = block.match(/\[Suggested Correct URL:?\s*(.*?)\]/)
+                if (bracketMatch) suggestedUrl = bracketMatch[1]
+            }
+            if (suggestedUrl) {
+                suggestedUrl = suggestedUrl.replace(/[\[\]]/g, '').trim()
+            }
+
+            sources.push({ id: i + 1, url, status, trust, relevance, issues, verdict, suggestedUrl })
+        })
+
+        const summaryMatch = text.match(/FINAL SUMMARY \(MANDATORY\):([\s\S]*)/i)
+        if (summaryMatch) {
+            const sPart = summaryMatch[1]
+            summary.score = sPart.match(/OVERALL SOURCE ACCURACY SCORE:\s*(.*)/i)?.[1]?.trim()
+            summary.quality = sPart.match(/TRUST QUALITY RATING:\s*(.*)/i)?.[1]?.trim()
+            summary.correctionRate = sPart.match(/CORRECTION RATE:\s*(.*)/i)?.[1]?.trim()
+            summary.confidence = sPart.match(/CONFIDENCE LEVEL:\s*(.*)/i)?.[1]?.trim()
+        }
+
+        return { sources, summary }
+    }
+
+    const { sources, summary } = parseAuditReport(report)
+
+    const getStatusVariant = (status: string = '') => {
+        const s = status.toUpperCase()
+        if (s.includes('EXACT')) return 'green'
+        if (s.includes('PARTIAL')) return 'amber'
+        if (s.includes('WEAK')) return 'amber'
+        if (s.includes('MISMATCH') || s.includes('INVALID')) return 'red'
+        return 'default'
+    }
+
+    return (
+        <div className="mt-10">
+            <SectionHeader label="08 — Source Audit" title="Source Verification & Accuracy" />
+
+            {/* Summary Dashboard */}
+            {summary.score && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    {[
+                        { label: 'Accuracy Score', value: summary.score, color: 'text-emerald-400' },
+                        { label: 'Trust Quality', value: summary.quality, color: 'text-amber-400' },
+                        { label: 'Correction Rate', value: summary.correctionRate, color: 'text-sky-400' },
+                        { label: 'Confidence', value: summary.confidence, color: 'text-violet-400' }
+                    ].map((item, idx) => (
+                        <div key={idx} className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4 text-center">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">{item.label}</p>
+                            <p className={`text-xl font-black ${item.color}`}>{item.value}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Source Audit Table */}
+            <div className="overflow-x-auto rounded-2xl border border-white/[0.06] bg-[#0A0A0A]">
+                <table className="w-full text-sm min-w-[800px]">
+                    <thead>
+                        <tr className="border-b border-white/[0.05] bg-white/[0.015]">
+                            {['#', 'Source & Evaluation', 'Status', 'Scores', 'Verdict & Correction'].map((h) => (
+                                <th key={h} className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-white/25">{h}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {sources.map((s, i) => (
+                            <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors align-top">
+                                <td className="px-5 py-4 text-white/10 font-black text-xs tabular-nums">{s.id}</td>
+                                <td className="px-5 py-4 max-w-[300px]">
+                                    <a href={sanitizeUrl(s.url)} target="_blank" rel="noopener noreferrer"
+                                        className="text-amber-400/80 font-semibold text-xs hover:text-amber-300 break-all flex items-center gap-1.5 mb-2 group">
+                                        {s.url}
+                                        <svg className="w-3 h-3 opacity-40 group-hover:opacity-80 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                    </a>
+                                    <p className="text-white/40 text-[11px] leading-relaxed italic">
+                                        {s.issues && s.issues !== 'None' ? s.issues : 'No significant issues found.'}
+                                    </p>
+                                </td>
+                                <td className="px-5 py-4">
+                                    <Pill variant={getStatusVariant(s.status)}>{s.status}</Pill>
+                                </td>
+                                <td className="px-5 py-4">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <span className="text-[9px] uppercase font-bold text-white/20">Trust</span>
+                                            <span className="text-[10px] font-bold text-white/60">{s.trust}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <span className="text-[9px] uppercase font-bold text-white/20">Rel.</span>
+                                            <span className="text-[10px] font-bold text-white/60">{s.relevance}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="px-5 py-4">
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            {s.verdict?.toUpperCase().includes('KEEP') ? (
+                                                <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">VERIFIED</span>
+                                            ) : (
+                                                <span className="bg-red-500/10 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/20">{s.verdict}</span>
+                                            )}
+                                        </div>
+                                        {s.suggestedUrl && (
+                                            <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/10 mt-2">
+                                                <p className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter mb-1">Recommended Fix:</p>
+                                                <a href={sanitizeUrl(s.suggestedUrl)} target="_blank" rel="noopener noreferrer"
+                                                    className="text-white/70 text-[10px] hover:text-white break-all flex items-center gap-1 group">
+                                                    {s.suggestedUrl}
+                                                    <svg className="w-2.5 h-2.5 opacity-40 group-hover:opacity-80 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                    </svg>
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            <div className="mt-8 p-5 rounded-2xl bg-amber-500/[0.03] border border-amber-500/10 flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <svg className="w-4 h-4 text-amber-500/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                </div>
+                <div>
+                    <h4 className="text-xs font-black text-amber-500/80 uppercase tracking-widest mb-1.5">Auditor Certification</h4>
+                    <p className="text-[11px] text-white/40 leading-relaxed max-w-2xl">
+                        This source verification was executed by an independent AI Auditor layer. It cross-references research claims against live web metadata to ensure maximal accuracy and trust. Any "Replace" verdicts are based on authority scoring and relevance analysis.
+                    </p>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // --- Main Renderer ---
 
 export function DeepResearchRenderer({ rawResponse, onForceMarkdown }: { rawResponse: string, onForceMarkdown?: () => void }) {
@@ -754,9 +924,9 @@ export function DeepResearchRenderer({ rawResponse, onForceMarkdown }: { rawResp
             <div className="p-8 text-center border border-dashed border-red-500/20 rounded-2xl bg-red-500/5">
                 <p className="text-red-400 text-sm font-semibold">Failed to parse research data.</p>
                 <p className="text-white/40 text-xs mt-2">The AI output may be in an unexpected format.</p>
-                <button 
+                <button
                     type="button"
-                    className="text-amber-500/60 text-[10px] uppercase font-bold tracking-widest mt-4 cursor-pointer hover:text-amber-400 transition-colors" 
+                    className="text-amber-500/60 text-[10px] uppercase font-bold tracking-widest mt-4 cursor-pointer hover:text-amber-400 transition-colors"
                     onClick={() => onForceMarkdown?.()}
                 >
                     View raw report instead
@@ -771,9 +941,9 @@ export function DeepResearchRenderer({ rawResponse, onForceMarkdown }: { rawResp
             <div className="p-8 text-center border border-dashed border-amber-500/20 rounded-2xl bg-amber-500/5">
                 <p className="text-amber-400 text-sm font-semibold">Incomplete research data.</p>
                 <p className="text-white/40 text-xs mt-2">The report was generated but could not be fully structured.</p>
-                <button 
+                <button
                     type="button"
-                    className="text-amber-500/60 text-[10px] uppercase font-bold tracking-widest mt-4 cursor-pointer hover:text-amber-400 transition-colors" 
+                    className="text-amber-500/60 text-[10px] uppercase font-bold tracking-widest mt-4 cursor-pointer hover:text-amber-400 transition-colors"
                     onClick={() => onForceMarkdown?.()}
                 >
                     View raw report instead
@@ -803,7 +973,10 @@ export function DeepResearchRenderer({ rawResponse, onForceMarkdown }: { rawResp
                 <><GapAnalysisSection data={d.gap_analysis} /><Divider /></>
             )}
             {d.funnel_strategy && (
-                <FunnelStrategySection data={d.funnel_strategy} />
+                <><FunnelStrategySection data={d.funnel_strategy} />{d.source_verification_report && <Divider />}</>
+            )}
+            {d.source_verification_report && (
+                <SourceVerificationSection report={d.source_verification_report} />
             )}
         </div>
     )
