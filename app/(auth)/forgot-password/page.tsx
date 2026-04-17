@@ -15,7 +15,8 @@ export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
-    const [success, setSuccess] = useState(false)
+    const [otp, setOtp] = useState('')
+    const [otpSent, setOtpSent] = useState(false)
     const router = useRouter()
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -24,20 +25,39 @@ export default function ForgotPasswordPage() {
         setLoading(true)
 
         const supabase = createClient()
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+        // No redirect To since we expect an OTP verification
+        const { error } = await supabase.auth.resetPasswordForEmail(email)
+
+        if (error) {
+            setError(error.message)
+            setLoading(false)
+        } else {
+            setOtpSent(true)
+            setLoading(false)
+        }
+    }
+
+    const handleVerifyOtp = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setError('')
+        setLoading(true)
+
+        const supabase = createClient()
+        const { error } = await supabase.auth.verifyOtp({
+            email,
+            token: otp,
+            type: 'recovery'
         })
 
         if (error) {
             setError(error.message)
             setLoading(false)
         } else {
-            setSuccess(true)
-            setLoading(false)
+            router.push('/reset-password')
         }
     }
 
-    if (success) {
+    if (otpSent) {
         return (
             <div className="relative min-h-screen overflow-hidden bg-zinc-950 text-zinc-100 flex items-center justify-center p-4">
                 <Card className="w-full max-w-md border-zinc-800 bg-zinc-900 shadow-2xl animate-fade-in">
@@ -45,20 +65,68 @@ export default function ForgotPasswordPage() {
                         <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
                             <Mail className="h-8 w-8 text-emerald-500" />
                         </div>
-                        <CardTitle className="font-heading text-2xl text-zinc-100">Check your email</CardTitle>
+                        <CardTitle className="font-heading text-2xl text-zinc-100">Enter Verification Code</CardTitle>
                         <CardDescription className="text-zinc-400 mt-2">
-                            We've sent a password reset link to <span className="text-zinc-200 font-medium">{email}</span>. Click the link to set a new password.
+                            We've sent a 6-digit code to <span className="text-zinc-200 font-medium">{email}</span>. Please enter it below.
                         </CardDescription>
                     </CardHeader>
-                    <CardFooter className="flex justify-center pb-6">
-                        <Button 
-                            variant="outline" 
-                            onClick={() => router.push('/login')}
-                            className="bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white"
-                        >
-                            Return to login
-                        </Button>
-                    </CardFooter>
+                    <form onSubmit={handleVerifyOtp}>
+                        <CardContent className="space-y-4">
+                            {error && (
+                                <div className="p-3 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg backdrop-blur-sm animate-shake">
+                                    {error}
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <Label htmlFor="otp" className="text-zinc-300">6-Digit Code</Label>
+                                <div className="relative">
+                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
+                                    <Input
+                                        id="otp"
+                                        type="text"
+                                        placeholder="123456"
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value)}
+                                        required
+                                        maxLength={6}
+                                        disabled={loading}
+                                        className="pl-10 bg-zinc-950/50 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500 focus:ring-amber-500/20 tracking-widest"
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="flex flex-col space-y-4 pb-6">
+                            <Button 
+                                type="submit"
+                                className="w-full bg-amber-500 text-zinc-900 hover:bg-amber-600 font-semibold shadow-lg shadow-amber-500/20 transition-all duration-300 group"
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <span className="flex items-center">
+                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-zinc-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Verifying...
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center justify-center">
+                                        Verify & Continue
+                                        <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                                    </span>
+                                )}
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                type="button"
+                                onClick={() => setOtpSent(false)}
+                                className="w-full bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white"
+                                disabled={loading}
+                            >
+                                Try different email
+                            </Button>
+                        </CardFooter>
+                    </form>
                 </Card>
             </div>
         )

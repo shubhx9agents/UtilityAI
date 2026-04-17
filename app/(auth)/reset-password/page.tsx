@@ -46,12 +46,23 @@ export default function ResetPasswordPage() {
         }
 
         const supabase = createClient()
-        const { error } = await supabase.auth.updateUser({ password })
+        const { data: { user }, error: authError } = await supabase.auth.updateUser({ 
+            password, 
+            data: { must_change_password: false } 
+        })
 
-        if (error) {
-            setError(error.message)
+        if (authError) {
+            setError(authError.message)
             setLoading(false)
         } else {
+            // Also update the profile to clear must_change_password
+            if (user) {
+                await supabase
+                    .from('profiles')
+                    .update({ must_change_password: false })
+                    .eq('id', user.id)
+            }
+
             setSuccess(true)
             setLoading(false)
             setTimeout(() => {

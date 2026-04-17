@@ -60,6 +60,15 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url)
     }
 
+    // Force user to change password if required
+    if (user && user.user_metadata?.must_change_password && request.nextUrl.pathname !== '/reset-password') {
+        if (isProtectedRoute || request.nextUrl.pathname === '/') {
+            const url = request.nextUrl.clone()
+            url.pathname = '/reset-password'
+            return NextResponse.redirect(url)
+        }
+    }
+
     // Redirect authenticated users away from auth pages
     if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
         const url = request.nextUrl.clone()
