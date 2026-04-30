@@ -11,6 +11,7 @@ type AuthContextType = {
     signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>
     signInWithGoogle: () => Promise<{ error: Error | null }>
     signOut: () => Promise<void>
+    profileStatus: string
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -18,12 +19,29 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
+    const [profileStatus, setProfileStatus] = useState<string>('active')
     const supabase = createClient()
+
+    const fetchProfileStatus = async (userId: string) => {
+        try {
+            const { data } = await supabase.from('profiles').select('status').eq('id', userId).single()
+            if (data?.status) {
+                setProfileStatus(data.status)
+            } else {
+                setProfileStatus('active')
+            }
+        } catch (e) {
+            console.error('Failed to fetch profile status', e)
+        }
+    }
 
     useEffect(() => {
         // Get initial session
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null)
+            if (session?.user) {
+                fetchProfileStatus(session.user.id)
+            }
             setLoading(false)
         })
 
@@ -32,6 +50,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null)
+            if (session?.user) {
+                fetchProfileStatus(session.user.id)
+            } else {
+                setProfileStatus('active')
+            }
             setLoading(false)
         })
 
@@ -99,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, loading, signIn, signUp, signInWithGoogle, signOut }}>
+        <AuthContext.Provider value={{ user, loading, signIn, signUp, signInWithGoogle, signOut, profileStatus }}>
             {children}
         </AuthContext.Provider>
     )

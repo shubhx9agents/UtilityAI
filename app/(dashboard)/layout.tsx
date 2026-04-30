@@ -40,7 +40,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, signOut } = useAuth()
+  const { user, profileStatus, signOut } = useAuth()
   const { isPremium, upgrade } = useSubscription()
   const { usage, limits } = useCredits()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -351,7 +351,25 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <main className="relative p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="relative p-4 sm:p-6 lg:p-8">
+          {(profileStatus === 'suspended' || profileStatus === 'deleted') && pathname !== '/settings' ? (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 mb-4">
+                <LogOut className="h-8 w-8 text-red-500" />
+              </div>
+              <h2 className="text-2xl font-bold font-heading text-white">
+                {profileStatus === 'deleted' ? 'Account Deleted' : 'Account Suspended'}
+              </h2>
+              <p className="text-zinc-400 max-w-md mx-auto">
+                {profileStatus === 'deleted'
+                  ? 'Your account has been deleted. You no longer have access to the AI Agents or Canvas.'
+                  : 'Your account is currently suspended. Please contact support if you believe this is an error.'}
+              </p>
+            </div>
+          ) : (
+            children
+          )}
+        </main>
       </div>
     </div>
   )

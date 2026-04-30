@@ -10,6 +10,7 @@ export interface Profile {
     created_at: string
     last_login?: string
     updated_at: string
+    status?: 'active' | 'suspended' | 'deleted'
 }
 
 export interface OnboardingProgress {
@@ -224,6 +225,7 @@ export interface AdminUser {
     last_sign_in_at: string | null
     role: UserRoleType
     session_count: number
+    status?: 'active' | 'suspended' | 'deleted'
 }
 
 // ==========================================
