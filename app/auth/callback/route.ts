@@ -62,12 +62,28 @@ export async function GET(request: Request) {
                     const normalizedEmail = user.email.trim().toLowerCase()
                     try {
                         const supabaseAdmin = createServiceRoleClient()
-                        const { data: approvedRequest, error: approvalError } = await supabaseAdmin
-                            .from('account_requests')
-                            .select('id, updated_at')
-                            .ilike('email', normalizedEmail)
-                            .eq('status', 'approved')
+                        
+                        // First check if user already has a valid profile
+                        const { data: profile } = await supabaseAdmin
+                            .from('profiles')
+                            .select('id')
+                            .eq('id', user.id)
                             .maybeSingle()
+
+                        // If they have a profile, they are an existing valid user (do not block)
+                        let approvedRequest = null
+                        let approvalError = null
+
+                        if (!profile) {
+                            const result = await supabaseAdmin
+                                .from('account_requests')
+                                .select('id, updated_at')
+                                .ilike('email', normalizedEmail)
+                                .eq('status', 'approved')
+                                .maybeSingle()
+                            approvedRequest = result.data
+                            approvalError = result.error
+                        }
 
                         if (approvalError) {
                             await logAuditEvent({
@@ -115,7 +131,7 @@ export async function GET(request: Request) {
                             }
                         }
 
-                        if (!approvedRequest || isRecreatedUser) {
+                        if (!profile && (!approvedRequest || isRecreatedUser)) {
                             await logAuditEvent({
                                 userId: user.id,
                                 userEmail: user.email || undefined,
