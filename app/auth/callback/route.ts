@@ -64,7 +64,7 @@ export async function GET(request: Request) {
                         const supabaseAdmin = createServiceRoleClient()
                         const { data: approvedRequest, error: approvalError } = await supabaseAdmin
                             .from('account_requests')
-                            .select('id')
+                            .select('id, updated_at')
                             .ilike('email', normalizedEmail)
                             .eq('status', 'approved')
                             .maybeSingle()
@@ -97,7 +97,25 @@ export async function GET(request: Request) {
                             return blockedResponse
                         }
 
-                        if (!approvedRequest) {
+                        let isRecreatedUser = false
+                        if (approvedRequest) {
+                            const userCreatedAt = new Date(user.created_at).getTime()
+                            const requestUpdatedAt = new Date(approvedRequest.updated_at).getTime()
+                            
+                            // If the auth user was created more than 5 minutes AFTER the request was approved,
+                            // it means their original account was deleted and Google OAuth just created a new one.
+                            if (userCreatedAt > requestUpdatedAt + 5 * 60 * 1000) {
+                                isRecreatedUser = true
+                                
+                                // Reset their request status to pending so admin can review again
+                                await supabaseAdmin
+                                    .from('account_requests')
+                                    .update({ status: 'pending' })
+                                    .eq('id', approvedRequest.id)
+                            }
+                        }
+
+                        if (!approvedRequest || isRecreatedUser) {
                             await logAuditEvent({
                                 userId: user.id,
                                 userEmail: user.email || undefined,
